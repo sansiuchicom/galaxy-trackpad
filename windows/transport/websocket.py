@@ -3,13 +3,10 @@ from __future__ import annotations
 
 import asyncio
 import json
-import time
 
 from websockets.asyncio.server import serve
 
 from windows.applog import debug, error, info, state
-from windows.core.pen import PenBridge
-from windows.core.touchpad import ScaledTouchpad
 from windows.paths import WS_PORT
 from windows.settings.store import (
     PROFILE_DRAWING,
@@ -19,6 +16,7 @@ from windows.settings.store import (
     save_config,
     set_active_profile,
 )
+from windows.transport.input_dispatch import InputSession
 from windows.transport.state_sync import build_client_state
 
 # Thread-safe hooks for GUI RELOAD → push state to the tablet.
@@ -58,13 +56,7 @@ async def _apply_profile_request(name: str) -> str:
 async def run_input_server():
     global _loop, _push_event
 
-    touchpad = ScaledTouchpad()
-    # S Pen is always available when the tip is detected (no ON/OFF toggle).
-    pen = None
-    try:
-        pen = PenBridge()
-    except OSError as exc:
-        info(f"Pen unavailable; touchpad still works: {exc}")
+    session = InputSession()
 
     # Last client wins — Chrome leftover must not block the Android app.
     active = _active_ws
@@ -83,8 +75,6 @@ async def run_input_server():
     push_task = asyncio.create_task(pusher())
 
     async def handler(websocket):
-        nonlocal pen
-
         async with gate:
             old = active["ws"]
             active["ws"] = websocket
@@ -95,18 +85,12 @@ async def run_input_server():
                 except Exception:
                     pass
                 await asyncio.sleep(0.05)
-                try:
-                    touchpad.release()
-                    if pen:
-                        pen.release()
-                except OSError:
-                    pass
+                session.release_all()
 
         info("Galaxy Tab connected")
         state(engine="running", tablet="connected")
         await _send_state(websocket)
 
-        pen_cooldown_until = 0.0
         try:
             async for raw in websocket:
                 try:
@@ -157,49 +141,14 @@ async def run_input_server():
                     debug(f"Ignored message type={msg_type!r}")
                     continue
 
-                try:
-                    contacts = packet.get("contacts", [])
-                    if not isinstance(contacts, list):
-                        continue
-                    fingers = [c for c in contacts if c.get("tool") == "touch"]
-                    pens = [c for c in contacts if c.get("tool") == "pen"]
-
-                    if pen and pens:
-                        touchpad.release()
-                        try:
-                            pen.update(pens)
-                        except OSError as exc:
-                            error(f"Pen injection failed; disabling pen: {exc}")
-                            try:
-                                pen.close()
-                            except OSError:
-                                pass
-                            pen = None
-                        pen_cooldown_until = time.monotonic() + 0.18
-                    else:
-                        if pen and pen.pressed:
-                            pen.release()
-                            pen_cooldown_until = time.monotonic() + 0.18
-                        if time.monotonic() >= pen_cooldown_until:
-                            touchpad.update(fingers)
-                        else:
-                            touchpad.release()
-                except (KeyError, TypeError, ValueError) as exc:
-                    debug(f"Bad input: {exc}")
-                except OSError as exc:
-                    error(f"Windows input error: {exc}")
-                    info("If touch gestures stop, restart the engine from the GUI.")
+                session.apply_packet(packet)
         finally:
             async with gate:
                 if active["ws"] is websocket:
                     active["ws"] = None
-            try:
-                touchpad.release()
-                if pen:
-                    pen.release()
-            finally:
-                info("Galaxy Tab disconnected; all contacts released")
-                state(engine="running", tablet="disconnected")
+            session.release_all()
+            info("Galaxy Tab disconnected; all contacts released")
+            state(engine="running", tablet="disconnected")
 
     try:
         async with serve(handler, "127.0.0.1", WS_PORT, max_size=1_000_000):
@@ -214,8 +163,4 @@ async def run_input_server():
             pass
         _push_event = None
         _loop = None
-        try:
-            touchpad.close()
-        finally:
-            if pen:
-                pen.close()
+        session.close()
