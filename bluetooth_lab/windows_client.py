@@ -7,6 +7,7 @@ GalaxyTrackpad.exe is NOT required.
 Usage:
   python -m bluetooth_lab.windows_client
   python -m bluetooth_lab.windows_client AA:BB:CC:DD:EE:FF
+  python -m bluetooth_lab.windows_client --channel 7
 """
 from __future__ import annotations
 
@@ -15,6 +16,7 @@ import re
 import socket
 import subprocess
 import sys
+import threading
 import time
 
 from bluetooth_lab.constants import (
@@ -29,7 +31,6 @@ from bluetooth_lab.constants import (
 AF_BTH = getattr(socket, "AF_BTH", 32)
 BTPROTO_RFCOMM = getattr(socket, "BTPROTO_RFCOMM", 3)
 
-_DEV_RE = re.compile(r"BTHENUM\\\\DEV_([0-9A-F]{12})", re.I)
 _PLACEHOLDER = re.compile(r"^(XX:)+XX$", re.I)
 
 
@@ -107,20 +108,21 @@ def _pick_mac_interactive(devices: list[tuple[str, str]]) -> str | None:
 
 
 def _safe_close(sock: socket.socket | None) -> None:
+    """Windows AF_BTH close() often blocks forever after failed connect — never block."""
     if sock is None:
         return
-    try:
-        sock.settimeout(0.25)
-    except OSError:
-        pass
-    try:
-        sock.close()
-    except Exception:
-        pass
+
+    def _close() -> None:
+        try:
+            sock.close()
+        except Exception:
+            pass
+
+    threading.Thread(target=_close, name="bt-sock-close", daemon=True).start()
 
 
 class _LineBuf:
-    """RFCOMM may coalesce READY+ACK into one recv — keep leftovers."""
+    """RFCOMM may coalesce lines into one recv — keep leftovers."""
 
     def __init__(self, sock: socket.socket) -> None:
         self.sock = sock
@@ -140,7 +142,7 @@ class _LineBuf:
         return line.decode("utf-8", errors="replace").strip()
 
 
-def _try_connect(mac: str, channel: int, timeout: float = 1.5) -> socket.socket | None:
+def _try_connect(mac: str, channel: int, timeout: float = 4.0) -> socket.socket | None:
     sock = socket.socket(AF_BTH, socket.SOCK_STREAM, BTPROTO_RFCOMM)
     sock.settimeout(timeout)
     try:
@@ -152,25 +154,21 @@ def _try_connect(mac: str, channel: int, timeout: float = 1.5) -> socket.socket 
 
 
 def _handshake(sock: socket.socket, channel: int) -> bool:
-    """
-    Confirm this RFCOMM channel is our lab (not some other Tab service).
-    Tab sends READY on accept; we then HELLO/ACK and PING/PONG.
-    """
-    sock.settimeout(2.5)
+    """Confirm RFCOMM channel speaks GT BT Lab (HELLO/ACK + PING/PONG)."""
+    sock.settimeout(4.0)
     io = _LineBuf(sock)
     try:
+        time.sleep(0.2)  # Tab accept() must finish before first bytes
         io.send(f"{MSG_HELLO} from Windows")
         got_ack = False
-        got_ready = False
-        deadline = time.monotonic() + 2.5
+        deadline = time.monotonic() + 4.0
         while time.monotonic() < deadline and not got_ack:
-            remaining = max(0.15, deadline - time.monotonic())
+            remaining = max(0.2, deadline - time.monotonic())
             sock.settimeout(remaining)
             line = io.recv_line()
             _log(f"RECV << {line}")
             upper = line.upper()
             if upper.startswith("READY") and "GTBT" in upper:
-                got_ready = True
                 continue
             if upper.startswith(MSG_ACK):
                 got_ack = True
@@ -178,12 +176,10 @@ def _handshake(sock: socket.socket, channel: int) -> bool:
             _log(f"  channel {channel}: unexpected line, not lab")
             return False
         if not got_ack:
-            _log(f"  channel {channel}: no ACK (is GT BT Lab on Listen?)")
+            _log(f"  channel {channel}: no ACK (Listen on Tab?)")
             return False
-        if not got_ready:
-            _log("  (no READY banner — ACK still accepted)")
         io.send(MSG_PING)
-        sock.settimeout(2.5)
+        sock.settimeout(3.0)
         line = io.recv_line()
         _log(f"RECV << {line}")
         if not line.upper().startswith(MSG_PONG):
@@ -197,15 +193,17 @@ def _handshake(sock: socket.socket, channel: int) -> bool:
 
 def _connect(mac: str, prefer: int | None = None) -> tuple[socket.socket, int]:
     first = prefer if prefer is not None else RFCOMM_CHANNEL
-    channels = [first]
-    for c in list(range(1, 16)) + list(range(16, 31)):
-        if c not in channels:
+    channels: list[int] = [first, first]
+    for c in range(1, 13):
+        if c != first:
             channels.append(c)
-    _log(f"Connecting to {mac} (RFCOMM + READY/HELLO check)...")
-    _log("Tab must show Listening (GT BT Lab icon, not USB app)")
+
+    _log(f"Connecting to {mac} (RFCOMM + HELLO check)...")
+    _log("Tab status must say: Listening on channel N")
     last_err = "no channel answered"
-    for ch in channels:
-        _log(f"  try channel {ch}...")
+    for i, ch in enumerate(channels):
+        retry = " retry" if i == 1 and ch == first else ""
+        _log(f"  try channel {ch}{retry}...")
         sock = _try_connect(mac, ch)
         if sock is None:
             continue
@@ -218,9 +216,9 @@ def _connect(mac: str, prefer: int | None = None) -> tuple[socket.socket, int]:
     raise ConnectionError(
         f"Could not reach GT BT Lab on {mac}.\n"
         f"  Last: {last_err}\n"
-        "  1) Open GT BT Lab (not the USB Galaxy Trackpad icon)\n"
-        "  2) Tap Listen — status must say Listening on channel N\n"
-        "  3) Then re-run this Windows client"
+        "  Check Tab: Listening on channel N after Listen.\n"
+        "  If N is not 5: python -m bluetooth_lab.windows_pad_client --channel N\n"
+        "  Or toggle Bluetooth OFF/ON, Listen again, retry."
     )
 
 
@@ -240,6 +238,12 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(description="BT-1 Windows → Tab RFCOMM client")
     parser.add_argument("mac", nargs="?", help="Tab Bluetooth MAC (from paired list)")
+    parser.add_argument(
+        "--channel",
+        type=int,
+        default=None,
+        help="Prefer this RFCOMM channel (from Tab Listen status)",
+    )
     args = parser.parse_args(argv)
 
     _log("Galaxy Trackpad BT-1 lab - Windows CLIENT")
@@ -290,8 +294,12 @@ def main(argv: list[str] | None = None) -> int:
                 _log("No MAC selected.")
                 return 2
 
+    prefer = args.channel if args.channel and 1 <= args.channel <= 30 else None
+    if prefer:
+        _log(f"Prefer RFCOMM channel {prefer}")
+
     try:
-        sock, _ch = _connect(mac)
+        sock, _ch = _connect(mac, prefer=prefer)
     except ConnectionError as exc:
         _log(str(exc))
         return 1

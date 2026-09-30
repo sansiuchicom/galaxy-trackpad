@@ -97,6 +97,12 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(description="BT-2 Windows pad client")
     parser.add_argument("mac", nargs="?", help="Tab Bluetooth MAC")
+    parser.add_argument(
+        "--channel",
+        type=int,
+        default=None,
+        help="Prefer RFCOMM channel shown on Tab Listen status",
+    )
     args = parser.parse_args(argv)
 
     _log("Galaxy Trackpad BT-2 lab - Windows PAD CLIENT")
@@ -137,8 +143,11 @@ def main(argv: list[str] | None = None) -> int:
                 return 2
 
     sock: socket.socket | None = None
+    prefer = args.channel if args.channel and 1 <= args.channel <= 30 else None
+    if prefer:
+        _log(f"Prefer RFCOMM channel {prefer}")
     try:
-        sock, ch = bt1._connect(mac)
+        sock, ch = bt1._connect(mac, prefer=prefer)
         # _connect already completed HELLO/ACK/PING/PONG verification.
         _log(f"Lab channel {ch} verified — upgrading to framed pad mode")
         _upgrade_frame(sock)

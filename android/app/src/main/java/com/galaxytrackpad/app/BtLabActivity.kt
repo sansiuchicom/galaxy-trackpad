@@ -244,13 +244,8 @@ class BtLabActivity : AppCompatActivity() {
                     clientSocket = sock
                     running.set(true)
                     frameMode.set(false)
-                    // Identify ourselves before HELLO — mute RFCOMM services won't do this.
-                    try {
-                        writeRaw(sock.outputStream, "READY GTBT ch=$listenChannel\n")
-                        runOnUiThread { appendLog("SEND >> READY GTBT ch=$listenChannel") }
-                    } catch (e: Exception) {
-                        runOnUiThread { appendLog("READY send failed: ${e.message}") }
-                    }
+                    // Wait for peer HELLO first — sending READY into a half-open
+                    // probe socket caused Broken pipe when Windows timed out connect.
                     handleClient(sock)
                     running.set(false)
                     frameMode.set(false)
@@ -271,22 +266,28 @@ class BtLabActivity : AppCompatActivity() {
 
     @SuppressLint("MissingPermission")
     private fun openServerSocket(bt: BluetoothAdapter): BluetoothServerSocket {
-        // Prefer fixed channel 5 (Windows dials this first). Fall back to UUID record.
-        try {
-            val method = bt.javaClass.getMethod(
-                "listenUsingInsecureRfcommOnChannel",
-                Int::class.javaPrimitiveType,
-            )
-            val sock = method.invoke(bt, FIXED_CHANNEL) as BluetoothServerSocket
-            listenChannel = FIXED_CHANNEL
-            runOnUiThread {
-                appendLog("Listening on FIXED channel $FIXED_CHANNEL")
-                setStatus("Listening on channel $FIXED_CHANNEL — start PC client")
-            }
-            return sock
-        } catch (e: Exception) {
-            runOnUiThread {
-                appendLog("Fixed channel $FIXED_CHANNEL failed: ${e.message}")
+        // Hidden API — must use getDeclaredMethod (getMethod fails on Tab S7).
+        for (name in listOf(
+            "listenUsingInsecureRfcommOnChannel",
+            "listenUsingRfcommOnChannel",
+        )) {
+            try {
+                val method = bt.javaClass.getDeclaredMethod(
+                    name,
+                    Int::class.javaPrimitiveType,
+                )
+                method.isAccessible = true
+                val sock = method.invoke(bt, FIXED_CHANNEL) as BluetoothServerSocket
+                listenChannel = FIXED_CHANNEL
+                runOnUiThread {
+                    appendLog("Listening on FIXED channel $FIXED_CHANNEL via $name")
+                    setStatus("Listening on channel $FIXED_CHANNEL — start PC client")
+                }
+                return sock
+            } catch (e: Exception) {
+                runOnUiThread {
+                    appendLog("Fixed channel via $name failed: ${e.javaClass.simpleName}: ${e.message}")
+                }
             }
         }
         val sock = bt.listenUsingInsecureRfcommWithServiceRecord(SERVICE_NAME, SERVICE_UUID)
@@ -297,7 +298,7 @@ class BtLabActivity : AppCompatActivity() {
                 if (listenChannel > 0) {
                     "Listening on channel $listenChannel — start PC client"
                 } else {
-                    "Listening (UUID) — start PC client"
+                    "Listening (UUID, channel unknown) — start PC client"
                 },
             )
         }
@@ -305,18 +306,36 @@ class BtLabActivity : AppCompatActivity() {
     }
 
     private fun peekServerChannel(server: BluetoothServerSocket): Int? {
-        return try {
-            val field = server.javaClass.getDeclaredField("mChannel")
-            field.isAccessible = true
-            field.getInt(server)
+        try {
+            val f = server.javaClass.getDeclaredField("mChannel")
+            f.isAccessible = true
+            val ch = f.getInt(server)
+            if (ch > 0) return ch
         } catch (_: Exception) {
-            try {
-                val method = server.javaClass.getMethod("getChannel")
-                method.invoke(server) as Int
-            } catch (_: Exception) {
-                null
-            }
         }
+        try {
+            val m = server.javaClass.getDeclaredMethod("getChannel")
+            m.isAccessible = true
+            val ch = m.invoke(server) as Int
+            if (ch > 0) return ch
+        } catch (_: Exception) {
+        }
+        try {
+            val mSocketField = server.javaClass.getDeclaredField("mSocket")
+            mSocketField.isAccessible = true
+            val mSocket = mSocketField.get(server) ?: return null
+            for (name in listOf("mPort", "mChannel", "port", "channel")) {
+                try {
+                    val pf = mSocket.javaClass.getDeclaredField(name)
+                    pf.isAccessible = true
+                    val ch = pf.getInt(mSocket)
+                    if (ch > 0) return ch
+                } catch (_: Exception) {
+                }
+            }
+        } catch (_: Exception) {
+        }
+        return null
     }
 
     private fun handleClient(sock: BluetoothSocket) {
@@ -342,7 +361,8 @@ class BtLabActivity : AppCompatActivity() {
                         frameMode.set(true)
                     }
                     upper.startsWith("HELLO") -> {
-                        val reply = "ACK Tab RFCOMM lab uuid=$SERVICE_UUID"
+                        val reply =
+                            "ACK Tab RFCOMM lab ch=$listenChannel uuid=$SERVICE_UUID"
                         writeRaw(output, reply + "\n")
                         runOnUiThread { appendLog("SEND >> $reply") }
                     }
