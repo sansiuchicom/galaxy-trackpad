@@ -30,6 +30,7 @@ from windows.transport.state_sync import build_client_state
 _PLACEHOLDER = re.compile(r"^(XX:)+XX$", re.I)
 
 PACING = True
+PACING_OPTS: dict = {}
 
 
 def _log(msg: str) -> None:
@@ -65,7 +66,7 @@ def _run_pad_session_interruptible(sock: socket.socket) -> None:
 
 def _run_pad_session(sock: socket.socket) -> None:
     sock.settimeout(None)
-    session = PacedInput() if PACING else InputSession()
+    session = PacedInput(**PACING_OPTS) if PACING else InputSession()
     _log("Input pacing ON (replay at Tab cadence)" if PACING else "Input pacing OFF (inject on arrival)")
     info("BT-2 pad session: move a finger on the Tab pad")
     _log("Engine ready - touch the Tab pad (USB not needed)")

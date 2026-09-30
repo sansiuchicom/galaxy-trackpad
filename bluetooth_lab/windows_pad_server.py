@@ -10,6 +10,7 @@ After connect the protocol is the same as windows_pad_client
 """
 from __future__ import annotations
 
+import argparse
 import platform
 import sys
 import time
@@ -29,8 +30,13 @@ def main() -> int:
         return 1
     from bluetooth_lab.winrt_rfcomm import RfcommServer
 
-    if "--no-pacing" in sys.argv:
-        pad.PACING = False
+    parser = argparse.ArgumentParser(description="BT lab pad server (Tab dials PC)")
+    parser.add_argument("--no-pacing", action="store_true", help="inject on arrival")
+    parser.add_argument("--max-buffer-ms", type=float, default=25, help="pacing buffer cap")
+    parser.add_argument("--percentile", type=float, default=0.80, help="jitter share to smooth (0-1)")
+    args = parser.parse_args()
+    pad.PACING = not args.no_pacing
+    pad.PACING_OPTS = {"max_delay_s": args.max_buffer_ms / 1000.0, "percentile": args.percentile}
 
     _log("Galaxy Trackpad BT lab - Windows PAD SERVER (Tab dials PC)")
     _log(f"Service UUID: {SERVICE_UUID}")

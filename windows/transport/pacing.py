@@ -16,12 +16,16 @@ from typing import Any
 from windows.transport.input_dispatch import InputSession
 
 MIN_DELAY_S = 0.005
-MAX_DELAY_S = 0.040
+MAX_DELAY_S = 0.025
+# Smooth the common case; rarer late packets are applied on arrival instead of delaying everything.
+JITTER_PERCENTILE = 0.80
 _WINDOW_S = 2.0
 
 
 class PacedInput:
-    def __init__(self) -> None:
+    def __init__(self, max_delay_s: float = MAX_DELAY_S, percentile: float = JITTER_PERCENTILE) -> None:
+        self._max_delay = max_delay_s
+        self._percentile = percentile
         self._queue: collections.deque[tuple[float, dict[str, Any]]] = collections.deque()
         self._cond = threading.Condition()
         self._offsets: collections.deque[tuple[float, float]] = collections.deque()
@@ -43,8 +47,8 @@ class PacedInput:
         # Fastest transit in the window is the baseline; the spread above it is jitter.
         offsets = sorted(o for _, o in self._offsets)
         base = offsets[0]
-        p95 = offsets[min(len(offsets) - 1, int(len(offsets) * 0.95))] - base
-        self.delay_s = min(MAX_DELAY_S, max(MIN_DELAY_S, p95 + 0.002))
+        jitter = offsets[min(len(offsets) - 1, int(len(offsets) * self._percentile))] - base
+        self.delay_s = min(self._max_delay, max(MIN_DELAY_S, jitter + 0.002))
         return max(now, sent + base + self.delay_s)
 
     def apply_packet(self, packet: dict[str, Any]) -> None:
