@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
-    QSlider,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -24,6 +23,7 @@ from windows.settings.store import (
     migrate_config,
 )
 from windows.ui.monitor_picker import MonitorPicker
+from windows.ui.widgets import JumpSlider
 
 
 class AdvancedSettingsDialog(QDialog):
@@ -109,7 +109,7 @@ class AdvancedSettingsDialog(QDialog):
         area_value = QLabel()
         area_row.addStretch()
         area_row.addWidget(area_value)
-        area = QSlider(Qt.Orientation.Horizontal)
+        area = JumpSlider(Qt.Orientation.Horizontal)
         area.setRange(50, 100)
         area_pct = int(round(float(profile.get("area_size", 1.0)) * 100))
         area.setValue(area_pct)
