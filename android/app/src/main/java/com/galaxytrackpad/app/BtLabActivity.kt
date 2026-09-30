@@ -315,7 +315,8 @@ class BtLabActivity : AppCompatActivity() {
         appendLog("Dial PC $name via SDP UUID (PC must run windows_pad_server)")
         io.execute {
             val sock = try {
-                adapter?.cancelDiscovery()
+                // Needs BLUETOOTH_SCAN, which we do not request; we never start discovery anyway.
+                runCatching { adapter?.cancelDiscovery() }
                 device.createRfcommSocketToServiceRecord(SERVICE_UUID).also { it.connect() }
             } catch (e: Exception) {
                 runOnUiThread {
