@@ -2,8 +2,8 @@
 
 Turn a Samsung Galaxy Tab (e.g. **Tab S7 / SM-T870**) into a **Windows Precision Touchpad** plus optional **S Pen** tablet.
 
-**Status:** Phases **1–3 complete** — Windows app + Android WebView client on USB.  
-**Next:** packaging (installer / signed APK), then optional Bluetooth.
+**Status:** Phases **1–3 complete**. Phase **4A** (Android `0.9.0` APK packaging) is set up — build the release APK in Android Studio.  
+**Next:** Install that APK for daily use, then Windows `.exe` (4B). v**1.0.0** only after longer real-world use.
 
 Connection today: **USB + ADB reverse + WebSocket**.  
 Input: Windows `CreateSyntheticPointerDevice2` / `InjectSyntheticPointerInput` (`PT_TOUCHPAD`, pen). No custom kernel driver.
@@ -154,7 +154,8 @@ Manual checklists: [tests/REGRESSION.md](tests/REGRESSION.md), [android/README.m
 | 1 — Package structure, single entry, preserve v0.8 | Done |
 | 2 — S Pen profiles, UX, autostart, reliability | Done |
 | 3 — Android WebView app (menu, sync, stability) | Done |
-| 4 — Windows installer + signed / shareable APK | Next |
+| 4A — Signed shareable APK (`0.9.0`) | Ready to build in Studio |
+| 4B — Windows `.exe` / installer | Next after 4A |
 | 5 — Bluetooth transport (keep USB path) | Later |
 
 ---

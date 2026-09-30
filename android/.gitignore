@@ -12,6 +12,9 @@ captures/
 *.aab
 *.dex
 
-# Keystore (never commit)
+# Keystore (never commit secrets)
 *.jks
 *.keystore
+keystore.properties
+keystore/*.jks
+keystore/*.keystore

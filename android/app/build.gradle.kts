@@ -3,6 +3,14 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+import java.util.Properties
+
+val keystorePropsFile = rootProject.file("keystore.properties")
+val keystoreProps = Properties()
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.inputStream().use { keystoreProps.load(it) }
+}
+
 android {
     namespace = "com.galaxytrackpad.app"
     compileSdk = 35
@@ -11,8 +19,20 @@ android {
         applicationId = "com.galaxytrackpad.app"
         minSdk = 28
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.3.0-3c"
+        // 0.9.x = packaged pre-1.0 for daily use (not Play Store).
+        versionCode = 90
+        versionName = "0.9.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            if (keystorePropsFile.exists()) {
+                keyAlias = keystoreProps["keyAlias"] as String
+                keyPassword = keystoreProps["keyPassword"] as String
+                storeFile = rootProject.file(keystoreProps["storeFile"] as String)
+                storePassword = keystoreProps["storePassword"] as String
+            }
+        }
     }
 
     buildTypes {
@@ -22,6 +42,16 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            signingConfig = if (keystorePropsFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                // Clone without a keystore still builds; use debug signature.
+                signingConfigs.getByName("debug")
+            }
+        }
+        debug {
+            // Same applicationId as release so Studio Run updates the daily app.
+            versionNameSuffix = "-debug"
         }
     }
 
@@ -36,6 +66,7 @@ android {
 
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 }
 

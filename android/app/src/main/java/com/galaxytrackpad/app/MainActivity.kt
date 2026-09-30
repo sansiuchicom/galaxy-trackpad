@@ -19,6 +19,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.galaxytrackpad.app.databinding.ActivityMainBinding
+import com.galaxytrackpad.app.BuildConfig
 
 /**
  * Phase 3C WebView shell: keep screen on, survive USB flaps, clear contacts on pause.
@@ -137,6 +138,16 @@ class MainActivity : AppCompatActivity() {
                 if (url != null && url.startsWith(TRACKPAD_ORIGIN)) {
                     pageHealthy = true
                     cancelReload()
+                    val ver = BuildConfig.VERSION_NAME
+                    view?.evaluateJavascript(
+                        """
+                        (function(){
+                          var el = document.getElementById('settingsVersion');
+                          if (el) el.textContent = 'App version: $ver';
+                        })();
+                        """.trimIndent(),
+                        null,
+                    )
                 }
             }
 
@@ -200,7 +211,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TRACKPAD_ORIGIN = "http://127.0.0.1:8765"
-        const val TRACKPAD_URL = "http://127.0.0.1:8765/touchpad_v04.html?v=3c"
+        const val TRACKPAD_URL = "http://127.0.0.1:8765/touchpad_v04.html?v=090"
         private const val WAITING_URL = "file:///android_asset/waiting.html"
         private const val RELOAD_DELAY_MS = 2000L
 

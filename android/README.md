@@ -1,39 +1,88 @@
-# Galaxy Trackpad — Android (Phase 3)
+# Galaxy Trackpad — Android
 
 WebView shell around the existing touchpad HTML.
 Windows still owns the input engine, ADB reverse, and settings.
+
+**App version:** `0.9.0` (pre-1.0 daily build — not a store release)
 
 ## Status
 
 | Slice | Goal | Status |
 |-------|------|--------|
-| **3A** | App icon → WebView → same WS input as Chrome | Done |
-| **3B** | Side menu, connection UI, pen profile sync, Drawing area | Done |
-| **3C** | Long-run stability, reconnect polish, waiting page | Done |
-
-### 3A design choice
-
-Load **`http://127.0.0.1:8765/touchpad_v04.html`** from the Windows HTTP server
-(via ADB reverse), **not** APK assets yet.
-
-Why: prove Pointer Events + `ws://127.0.0.1:8766` parity with Chrome first.
-Local assets + WebViewAssetLoader come after that works on the Tab S7.
+| **3A–3C** | WebView app, menu, sync, stability | Done |
+| **4A** | Signed shareable APK (`0.9.0`) | **Do this next (Studio)** |
+| **4B** | Windows `.exe` / installer | Later |
 
 ---
 
-## Prerequisites
+## Phase 4A — Make an APK you can keep (no Play Store)
 
-1. **Windows app running** (`python -m windows`) with engine started / USB reverse OK  
-2. **Android Studio** (Ladybug / Koala or newer) with SDK 35 + a device/USB driver  
-3. Tab S7: **USB debugging** authorized for this PC  
-4. This PC currently has **platform-tools** under the repo root for ADB
+Goal: install once, then **quit Android Studio**. Daily use = tap the app icon.
 
-This machine may not have the Android SDK in PATH; open the `android/` folder in
-Android Studio and let it install the SDK / Gradle wrapper on first sync.
+### What you should have open / closed
+
+| Thing | Now |
+|-------|-----|
+| Windows Galaxy Trackpad | Optional (only needed to *test* the pad) |
+| Android Studio | **Open** `C:\touchpad\android` |
+| Tab USB | Connected + debugging allowed |
+
+### Build the release APK (click path)
+
+1. Android Studio → Open → `C:\touchpad\android` (if not already).
+2. Wait until Gradle sync finishes (bottom status).
+3. Menu: **Build → Generate App Bundles or APKs → Generate APKs**  
+   (wording may be **Build → Build Bundle(s) / APK(s) → Build APK(s)**).
+4. Choose **release** if asked.
+5. When done, click **locate** / open the folder. Typical path:
+
+```text
+C:\touchpad\android\app\build\outputs\apk\release\app-release.apk
+```
+
+6. Install on the Tab (pick one):
+   - Studio still connected: **Run** is fine for debug; for the release file use:
+     ```powershell
+     cd C:\touchpad
+     .\platform-tools\adb.exe install -r android\app\build\outputs\apk\release\app-release.apk
+     ```
+   - Or copy `app-release.apk` to the Tab and open it (may need “install unknown apps”).
+
+7. On the Tab, open **Galaxy Trackpad** — Settings sheet / About should reflect **0.9.0** after we show version there (or check app info in Android settings).
+
+After that you can **close Android Studio**. Rebuild only when we change the Android app.
+
+### Signing (already set up on this PC)
+
+- Keystore: `android/keystore/galaxy-trackpad.jks` (**not in git**)
+- Passwords: `android/keystore.properties` (**not in git**)
+- Example template: `android/keystore.properties.example`
+
+**Back up** the `.jks` + `keystore.properties` somewhere safe (USB / password manager).  
+If you lose them, a new key cannot update the same installed app.
+
+This is **personal signing**, not Play Store.
+
+### CLI (optional)
+
+After Gradle wrapper exists (Studio sync once):
+
+```powershell
+cd C:\touchpad\android
+.\gradlew.bat :app:assembleRelease
+```
 
 ---
 
-## Open / build / install
+## Prerequisites (daily use)
+
+1. **Windows app running** (`python -m windows`) with engine / USB reverse OK  
+2. Tab: **USB debugging** authorized  
+3. Galaxy Trackpad Android app installed (`0.9.0` release or Studio debug)
+
+---
+
+## Open / build / install (dev)
 
 ```text
 Android Studio → Open → C:\touchpad\android
@@ -41,10 +90,10 @@ Android Studio → Open → C:\touchpad\android
 
 1. Wait for Gradle sync.  
 2. Connect Tab S7 over USB.  
-3. Run ▸ `app` (debug).  
-4. Or: **Build → Build Bundle(s) / APK(s) → Build APK(s)** then install the debug APK.
+3. Run ▸ `app` (debug, version name gets `-debug` suffix).  
+4. Prefer **4A release APK** for daily driving.
 
-CLI (after Studio has created the wrapper jar once):
+CLI:
 
 ```powershell
 cd C:\touchpad\android
@@ -53,30 +102,25 @@ cd C:\touchpad\android
 
 ---
 
-## Expected flow (3A)
+## Design note (HTML source)
 
-1. Launch Windows Galaxy Trackpad → engine / reverse ready.  
-2. Launch **Galaxy Trackpad** app on the Tab (not Chrome).  
-3. Page shows Connecting… then **USB Connected**.  
-4. Finger + S Pen behave like the Chrome prototype.
-
-No IP typing. No PowerShell on the tablet. Windows still does ADB reverse.
+Still loads **`http://127.0.0.1:8765/touchpad_v04.html`** from Windows over ADB reverse
+(not fully bundled in the APK yet). Offline **WAITING** page is local if HTTP is down.
 
 ---
 
-## What 3A intentionally does NOT include
+## Phase test checklists
 
-- Side menu / fullscreen chrome  
-- Pen profile buttons or Drawing area overlay  
-- Bidirectional settings protocol  
-- APK-bundled HTML  
-- Bluetooth / Wi-Fi  
+### 4A — Release APK
 
----
+- [ ] Gradle sync OK after pull
+- [ ] Build release APK → `app/build/outputs/apk/release/app-release.apk`
+- [ ] `adb install -r` (or copy) onto Tab
+- [ ] App info shows version **0.9.0**
+- [ ] Pad still connects with Windows running
+- [ ] Android Studio closed; app icon still works next day
 
-## Phase test checklists (what you should do)
-
-### 3A — Input parity (do this after first install)
+### 3A — Input parity
 
 **Prep**
 
