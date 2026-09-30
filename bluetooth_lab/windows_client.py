@@ -88,7 +88,7 @@ def _pick_mac_interactive(devices: list[tuple[str, str]]) -> str | None:
         return None
     _log("Paired Classic Bluetooth devices on this PC:")
     for i, (name, mac) in enumerate(devices, 1):
-        mark = " ← likely Tab" if re.search(r"Galaxy|Tab|SM-|T870", name, re.I) else ""
+        mark = " <- likely Tab" if re.search(r"Galaxy|Tab|SM-|T870", name, re.I) else ""
         _log(f"  [{i}] {name}  {mac}{mark}")
     _log("Enter number (or full MAC), then Enter:")
     try:
@@ -124,18 +124,18 @@ def _try_connect(mac: str, channel: int, timeout: float = 3.0) -> socket.socket 
 
 def _connect(mac: str) -> tuple[socket.socket, int]:
     channels = [RFCOMM_CHANNEL] + [c for c in range(1, 31) if c != RFCOMM_CHANNEL]
-    _log(f"Connecting to {mac} (trying RFCOMM channels)…")
+    _log(f"Connecting to {mac} (trying RFCOMM channels)...")
     for ch in channels:
-        _log(f"  try channel {ch}…")
+        _log(f"  try channel {ch}...")
         sock = _try_connect(mac, ch)
         if sock is not None:
             _log(f"Connected on channel {ch}")
             return sock, ch
     raise ConnectionError(
-        f"Could not connect to {mac} on channels 1–30.\n"
-        "  • Is GT BT Lab on Listen?\n"
-        "  • Is this the Tab’s real MAC from the list above (not XX:XX or 02:00:00:00:00:00)?\n"
-        "  • Is the Tab paired under Windows → Bluetooth?"
+        f"Could not connect to {mac} on channels 1-30.\n"
+        "  - Is GT BT Lab on Listen?\n"
+        "  - Is this the Tab real MAC from the list (not XX:XX or 02:00:00:00:00:00)?\n"
+        "  - Is the Tab paired under Windows -> Bluetooth?"
     )
 
 
@@ -167,7 +167,7 @@ def _session(sock: socket.socket) -> None:
     if not line.upper().startswith(MSG_PONG):
         _log("Unexpected reply (wanted PONG)")
 
-    _log("BT-1 OK — HELLO/ACK and PING/PONG succeeded")
+    _log("BT-1 OK - HELLO/ACK and PING/PONG succeeded")
     try:
         while True:
             time.sleep(1)
@@ -184,7 +184,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("mac", nargs="?", help="Tab Bluetooth MAC (from paired list)")
     args = parser.parse_args(argv)
 
-    _log("Galaxy Trackpad BT-1 lab — Windows CLIENT")
+    _log("Galaxy Trackpad BT-1 lab - Windows CLIENT")
     _log("GalaxyTrackpad.exe is NOT required.")
     _log(f"Service UUID: {SERVICE_UUID}")
     _log("-" * 60)
@@ -192,31 +192,31 @@ def main(argv: list[str] | None = None) -> int:
     devices = list_paired_classic_devices()
     if not devices:
         _log("No Classic Bluetooth devices paired on this PC.")
-        _log("Windows Settings → Bluetooth → add '석태의 Galaxy Tab S7' (or your Tab name).")
-        _log("Android Settings → Bluetooth must show this PC as paired too.")
-        _log("Then run GT BT Lab → Listen, and run this client again.")
+        _log("Windows Settings -> Bluetooth -> add your Galaxy Tab.")
+        _log("Android Settings -> Bluetooth must show this PC as paired too.")
+        _log("Then run GT BT Lab -> Listen, and run this client again.")
         return 2
 
     _log("Paired Classic devices:")
     for i, (name, mac) in enumerate(devices, 1):
-        mark = " ← likely Tab" if re.search(r"Galaxy|Tab|SM-|T870", name, re.I) else ""
+        mark = " <- likely Tab" if re.search(r"Galaxy|Tab|SM-|T870", name, re.I) else ""
         _log(f"  [{i}] {name}  {mac}{mark}")
 
     tab_like = [d for d in devices if re.search(r"Galaxy|Tab|SM-|T870", d[0], re.I)]
     if not tab_like:
         _log("")
-        _log("*** Galaxy Tab is NOT in this list yet — pair it in Windows Settings first. ***")
+        _log("*** Galaxy Tab is NOT in this list yet - pair it in Windows Settings first. ***")
         _log("Buds / speakers alone are not enough.")
 
     mac = args.mac
     if mac and _PLACEHOLDER.match(mac.replace(" ", "")):
-        _log("You passed a placeholder MAC (XX:XX:…). That was only an example.")
+        _log("You passed a placeholder MAC (XX:XX:...). That was only an example.")
         mac = None
     if mac:
         try:
             mac = _normalize_mac(mac)
             if mac in ("02:00:00:00:00:00", "00:00:00:00:00:00"):
-                _log("That MAC is Android’s hidden/fake address — unusable.")
+                _log("That MAC is Android's hidden/fake address - unusable.")
                 mac = None
         except ValueError as exc:
             _log(str(exc))
