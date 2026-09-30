@@ -18,6 +18,8 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QSlider,
     QStyle,
     QSystemTrayIcon,
@@ -70,8 +72,8 @@ class MainWindow(QMainWindow):
         self.tray = None
 
         self.setWindowTitle("Galaxy Trackpad")
-        self.resize(535, 780)
-        self.setMinimumSize(460, 680)
+        self.resize(560, 820)
+        self.setMinimumSize(420, 520)
         self.build_ui()
         self.apply_style()
         self.set_status("●  Engine stopped", "Not running", "Not running")
@@ -97,6 +99,7 @@ class MainWindow(QMainWindow):
     def card(self):
         frame = QFrame()
         frame.setObjectName("card")
+        frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
         layout = QVBoxLayout(frame)
         layout.setContentsMargins(18, 15, 18, 15)
         layout.setSpacing(11)
@@ -105,11 +108,21 @@ class MainWindow(QMainWindow):
     def section(self, text):
         item = QLabel(text)
         item.setObjectName("section")
+        item.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         return item
+
+    def action_button(self, text: str, object_name: str = "secondary") -> QPushButton:
+        button = QPushButton(text)
+        button.setObjectName(object_name)
+        button.setCursor(Qt.CursorShape.PointingHandCursor)
+        button.setMinimumHeight(40)
+        button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        return button
 
     def slider(self, caption, key):
         """Touchpad sensitivity slider (nested touchpad.*)."""
         outer = QWidget()
+        outer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout = QVBoxLayout(outer)
         layout.setContentsMargins(0, 0, 0, 0)
         row = QHBoxLayout()
@@ -135,17 +148,27 @@ class MainWindow(QMainWindow):
         return outer
 
     def build_ui(self):
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+
         central = QWidget()
-        self.setCentralWidget(central)
+        scroll.setWidget(central)
+        self.setCentralWidget(scroll)
+
         layout = QVBoxLayout(central)
         layout.setContentsMargins(25, 23, 25, 22)
-        layout.setSpacing(13)
+        layout.setSpacing(14)
 
         title = QLabel("Galaxy Trackpad")
         title.setObjectName("title")
+        title.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         layout.addWidget(title)
         hint = QLabel("Windows touchpad + S Pen  ·  USB / ADB")
         hint.setObjectName("muted")
+        hint.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         layout.addWidget(hint)
 
         layout.addWidget(self.section("DEVICE"))
@@ -155,6 +178,7 @@ class MainWindow(QMainWindow):
         inside.addWidget(name)
         self.status = QLabel()
         self.status.setObjectName("status")
+        self.status.setWordWrap(True)
         inside.addWidget(self.status)
         self.touch_status = QLabel()
         self.pen_status = QLabel()
@@ -163,11 +187,10 @@ class MainWindow(QMainWindow):
         layout.addWidget(frame)
 
         row = QHBoxLayout()
-        self.start_button = QPushButton("▶  START")
-        self.start_button.setObjectName("start")
+        row.setSpacing(10)
+        self.start_button = self.action_button("▶  START", "start")
         self.start_button.clicked.connect(self.start_engine)
-        self.stop_button = QPushButton("■  STOP")
-        self.stop_button.setObjectName("stop")
+        self.stop_button = self.action_button("■  STOP", "stop")
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop_engine)
         row.addWidget(self.start_button)
@@ -178,7 +201,9 @@ class MainWindow(QMainWindow):
         self.logs.setReadOnly(True)
         self.logs.setPlaceholderText("Engine messages appear here")
         self.logs.document().setMaximumBlockCount(120)
-        self.logs.setFixedHeight(110)
+        self.logs.setMinimumHeight(96)
+        self.logs.setMaximumHeight(160)
+        self.logs.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout.addWidget(self.logs)
 
         layout.addWidget(self.section("TOUCHPAD"))
@@ -193,14 +218,16 @@ class MainWindow(QMainWindow):
         row.addWidget(QLabel("Active profile"))
         row.addStretch()
         self.profile_combo = QComboBox()
+        self.profile_combo.setMinimumWidth(190)
+        self.profile_combo.setMinimumHeight(32)
         self.profile_combo.addItem("Standard", PROFILE_STANDARD)
         self.profile_combo.addItem("Drawing & Signature", PROFILE_DRAWING)
         self.profile_combo.currentIndexChanged.connect(self.on_profile_changed)
         row.addWidget(self.profile_combo)
         inside.addLayout(row)
-        configure = QPushButton("Configure Pen Profiles…")
-        configure.clicked.connect(self.open_advanced)
-        inside.addWidget(configure)
+        self.configure_pen_button = self.action_button("Configure Pen Profiles…")
+        self.configure_pen_button.clicked.connect(self.open_advanced)
+        inside.addWidget(self.configure_pen_button)
         note = QLabel("Finger touchpad is independent of pen profile settings.")
         note.setObjectName("muted")
         note.setWordWrap(True)
@@ -223,15 +250,12 @@ class MainWindow(QMainWindow):
             lambda checked: self.change_general("auto_start_engine", checked)
         )
         inside.addWidget(self.auto_start_engine)
-        advanced = QPushButton("Advanced Settings…")
-        advanced.clicked.connect(self.open_advanced)
-        inside.addWidget(advanced)
+        self.advanced_button = self.action_button("Advanced Settings…")
+        self.advanced_button.clicked.connect(self.open_advanced)
+        inside.addWidget(self.advanced_button)
         layout.addWidget(frame)
 
-        footer = QLabel("Phase 2B  ·  Tray autostart  ·  Advanced pen / monitor settings")
-        footer.setObjectName("muted")
-        footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(footer)
+        layout.addStretch(1)
 
         self._pen_ui_ready = False
         self.sync_pen_controls_from_config()
@@ -275,25 +299,66 @@ class MainWindow(QMainWindow):
 
     def apply_style(self):
         self.setStyleSheet("""
-            QMainWindow { background: #111827; }
+            QMainWindow, QScrollArea, QScrollArea > QWidget > QWidget {
+                background: #111827;
+            }
             QWidget { color: #e5e7eb; font: 12px 'Segoe UI'; }
             QLabel#title { font-size: 26px; font-weight: 700; color: white; }
             QLabel#device { font-size: 16px; font-weight: 600; }
             QLabel#muted { color: #9ca3af; }
-            QLabel#section { color: #aab4c3; font-size: 11px; font-weight: 700; }
+            QLabel#section {
+                color: #aab4c3; font-size: 11px; font-weight: 700;
+                padding-top: 4px; padding-bottom: 2px;
+            }
             QLabel#status { color: #86efac; font-weight: 600; }
             QLabel#value { color: #93c5fd; font-weight: 600; }
-            QFrame#card { background: #1f2937; border: 1px solid #374151; border-radius: 11px; }
-            QPushButton { padding: 11px; border-radius: 7px; font-weight: 700; }
-            QPushButton#start { background: #2563eb; color: white; }
-            QPushButton#stop { background: #4b5563; color: white; }
-            QPushButton:disabled { background: #374151; color: #6b7280; }
-            QPlainTextEdit { background: #0b1220; border: 1px solid #374151;
-                             border-radius: 7px; font: 11px Consolas; }
-            QSlider::groove:horizontal { height: 5px; background: #4b5563; }
-            QSlider::handle:horizontal { background: #60a5fa; width: 15px; margin: -5px 0; }
+            QFrame#card {
+                background: #1f2937; border: 1px solid #374151; border-radius: 11px;
+            }
+            QPushButton {
+                padding: 10px 14px; border-radius: 8px; font-weight: 700;
+                min-height: 36px;
+            }
+            QPushButton#start { background: #2563eb; color: white; border: none; }
+            QPushButton#start:hover { background: #3b82f6; }
+            QPushButton#stop { background: #4b5563; color: white; border: none; }
+            QPushButton#stop:hover { background: #6b7280; }
+            QPushButton#secondary {
+                background: #111827; color: #e5e7eb;
+                border: 1px solid #60a5fa;
+            }
+            QPushButton#secondary:hover {
+                background: #1e3a5f; border-color: #93c5fd; color: white;
+            }
+            QPushButton:disabled { background: #374151; color: #6b7280; border: none; }
+            QPlainTextEdit {
+                background: #0b1220; border: 1px solid #374151;
+                border-radius: 7px; font: 11px Consolas; color: #d1d5db;
+            }
+            QSlider::groove:horizontal { height: 5px; background: #4b5563; border-radius: 2px; }
+            QSlider::handle:horizontal {
+                background: #60a5fa; width: 15px; margin: -5px 0; border-radius: 3px;
+            }
             QCheckBox { spacing: 9px; }
-            QComboBox { background: #111827; border: 1px solid #374151; padding: 4px 8px; }
+            QComboBox {
+                background: #0b1220; color: #e5e7eb;
+                border: 1px solid #4b5563; border-radius: 6px;
+                padding: 6px 10px; min-height: 28px;
+            }
+            QComboBox:hover { border-color: #60a5fa; }
+            QComboBox::drop-down { border: none; width: 24px; }
+            QComboBox QAbstractItemView {
+                background: #0b1220; color: #e5e7eb;
+                selection-background-color: #2563eb; selection-color: white;
+                border: 1px solid #4b5563; outline: 0;
+            }
+            QScrollBar:vertical {
+                background: #111827; width: 10px; margin: 0;
+            }
+            QScrollBar::handle:vertical {
+                background: #4b5563; border-radius: 4px; min-height: 24px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
         """)
 
     # ---------- Settings ----------
