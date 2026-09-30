@@ -5,6 +5,7 @@ import asyncio
 import logging
 import threading
 
+from windows.applog import error, info, state
 from windows.paths import (
     ADB,
     CONTROL_PORT,
@@ -24,14 +25,19 @@ from windows.transport.websocket import run_input_server
 
 
 def engine_main() -> None:
-    reload_settings()
-    for port in (HTTP_PORT, WS_PORT, CONTROL_PORT):
-        assert_port_available(port)
-    if not ADB.is_file():
-        raise FileNotFoundError(ADB)
-    html = STATIC_DIR / "touchpad_v04.html"
-    if not html.is_file():
-        raise FileNotFoundError(html)
+    try:
+        reload_settings()
+        for port in (HTTP_PORT, WS_PORT, CONTROL_PORT):
+            assert_port_available(port)
+        if not ADB.is_file():
+            raise FileNotFoundError(f"ADB not found: {ADB}")
+        html = STATIC_DIR / "touchpad_v04.html"
+        if not html.is_file():
+            raise FileNotFoundError(f"Missing tablet page: {html}")
+    except (FileNotFoundError, RuntimeError, OSError) as exc:
+        error(str(exc))
+        state(engine="error", usb="unknown", tablet="disconnected")
+        raise
 
     stop = threading.Event()
     httpd = None
@@ -43,10 +49,11 @@ def engine_main() -> None:
         httpd = start_http_server(STATIC_DIR)
         watcher = threading.Thread(target=usb_watcher, args=(stop,), daemon=True)
         watcher.start()
-        print("[OK] HTTP + USB watcher started", flush=True)
+        info("HTTP + USB watcher started")
+        state(engine="running", usb="waiting", tablet="disconnected")
         asyncio.run(run_with_control(run_input_server()))
     except KeyboardInterrupt:
-        print("[EXIT] Keyboard interrupt", flush=True)
+        info("Keyboard interrupt")
     finally:
         stop.set()
         if watcher:
@@ -55,4 +62,5 @@ def engine_main() -> None:
             httpd.shutdown()
             httpd.server_close()
         ws_logger.removeFilter(quiet_expected)
-        print("[EXIT] Servers stopped", flush=True)
+        info("Servers stopped")
+        state(engine="stopped", usb="unknown", tablet="disconnected")

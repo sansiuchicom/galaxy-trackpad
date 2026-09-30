@@ -42,6 +42,7 @@ DEFAULTS: dict[str, Any] = {
     "general": {
         "start_with_windows": True,
         "auto_start_engine": True,
+        "debug_log": False,
     },
 }
 
@@ -151,6 +152,9 @@ def migrate_config(raw: Any) -> dict[str, Any]:
     out["general"]["start_with_windows"] = bool(
         general.get("start_with_windows", DEFAULTS["general"]["start_with_windows"])
     )
+    out["general"]["debug_log"] = bool(
+        general.get("debug_log", DEFAULTS["general"]["debug_log"])
+    )
     return out
 
 
@@ -198,34 +202,39 @@ def active_pen_profile(config: dict[str, Any] | None = None) -> dict[str, Any]:
 
 def apply_runtime_settings(config: dict[str, Any]) -> dict[str, Any]:
     """Update engine SETTINGS snapshot from nested config."""
+    from windows.applog import set_debug
+
     normalized = migrate_config(config)
     SETTINGS["cursor_sensitivity"] = normalized["touchpad"]["cursor_sensitivity"]
     SETTINGS["scroll_sensitivity"] = normalized["touchpad"]["scroll_sensitivity"]
     SETTINGS["pen"] = copy.deepcopy(normalized["pen"])
+    SETTINGS["debug_log"] = bool(normalized["general"].get("debug_log", False))
     # Deprecated key kept True for any leftover checks.
     SETTINGS["pen_enabled"] = True
+    set_debug(SETTINGS["debug_log"])
     return normalized
 
 
 def reload_settings() -> dict[str, Any]:
+    from windows.applog import info
+
     config = load_config()
     apply_runtime_settings(config)
     profile = active_pen_profile()
-    print(
-        "[SETTINGS] Cursor={:.2f}x Scroll={:.2f}x PenProfile={} mapping={} area={:.0f}%".format(
+    info(
+        "Settings Cursor={:.2f}x Scroll={:.2f}x PenProfile={} mapping={} area={:.0f}%".format(
             SETTINGS["cursor_sensitivity"],
             SETTINGS["scroll_sensitivity"],
             profile["name"],
             profile["mapping"],
             profile["area_size"] * 100,
-        ),
-        flush=True,
+        )
     )
     try:
         from windows.core.pen import notify_settings_reloaded
         notify_settings_reloaded()
     except Exception as exc:  # pragma: no cover - engine-only path
-        print(f"[SETTINGS] Pen reload note: {exc}", flush=True)
+        info(f"Pen reload note: {exc}")
     return config
 
 

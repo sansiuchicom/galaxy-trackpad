@@ -9,6 +9,7 @@ import threading
 
 from websockets.exceptions import ConnectionClosedError
 
+from windows.applog import debug, error, info, state
 from windows.paths import ADB, HTTP_PORT, WS_PORT
 
 ADB_SERVER = ("127.0.0.1", 5037)
@@ -64,7 +65,7 @@ def track_snapshots(stop):
         response = read_exact(sock, 4, stop)
         if response != b"OKAY":
             raise RuntimeError("ADB rejected track-devices: " + repr(response))
-        print("[ADB] Listening for USB connection events", flush=True)
+        info("Listening for USB connection events")
         while not stop.is_set():
             header = read_exact(sock, 4, stop)
             size = int(header.decode("ascii"), 16)
@@ -95,15 +96,19 @@ def usb_watcher(stop: threading.Event):
                 ]
                 if len(ready) != 1:
                     if len(ready) > 1:
-                        state = "multiple devices"
+                        state_name = "multiple"
+                        message = "multiple devices"
                     elif "unauthorized" in devices.values():
-                        state = "authorization needed"
+                        state_name = "unauthorized"
+                        message = "authorization needed"
                     else:
-                        state = "waiting for device"
-                    if state != last_state:
-                        print(f"[USB] {state}", flush=True)
+                        state_name = "waiting"
+                        message = "waiting for device"
+                    if message != last_state:
+                        info(f"USB {message}")
+                        state(engine="running", usb=state_name, tablet="disconnected")
                     configured_serial = None
-                    last_state = state
+                    last_state = message
                     continue
 
                 serial = ready[0]
@@ -112,10 +117,8 @@ def usb_watcher(stop: threading.Event):
                 if serial == configured_serial and present:
                     continue
 
-                print(
-                    "[USB] Authorized device detected; restoring ports",
-                    flush=True,
-                )
+                info("Authorized device detected; restoring reverse ports")
+                state(engine="running", usb="connecting", tablet="disconnected")
                 for port in ports:
                     run_adb(
                         "-s", serial, "reverse",
@@ -126,13 +129,16 @@ def usb_watcher(stop: threading.Event):
                     raise RuntimeError("Reverse ports disappeared during setup")
                 configured_serial = serial
                 last_state = "connected"
-                print("[USB] Reverse ports 8765 and 8766 ready", flush=True)
+                info("Reverse ports 8765 and 8766 ready")
+                state(engine="running", usb="ready", tablet="disconnected")
+                debug(f"USB serial={serial}")
         except StopRequested:
             return
         except (OSError, ValueError, RuntimeError, ConnectionError) as exc:
             if not stop.is_set():
-                print(f"[ADB] Tracker error: {exc}", flush=True)
-                print("[ADB] Retrying after 2 seconds", flush=True)
+                error(f"ADB tracker error: {exc}")
+                info("Retrying USB watcher in 2 seconds")
+                state(engine="running", usb="error", tablet="disconnected")
                 configured_serial = None
                 stop.wait(2)
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 
+from windows.applog import info, state
 from windows.paths import CONTROL_PORT
 from windows.settings.store import reload_settings
 
@@ -17,7 +18,8 @@ async def run_with_control(engine_coro):
                 reload_settings()
                 writer.write(b"OK\n")
             elif cmd == b"STOP":
-                print("[GUI] Shutdown requested", flush=True)
+                info("Shutdown requested")
+                state(engine="stopping")
                 stopped.set()
                 writer.write(b"OK\n")
             else:
@@ -28,7 +30,9 @@ async def run_with_control(engine_coro):
             await writer.wait_closed()
 
     server = await asyncio.start_server(control, "127.0.0.1", CONTROL_PORT)
-    print(f"[OK] GUI control ready: {CONTROL_PORT}", flush=True)
+    info(f"GUI control ready on {CONTROL_PORT}")
+    # Keep legacy token so older GUI parsers still unlock STOP.
+    print("[OK] GUI control ready: 8767", flush=True)
     engine = asyncio.create_task(engine_coro)
     stop_task = asyncio.create_task(stopped.wait())
     try:
@@ -48,4 +52,4 @@ async def run_with_control(engine_coro):
                 pass
         server.close()
         await server.wait_closed()
-        print("[GUI] Control server stopped", flush=True)
+        info("Control server stopped")

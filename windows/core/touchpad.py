@@ -4,6 +4,7 @@ from __future__ import annotations
 import time
 
 from windows.core.sensitivity import GestureScaler
+from windows.applog import debug, info
 from windows.core.synthetic import (
     ACTIVE,
     INPUT,
@@ -25,7 +26,7 @@ class TouchpadBridge:
         self.positions = {}
         self.ticks = 1
         self.last_clock = time.monotonic()
-        print("Touchpad ready: 1-5 fingers / native Windows gestures")
+        info("Touchpad ready: 1-5 fingers / native Windows gestures")
 
     def _time(self):
         now = time.monotonic()
@@ -102,7 +103,7 @@ class TouchpadBridge:
             self.positions.update(incoming)
 
         if before != len(self.slots):
-            print(f"Fingers: {before} -> {len(self.slots)}")
+            debug(f"Fingers: {before} -> {len(self.slots)}")
 
     def release(self):
         if self.slots:
@@ -113,7 +114,7 @@ class TouchpadBridge:
             self.release()
         finally:
             destroy(self.handle)
-            print("Touchpad removed")
+            info("Touchpad removed")
 
 
 class ScaledTouchpad(TouchpadBridge):

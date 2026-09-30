@@ -7,6 +7,7 @@ import time
 
 from websockets.asyncio.server import serve
 
+from windows.applog import debug, error, info, state
 from windows.core.pen import PenBridge
 from windows.core.touchpad import ScaledTouchpad
 from windows.paths import WS_PORT
@@ -19,7 +20,7 @@ async def run_input_server():
     try:
         pen = PenBridge()
     except OSError as exc:
-        print(f"Pen unavailable; touchpad still works: {exc}")
+        info(f"Pen unavailable; touchpad still works: {exc}")
 
     exclusive = asyncio.Lock()
 
@@ -29,7 +30,8 @@ async def run_input_server():
             await websocket.close(code=1008, reason="Only one tablet at a time")
             return
         async with exclusive:
-            print("Galaxy Tab connected")
+            info("Galaxy Tab connected")
+            state(engine="running", tablet="connected")
             pen_cooldown_until = 0.0
             try:
                 async for raw in websocket:
@@ -46,7 +48,7 @@ async def run_input_server():
                             try:
                                 pen.update(pens)
                             except OSError as exc:
-                                print("Pen injection failed; disabling pen:", exc)
+                                error(f"Pen injection failed; disabling pen: {exc}")
                                 try:
                                     pen.close()
                                 except OSError:
@@ -62,23 +64,23 @@ async def run_input_server():
                             else:
                                 touchpad.release()
                     except (KeyError, TypeError, ValueError) as exc:
-                        print("Bad input:", exc)
+                        debug(f"Bad input: {exc}")
                     except OSError as exc:
-                        print("Windows input error:", exc)
-                        print("If touch gestures stop, restart the program.")
+                        error(f"Windows input error: {exc}")
+                        info("If touch gestures stop, restart the engine from the GUI.")
             finally:
                 try:
                     touchpad.release()
                     if pen:
                         pen.release()
                 finally:
-                    print("Galaxy Tab disconnected; all contacts released")
+                    info("Galaxy Tab disconnected; all contacts released")
+                    state(engine="running", tablet="disconnected")
 
     try:
         async with serve(handler, "127.0.0.1", WS_PORT, max_size=1_000_000):
-            print(f"Listening: ws://127.0.0.1:{WS_PORT}")
-            print("Touch 1-5 fingers; try scroll, pinch, taps, 3/4 swipes")
-            print("For pen: open Paint / OneNote before touching with S Pen")
+            info(f"Listening ws://127.0.0.1:{WS_PORT}")
+            debug("Open the tablet page after USB reverse is ready")
             await asyncio.Future()
     finally:
         try:

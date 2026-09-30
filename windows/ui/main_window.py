@@ -71,13 +71,19 @@ class MainWindow(QMainWindow):
         self.quit_requested = False
         self.tray_notified = False
         self.tray = None
+        self.engine_phase = "stopped"
+        self.usb_phase = "unknown"
+        self.tablet_phase = "disconnected"
+        self.show_debug_logs = bool(
+            self.config.get("general", {}).get("debug_log", False)
+        )
 
         self.setWindowTitle("Galaxy Trackpad")
         self.resize(560, 820)
         self.setMinimumSize(420, 520)
         self.build_ui()
         self.apply_style()
-        self.set_status("●  Engine stopped", "Not running", "Not running")
+        self.refresh_connection_status()
 
         self._reload_timer = QTimer(self)
         self._reload_timer.setSingleShot(True)
@@ -253,6 +259,10 @@ class MainWindow(QMainWindow):
             lambda checked: self.change_general("auto_start_engine", checked)
         )
         inside.addWidget(self.auto_start_engine)
+        self.debug_logs = QCheckBox("Show debug logs")
+        self.debug_logs.setChecked(self.show_debug_logs)
+        self.debug_logs.toggled.connect(self.on_debug_logs_toggled)
+        inside.addWidget(self.debug_logs)
         self.advanced_button = self.action_button("Advanced Settings…")
         self.advanced_button.clicked.connect(self.open_advanced)
         inside.addWidget(self.advanced_button)
@@ -460,10 +470,44 @@ class MainWindow(QMainWindow):
     def log(self, message):
         self.logs.appendPlainText(message)
 
+    def on_debug_logs_toggled(self, checked: bool):
+        self.show_debug_logs = bool(checked)
+        self.change_general("debug_log", checked)
+
     def set_status(self, headline, touch, pen):
         self.status.setText(headline)
         self.touch_status.setText("Touchpad     " + touch)
         self.pen_status.setText("S Pen          " + pen)
+
+    def refresh_connection_status(self):
+        engine = self.engine_phase
+        usb = self.usb_phase
+        tablet = self.tablet_phase
+
+        if engine == "stopped":
+            self.set_status("●  Stopped", "Not running", "Not running")
+        elif engine == "starting":
+            self.set_status("●  Starting…", "Initializing", "Initializing")
+        elif engine == "stopping":
+            self.set_status("●  Stopping…", "Releasing", "Releasing")
+        elif engine == "error":
+            self.set_status("●  Error", "Stopped", "Stopped")
+        elif tablet == "connected":
+            self.set_status("●  Connected", "Active", "Available")
+        elif usb == "unauthorized":
+            self.set_status("●  Unlock tablet USB debugging", "Ready", "Ready")
+        elif usb == "waiting":
+            self.set_status("●  Waiting for device", "Ready", "Ready")
+        elif usb == "connecting":
+            self.set_status("●  Connecting USB…", "Ready", "Ready")
+        elif usb == "ready":
+            self.set_status("●  USB ready · open tablet page", "Ready", "Ready")
+        elif usb == "multiple":
+            self.set_status("●  Multiple ADB devices", "Ready", "Ready")
+        elif usb == "error":
+            self.set_status("●  USB/ADB issue · retrying", "Ready", "Ready")
+        else:
+            self.set_status("●  Running · waiting for tablet", "Ready", "Ready")
 
     # ---------- Engine ----------
     def start_engine(self):
@@ -475,9 +519,12 @@ class MainWindow(QMainWindow):
         self.control_ready = False
         self.stop_pending = False
         self.stop_acknowledged = False
+        self.engine_phase = "starting"
+        self.usb_phase = "unknown"
+        self.tablet_phase = "disconnected"
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(False)
-        self.set_status("●  Starting...", "Initializing", "Initializing")
+        self.refresh_connection_status()
         self.log("---- Starting engine ----")
         self.process.setWorkingDirectory(str(REPO_ROOT))
         self.process.start(sys.executable, ["-u", "-m", "windows", "--engine"])
@@ -491,6 +538,8 @@ class MainWindow(QMainWindow):
         if (self.process.state() != QProcess.ProcessState.NotRunning
                 and not self.control_ready):
             self.log("Engine not ready after 20s. Check messages above.")
+            self.engine_phase = "error"
+            self.refresh_connection_status()
 
     def on_output(self):
         self.output_bytes.extend(bytes(self.process.readAllStandardOutput()))
@@ -498,21 +547,42 @@ class MainWindow(QMainWindow):
             raw, _, remaining = self.output_bytes.partition(b"\n")
             self.output_bytes = bytearray(remaining)
             line = raw.decode("utf-8", errors="replace").strip()
-            if line:
-                self.log(line)
-                self.inspect_engine_line(line)
+            if not line:
+                continue
+            self.inspect_engine_line(line)
+            if line.startswith("[DEBUG]") and not self.show_debug_logs:
+                continue
+            if line.startswith("[STATE]"):
+                continue
+            self.log(line)
 
     def inspect_engine_line(self, line):
-        if "[OK] GUI control ready: 8767" in line:
+        if line.startswith("[STATE]"):
+            fields = {}
+            for part in line[7:].split():
+                if "=" in part:
+                    key, value = part.split("=", 1)
+                    fields[key] = value
+            if "engine" in fields:
+                self.engine_phase = fields["engine"]
+            if "usb" in fields:
+                self.usb_phase = fields["usb"]
+            if "tablet" in fields:
+                self.tablet_phase = fields["tablet"]
+            if self.engine_phase == "running" and not self.control_ready:
+                # control-ready print may arrive slightly after first STATE
+                pass
+            self.refresh_connection_status()
+        elif "[OK] GUI control ready: 8767" in line or "GUI control ready on" in line:
             self.control_ready = True
+            self.engine_phase = "running"
             self.stop_button.setEnabled(not self.stop_pending)
-            self.set_status("●  Running · waiting for tablet", "Ready", "Ready")
-        elif "[USB] Reverse ports 8765 and 8766 ready" in line:
-            self.set_status("●  USB ready · waiting for tablet", "Ready", "Ready")
-        elif "Galaxy Tab connected" in line:
-            self.set_status("●  Tablet connected", "Active", "Available")
-        elif "Galaxy Tab disconnected" in line:
-            self.set_status("●  Waiting for tablet", "Ready", "Ready")
+            self.refresh_connection_status()
+        elif line.startswith("[ERROR]"):
+            if self.engine_phase == "starting":
+                self.engine_phase = "error"
+                self.refresh_connection_status()
+
         if self.quit_requested and self.control_ready and not self.stop_pending:
             self.stop_engine()
         self.update_tray()
@@ -527,8 +597,9 @@ class MainWindow(QMainWindow):
             return
         self.stop_pending = True
         self.stop_acknowledged = False
+        self.engine_phase = "stopping"
         self.stop_button.setEnabled(False)
-        self.status.setText("●  Stopping...")
+        self.refresh_connection_status()
         self.stop_socket = QTcpSocket(self)
         sock = self.stop_socket
         sock.connected.connect(lambda: sock.write(b"STOP\n"))
@@ -554,7 +625,8 @@ class MainWindow(QMainWindow):
         self.stop_pending = False
         if self.process.state() != QProcess.ProcessState.NotRunning:
             self.stop_button.setEnabled(self.control_ready)
-            self.status.setText("●  STOP failed · retry")
+            self.engine_phase = "running"
+            self.refresh_connection_status()
         self.stop_failed_during_quit()
 
     def check_stop_timeout(self, sock):
@@ -565,7 +637,8 @@ class MainWindow(QMainWindow):
             self.log("STOP timed out; retry STOP. Do not force-close yet.")
             self.stop_pending = False
             self.stop_button.setEnabled(self.control_ready)
-            self.status.setText("●  STOP timed out · retry")
+            self.engine_phase = "running"
+            self.refresh_connection_status()
             self.stop_failed_during_quit()
 
     def on_process_error(self, error):
@@ -573,7 +646,8 @@ class MainWindow(QMainWindow):
         if error == QProcess.ProcessError.FailedToStart:
             self.start_button.setEnabled(True)
             self.stop_button.setEnabled(False)
-            self.set_status("●  Start failed", "Stopped", "Stopped")
+            self.engine_phase = "error"
+            self.refresh_connection_status()
             if self.quit_requested:
                 QApplication.instance().quit()
         self.update_tray()
@@ -585,14 +659,20 @@ class MainWindow(QMainWindow):
         self.log(f"Engine exited (code {code})")
         self.control_ready = False
         self.stop_pending = False
+        if self.stop_acknowledged or code == 0:
+            self.engine_phase = "stopped"
+        else:
+            self.engine_phase = "error"
         self.stop_acknowledged = False
+        self.usb_phase = "unknown"
+        self.tablet_phase = "disconnected"
         if self.stop_socket is not None:
             self.stop_socket.abort()
             self.stop_socket.deleteLater()
             self.stop_socket = None
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
-        self.set_status("●  Engine stopped", "Not running", "Not running")
+        self.refresh_connection_status()
         self.update_tray()
         if self.close_when_stopped:
             self.close_when_stopped = False

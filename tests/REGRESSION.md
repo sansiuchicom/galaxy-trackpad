@@ -60,10 +60,19 @@ python -m unittest tests.test_pen_mapping -v
 
 ## Phase 2B — Windows UX
 
-- [ ] Main window: profile combo + Configure / Advanced
+- [ ] Everyday / Drawing radios with short hints
 - [ ] Advanced: monitor map click-select + Identify Displays
 - [ ] Standard / Drawing profiles edit independently and persist
 - [ ] Start with Windows registers HKCU Run (`python ... main.py --tray`)
 - [ ] `--tray` starts hidden in system tray
 - [ ] Auto-start engine launches engine after GUI opens (waits if no USB)
 - [ ] Touchpad sensitivities and gestures still unaffected by pen profile edits
+
+## Phase 2C — Reliability
+
+- [ ] Status distinguishes Waiting / Unauthorized / USB ready / Connected / Stopping / Error
+- [ ] Normal log has no continuous `Fingers:` spam
+- [ ] Show debug logs checkbox reveals finger-count / verbose lines
+- [ ] USB unplug releases contacts; reconnect restores reverse ports
+- [ ] Missing ADB / busy port surfaces as `[ERROR]` without hanging the GUI
+- [ ] STOP / tray Quit still cleanly release inputs

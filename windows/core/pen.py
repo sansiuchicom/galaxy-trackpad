@@ -5,6 +5,7 @@ import ctypes as c
 import time
 from typing import Any
 
+from windows.applog import debug, info
 from windows.core.displays import resolve_monitor
 from windows.core.pen_mapping import PenMapConfig, PixelRect
 from windows.core.synthetic import (
@@ -88,21 +89,20 @@ class PenBridge:
         self.map_config = build_pen_map_from_settings()
         _active_pen = self
         active = self.map_config.active_rect()
-        print(
-            "[PEN] Ready profile mapping={} area={:.0f}% "
-            "monitor=({},{} {}x{}) activeUV=({:.3f},{:.3f})-({:.3f},{:.3f})".format(
+        info(
+            "Pen ready mapping={} area={:.0f}% monitor=({},{} {}x{})".format(
                 self.map_config.mapping,
                 self.map_config.area_size * 100,
                 self.map_config.monitor.left,
                 self.map_config.monitor.top,
                 self.map_config.monitor.width,
                 self.map_config.monitor.height,
-                active.left,
-                active.top,
-                active.right,
-                active.bottom,
-            ),
-            flush=True,
+            )
+        )
+        debug(
+            "Pen activeUV=({:.3f},{:.3f})-({:.3f},{:.3f})".format(
+                active.left, active.top, active.right, active.bottom
+            )
         )
 
     def reload_config(self) -> None:
@@ -114,23 +114,22 @@ class PenBridge:
         }
         if self.pressed:
             self._pending_config = snapshot
-            print("[PEN] Config queued until pen tip releases", flush=True)
+            info("Pen config queued until tip releases")
             return
         self._apply_config(snapshot)
 
     def _apply_config(self, pen_block: dict[str, Any]) -> None:
         self.map_config = build_pen_map_from_settings(pen_block)
         self._pending_config = None
-        print(
-            "[PEN] Applied mapping={} area={:.0f}% bounds=({},{} {}x{})".format(
+        info(
+            "Pen applied mapping={} area={:.0f}% bounds=({},{} {}x{})".format(
                 self.map_config.mapping,
                 self.map_config.area_size * 100,
                 self.map_config.monitor.left,
                 self.map_config.monitor.top,
                 self.map_config.monitor.width,
                 self.map_config.monitor.height,
-            ),
-            flush=True,
+            )
         )
 
     def _send(self, contact, state, x: int, y: int):
@@ -200,4 +199,4 @@ class PenBridge:
             destroy(self.handle)
             if _active_pen is self:
                 _active_pen = None
-            print("Pen removed", flush=True)
+            info("Pen removed")
