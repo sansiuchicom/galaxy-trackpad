@@ -200,6 +200,7 @@ def _sdp_channel(mac: str, uuid: str) -> int | None:
     addr = "".join(c for c in mac if c.isalnum())
     ps = r"""
 $ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Runtime.WindowsRuntime
 $addrHex = '%s'
 $uuidText = '%s'
 [Windows.Devices.Bluetooth.BluetoothDevice, Windows.Devices.Bluetooth, ContentType = WindowsRuntime] | Out-Null
@@ -236,7 +237,13 @@ exit 3
             encoding="utf-8",
             errors="replace",
         )
-    except (OSError, subprocess.SubprocessError):
+    except subprocess.CalledProcessError as exc:
+        err = (exc.output or "").strip().splitlines()
+        tail = err[-1] if err else f"exit {exc.returncode}"
+        _log(f"  SDP query failed: {tail}")
+        return None
+    except (OSError, subprocess.SubprocessError) as exc:
+        _log(f"  SDP query failed: {exc}")
         return None
     for line in out.splitlines():
         line = line.strip()
