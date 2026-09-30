@@ -68,6 +68,7 @@ def _run_pad_session(sock: socket.socket) -> None:
     try:
         write_frame(sock, build_client_state())
         _log("SEND frame type=state")
+        moves, window_start = 0, time.monotonic()
         while True:
             try:
                 packet = read_frame(sock)
@@ -97,9 +98,17 @@ def _run_pad_session(sock: socket.socket) -> None:
             session.apply_packet(packet)
             event = packet.get("event")
             contacts = packet.get("contacts") or []
+            if event == "move":
+                moves += 1
+                now = time.monotonic()
+                if now - window_start >= 1.0:
+                    _log(f"rate: {moves / (now - window_start):.0f} moves/s")
+                    moves, window_start = 0, now
             if event in ("down", "up") or not contacts:
                 tools = ",".join(sorted({str(c.get("tool")) for c in contacts})) if contacts else "-"
                 _log(f"input event={event} n={len(contacts)} tools={tools}")
+                if event == "down" and len(contacts) == 1:
+                    moves, window_start = 0, time.monotonic()
     finally:
         session.close()
         _log("Pad session ended - contacts released")

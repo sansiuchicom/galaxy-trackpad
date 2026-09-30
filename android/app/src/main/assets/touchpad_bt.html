@@ -71,27 +71,48 @@ function post(obj) {
   } catch (e) {}
 }
 
+function round(v, digits) {
+  const k = Math.pow(10, digits);
+  return Math.round(v * k) / k;
+}
+
 function getContact(event) {
   const r = pad.getBoundingClientRect();
   const x = (event.clientX - r.left) / Math.max(1, r.width);
   const y = (event.clientY - r.top) / Math.max(1, r.height);
   const tool = event.pointerType === "pen" ? "pen" : "touch";
-  return {
+  const c = {
     id: event.pointerId,
     tool,
-    x: Math.max(0, Math.min(1, x)),
-    y: Math.max(0, Math.min(1, y)),
-    pressure: event.pressure,
-    tiltX: event.tiltX,
-    tiltY: event.tiltY
+    x: round(Math.max(0, Math.min(1, x)), 5),
+    y: round(Math.max(0, Math.min(1, y)), 5)
   };
+  if (tool === "pen") {
+    c.pressure = round(event.pressure, 3);
+    c.tiltX = event.tiltX;
+    c.tiltY = event.tiltY;
+  }
+  return c;
 }
+
+let movePending = false;
 
 function send(eventName) {
   post({
     event: eventName,
-    timestamp: performance.now(),
+    timestamp: Math.round(performance.now()),
     contacts: Array.from(pointers.values())
+  });
+}
+
+// Bluetooth cannot keep up with one packet per finger per touch sample;
+// send at most one move per display frame with every finger in it.
+function queueMove() {
+  if (movePending) return;
+  movePending = true;
+  requestAnimationFrame(() => {
+    movePending = false;
+    if (pointers.size) send("move");
   });
 }
 
@@ -105,7 +126,7 @@ pad.addEventListener("pointermove", (event) => {
   if (!pointers.has(event.pointerId)) return;
   event.preventDefault();
   pointers.set(event.pointerId, getContact(event));
-  send("move");
+  queueMove();
 });
 function release(event) {
   if (!pointers.has(event.pointerId)) return;

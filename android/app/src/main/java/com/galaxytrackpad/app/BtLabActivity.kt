@@ -31,6 +31,7 @@ import java.nio.ByteOrder
 import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * BT lab: Tab listens on RFCOMM.
@@ -40,6 +41,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 class BtLabActivity : AppCompatActivity() {
 
     private val io = Executors.newSingleThreadExecutor()
+    private val sendIo = Executors.newSingleThreadExecutor()
+    private val latestMove = AtomicReference<String?>(null)
     private val running = AtomicBoolean(false)
     private val acceptLoop = AtomicBoolean(false)
     private val frameMode = AtomicBoolean(false)
@@ -115,6 +118,7 @@ class BtLabActivity : AppCompatActivity() {
     override fun onDestroy() {
         stopAll("Activity destroy")
         io.shutdownNow()
+        sendIo.shutdownNow()
         super.onDestroy()
     }
 
@@ -135,17 +139,31 @@ class BtLabActivity : AppCompatActivity() {
     }
 
     inner class PadBridge {
+        /**
+         * Never block the WebView on the radio. If the link falls behind, stale
+         * moves are replaced by the newest one; down/up are always delivered in order.
+         */
         @JavascriptInterface
         fun sendPacket(json: String) {
-            val sock = clientSocket
-            if (sock == null || !frameMode.get()) return
-            try {
-                synchronized(writeLock) {
-                    writeFrame(sock.outputStream, json.toByteArray(Charsets.UTF_8))
+            if (clientSocket == null || !frameMode.get()) return
+            if (json.contains("\"event\":\"move\"")) {
+                if (latestMove.getAndSet(json) == null) {
+                    sendIo.execute { latestMove.getAndSet(null)?.let(::writePacket) }
                 }
-            } catch (e: Exception) {
-                runOnUiThread { appendLog("frame send failed: ${e.message}") }
+            } else {
+                sendIo.execute { writePacket(json) }
             }
+        }
+    }
+
+    private fun writePacket(json: String) {
+        val sock = clientSocket ?: return
+        try {
+            synchronized(writeLock) {
+                writeFrame(sock.outputStream, json.toByteArray(Charsets.UTF_8))
+            }
+        } catch (e: Exception) {
+            runOnUiThread { appendLog("frame send failed: ${e.message}") }
         }
     }
 
