@@ -16,7 +16,7 @@ from windows.settings.store import (
     save_config,
     set_active_profile,
 )
-from windows.transport.input_dispatch import InputSession
+from windows.transport.session import SharedInput
 from windows.transport.state_sync import build_client_state
 
 # Thread-safe hooks for GUI RELOAD → push state to the tablet.
@@ -53,10 +53,11 @@ async def _apply_profile_request(name: str) -> str:
     return wanted
 
 
-async def run_input_server():
+async def run_input_server(shared: SharedInput | None = None):
     global _loop, _push_event
 
-    session = InputSession()
+    owns_shared = shared is None
+    shared = shared or SharedInput()
 
     # Last client wins — Chrome leftover must not block the Android app.
     active = _active_ws
@@ -85,10 +86,12 @@ async def run_input_server():
                 except Exception:
                     pass
                 await asyncio.sleep(0.05)
-                session.release_all()
+                shared.release_all()
 
-        info("Galaxy Tab connected")
-        state(engine="running", tablet="connected")
+        shared.claim(SharedInput.USB)
+        shared.set_usb_connected(True)
+        info("Galaxy Tab connected (USB WebSocket)")
+        state(engine="running", tablet="connected", transport="usb")
         await _send_state(websocket)
 
         try:
@@ -132,23 +135,22 @@ async def run_input_server():
                                 }
                             )
                         )
-                    # reload_settings already requested broadcast; ensure this client gets it.
                     await _send_state(websocket)
                     continue
 
-                # Legacy / input: { event, contacts } or { type: "input", contacts }
                 if msg_type not in (None, "input") and "contacts" not in packet:
                     debug(f"Ignored message type={msg_type!r}")
                     continue
 
-                session.apply_packet(packet)
+                shared.apply(SharedInput.USB, packet)
         finally:
             async with gate:
                 if active["ws"] is websocket:
                     active["ws"] = None
-            session.release_all()
+            shared.set_usb_connected(False)
+            shared.release_owner(SharedInput.USB)
             info("Galaxy Tab disconnected; all contacts released")
-            state(engine="running", tablet="disconnected")
+            state(engine="running", tablet="disconnected", transport="none")
 
     try:
         async with serve(handler, "127.0.0.1", WS_PORT, max_size=1_000_000):
@@ -163,4 +165,5 @@ async def run_input_server():
             pass
         _push_event = None
         _loop = None
-        session.close()
+        if owns_shared:
+            shared.close()

@@ -1,4 +1,4 @@
-"""Engine process: HTTP + ADB USB watcher + WebSocket input + GUI control port."""
+"""Engine process: HTTP + ADB USB watcher + WebSocket + Bluetooth + GUI control."""
 from __future__ import annotations
 
 import asyncio
@@ -19,8 +19,10 @@ from windows.transport.adb import (
     assert_port_available,
     usb_watcher,
 )
+from windows.transport.bluetooth import run_bluetooth_worker
 from windows.transport.control import run_with_control
 from windows.transport.http import start_http_server
+from windows.transport.session import SharedInput
 from windows.transport.websocket import run_input_server
 
 
@@ -40,8 +42,10 @@ def engine_main() -> None:
         raise
 
     stop = threading.Event()
+    shared = SharedInput()
     httpd = None
     watcher = None
+    bt_thread = None
     ws_logger = logging.getLogger("websockets.server")
     quiet_expected = IgnoreExpectedUSBDisconnect()
     ws_logger.addFilter(quiet_expected)
@@ -49,18 +53,28 @@ def engine_main() -> None:
         httpd = start_http_server(STATIC_DIR)
         watcher = threading.Thread(target=usb_watcher, args=(stop,), daemon=True)
         watcher.start()
-        info("HTTP + USB watcher started")
-        state(engine="running", usb="waiting", tablet="disconnected")
-        asyncio.run(run_with_control(run_input_server()))
+        bt_thread = threading.Thread(
+            target=run_bluetooth_worker,
+            args=(shared, stop),
+            name="bt-worker",
+            daemon=True,
+        )
+        bt_thread.start()
+        info("HTTP + USB watcher + Bluetooth worker started")
+        state(engine="running", usb="waiting", tablet="disconnected", transport="none")
+        asyncio.run(run_with_control(run_input_server(shared)))
     except KeyboardInterrupt:
         info("Keyboard interrupt")
     finally:
         stop.set()
+        if bt_thread:
+            bt_thread.join(timeout=3)
         if watcher:
             watcher.join(timeout=3)
         if httpd:
             httpd.shutdown()
             httpd.server_close()
+        shared.close()
         ws_logger.removeFilter(quiet_expected)
         info("Servers stopped")
-        state(engine="stopped", usb="unknown", tablet="disconnected")
+        state(engine="stopped", usb="unknown", tablet="disconnected", transport="none")

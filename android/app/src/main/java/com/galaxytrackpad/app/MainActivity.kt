@@ -1,27 +1,36 @@
 package com.galaxytrackpad.app
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.content.pm.PackageManager
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.View
 import android.view.WindowManager
+import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.galaxytrackpad.app.bluetooth.RfcommPadServer
 import com.galaxytrackpad.app.databinding.ActivityMainBinding
 
 /**
- * WebView shell: keep screen on, retry Windows HTML when USB/reverse is down.
+ * WebView shell: USB pad when Windows HTTP is up; Bluetooth pad fallback otherwise.
  */
 class MainActivity : AppCompatActivity() {
 
@@ -29,12 +38,40 @@ class MainActivity : AppCompatActivity() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var pageHealthy = false
     private var destroyed = false
+    private var btMode = false
+    private var unhealthySince = 0L
+
+    private var btServer: RfcommPadServer? = null
+
+    private val permissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+            if (result.values.all { it }) {
+                enterBluetoothPad("permission granted")
+            } else {
+                Toast.makeText(this, "Bluetooth permission denied", Toast.LENGTH_SHORT).show()
+            }
+        }
 
     /** Keeps trying Windows HTTP until the pad page loads (survives WAITING stuck state). */
     private val watchdogRunnable = object : Runnable {
         override fun run() {
             if (destroyed) return
+            if (btMode) {
+                // Stay on BT pad; still probe USB occasionally so Auto can switch back.
+                if (SystemClock.elapsedRealtime() % 10000L < RELOAD_DELAY_MS) {
+                    probeUsbInBackground()
+                }
+                mainHandler.postDelayed(this, RELOAD_DELAY_MS)
+                return
+            }
             if (!pageHealthy) {
+                if (unhealthySince == 0L) {
+                    unhealthySince = SystemClock.elapsedRealtime()
+                } else if (SystemClock.elapsedRealtime() - unhealthySince >= BT_FALLBACK_AFTER_MS) {
+                    enterBluetoothPad("USB page unavailable")
+                    mainHandler.postDelayed(this, RELOAD_DELAY_MS)
+                    return
+                }
                 loadTrackpad()
                 mainHandler.postDelayed(this, RELOAD_DELAY_MS)
             }
@@ -53,7 +90,6 @@ class MainActivity : AppCompatActivity() {
         hideSystemBars()
         setupWebView(binding.webView)
 
-        // Always fetch fresh pad HTML — do not restore a stale WAITING page.
         loadTrackpad()
         startWatchdog()
 
@@ -71,7 +107,9 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         hideSystemBars()
         binding.webView.onResume()
-        if (!pageHealthy) {
+        if (btMode) {
+            ensureBtServer()
+        } else if (!pageHealthy) {
             startWatchdog()
             loadTrackpad()
         } else {
@@ -93,6 +131,8 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         destroyed = true
         mainHandler.removeCallbacks(watchdogRunnable)
+        btServer?.stop()
+        btServer = null
         binding.webView.apply {
             stopLoading()
             loadUrl("about:blank")
@@ -108,6 +148,7 @@ class MainActivity : AppCompatActivity() {
         webView.isVerticalScrollBarEnabled = false
         webView.isHorizontalScrollBarEnabled = false
         webView.overScrollMode = View.OVER_SCROLL_NEVER
+        webView.addJavascriptInterface(PadBridge(), "GalaxyBT")
 
         webView.settings.apply {
             javaScriptEnabled = true
@@ -127,6 +168,7 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 if (url != null && url.startsWith(TRACKPAD_ORIGIN)) {
+                    leaveBluetoothPad("USB pad ready")
                     markHealthy()
                     val ver = BuildConfig.VERSION_NAME
                     view?.evaluateJavascript(
@@ -138,6 +180,8 @@ class MainActivity : AppCompatActivity() {
                         """.trimIndent(),
                         null,
                     )
+                } else if (url != null && url.contains("touchpad_bt.html")) {
+                    // BT local pad
                 }
             }
 
@@ -147,6 +191,7 @@ class MainActivity : AppCompatActivity() {
                 error: WebResourceError?,
             ) {
                 if (request?.isForMainFrame != true) return
+                if (btMode) return
                 markUnhealthy()
                 showWaitingPage()
                 startWatchdog()
@@ -155,13 +200,99 @@ class MainActivity : AppCompatActivity() {
         webView.webChromeClient = WebChromeClient()
     }
 
+    inner class PadBridge {
+        @JavascriptInterface
+        fun sendPacket(json: String) {
+            btServer?.sendPacketJson(json)
+        }
+    }
+
+    private fun ensureBtServer() {
+        if (btServer == null) {
+            btServer = RfcommPadServer(
+                this,
+                onLog = { msg -> runOnUiThread { /* quiet in production */ } },
+                onClient = { },
+            )
+        }
+        if (btServer?.hasBluetoothPermission() != true) {
+            requestBtPerms()
+            return
+        }
+        btServer?.start()
+    }
+
+    private fun requestBtPerms() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            enterBluetoothPad("legacy BT")
+            return
+        }
+        permissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.BLUETOOTH_ADVERTISE,
+            ),
+        )
+    }
+
+    private fun enterBluetoothPad(reason: String) {
+        if (destroyed) return
+        if (btMode) {
+            ensureBtServer()
+            return
+        }
+        btMode = true
+        ensureBtServer()
+        binding.webView.loadUrl(BT_PAD_URL)
+        Toast.makeText(this, "Bluetooth pad ($reason)", Toast.LENGTH_SHORT).show()
+        startWatchdog()
+    }
+
+    private fun leaveBluetoothPad(reason: String) {
+        if (!btMode) return
+        btMode = false
+        btServer?.stop()
+        unhealthySince = 0L
+    }
+
+    private fun probeUsbInBackground() {
+        // Soft probe: if USB HTML loads, onPageFinished leaves BT mode.
+        // Don't interrupt an active BT gesture page unless USB responds.
+        // Use a tiny HEAD-like navigation only when not framed-connected — keep simple:
+        // reload USB URL; if it fails, stay on BT (onReceivedError ignored in btMode).
+        // Actually loading USB URL would leave BT pad. Use hidden check via HttpURLConnection off UI.
+        Thread {
+            try {
+                val url = java.net.URL(TRACKPAD_URL)
+                val conn = url.openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 800
+                conn.readTimeout = 800
+                conn.requestMethod = "GET"
+                val code = conn.responseCode
+                conn.disconnect()
+                if (code in 200..399) {
+                    runOnUiThread {
+                        if (destroyed || !btMode) return@runOnUiThread
+                        leaveBluetoothPad("USB healthy")
+                        loadTrackpad()
+                    }
+                }
+            } catch (_: Exception) {
+            }
+        }.start()
+    }
+
     private fun markHealthy() {
         pageHealthy = true
+        unhealthySince = 0L
         mainHandler.removeCallbacks(watchdogRunnable)
     }
 
     private fun markUnhealthy() {
         pageHealthy = false
+        if (unhealthySince == 0L) {
+            unhealthySince = SystemClock.elapsedRealtime()
+        }
     }
 
     private fun startWatchdog() {
@@ -170,13 +301,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadTrackpad() {
-        if (destroyed) return
+        if (destroyed || btMode) return
         binding.webView.loadUrl(TRACKPAD_URL)
     }
 
     private fun showWaitingPage() {
-        if (destroyed) return
-        // Avoid clobbering an in-flight successful load with another waiting navigation.
+        if (destroyed || btMode) return
         val current = binding.webView.url.orEmpty()
         if (current.startsWith(TRACKPAD_ORIGIN)) return
         if (current == WAITING_URL || current.endsWith("waiting.html")) return
@@ -194,7 +324,9 @@ class MainActivity : AppCompatActivity() {
         private const val TRACKPAD_ORIGIN = "http://127.0.0.1:8765"
         const val TRACKPAD_URL = "http://127.0.0.1:8765/touchpad_v04.html?v=091"
         private const val WAITING_URL = "file:///android_asset/waiting.html"
+        private const val BT_PAD_URL = "file:///android_asset/touchpad_bt.html"
         private const val RELOAD_DELAY_MS = 2000L
+        private const val BT_FALLBACK_AFTER_MS = 8000L
 
         private const val JS_RELEASE_ALL = """
             (function () {

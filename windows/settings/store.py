@@ -43,6 +43,10 @@ DEFAULTS: dict[str, Any] = {
         "start_with_windows": True,
         "auto_start_engine": True,
         "debug_log": False,
+        # usb | auto | bluetooth — usb keeps v0.9 behavior; auto prefers USB then BT.
+        "connection_mode": "auto",
+        "bluetooth_mac": "",
+        "bluetooth_channel": 5,
     },
 }
 
@@ -155,6 +159,20 @@ def migrate_config(raw: Any) -> dict[str, Any]:
     out["general"]["debug_log"] = bool(
         general.get("debug_log", DEFAULTS["general"]["debug_log"])
     )
+    mode = str(general.get("connection_mode", DEFAULTS["general"]["connection_mode"])).lower()
+    if mode in ("bt", "bluetooth"):
+        mode = "bluetooth"
+    elif mode == "auto":
+        mode = "auto"
+    else:
+        mode = "usb"
+    out["general"]["connection_mode"] = mode
+    out["general"]["bluetooth_mac"] = str(general.get("bluetooth_mac", "") or "")
+    try:
+        ch = int(general.get("bluetooth_channel", DEFAULTS["general"]["bluetooth_channel"]))
+        out["general"]["bluetooth_channel"] = ch if 1 <= ch <= 30 else 5
+    except (TypeError, ValueError):
+        out["general"]["bluetooth_channel"] = 5
     return out
 
 

@@ -110,6 +110,8 @@ Work on branch **`dev/bluetooth`**. Do not ship over v0.9.1 until BT-5 is accept
 
 ### BT-3 — Integrate into real apps
 
+**Status (dev/bluetooth): in progress** — shared `InputSession`, Windows `connection_mode` (auto/usb/bluetooth), engine BT worker, MainActivity USB→BT fallback after ~8s.
+
 1. Connection mode (simple): **Automatic / USB / Bluetooth** (or equivalent clear labels).  
 2. Automatic = prefer USB when healthy; else BT — **never switch mid-gesture**; wait for all contacts up.  
 3. Share state/profile sync messages over BT.  

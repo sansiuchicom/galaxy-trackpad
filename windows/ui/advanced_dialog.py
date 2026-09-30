@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QButtonGroup,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -10,6 +11,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QRadioButton,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -129,6 +131,35 @@ class AdvancedSettingsDialog(QDialog):
     def _connection_tab(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
+
+        mode_box = QGroupBox("Connection mode")
+        mode_layout = QVBoxLayout(mode_box)
+        self._mode_group = QButtonGroup(self)
+        current = str(self.config["general"].get("connection_mode", "auto")).lower()
+        options = [
+            ("auto", "Automatic — prefer USB when connected, else Bluetooth"),
+            ("usb", "USB only — classic Galaxy Trackpad cable path"),
+            ("bluetooth", "Bluetooth only — no USB pad (Tab must Listen / BT pad)"),
+        ]
+        self._mode_radios: dict[str, QRadioButton] = {}
+        for key, label in options:
+            radio = QRadioButton(label)
+            self._mode_group.addButton(radio)
+            self._mode_radios[key] = radio
+            mode_layout.addWidget(radio)
+            if key == current or (current in ("bt",) and key == "bluetooth"):
+                radio.setChecked(True)
+        if not any(r.isChecked() for r in self._mode_radios.values()):
+            self._mode_radios["auto"].setChecked(True)
+        tip = QLabel(
+            "Automatic never switches mid-gesture. Pair the Tab in Windows Bluetooth "
+            "settings once. Restart the engine after changing mode."
+        )
+        tip.setWordWrap(True)
+        tip.setObjectName("muted")
+        mode_layout.addWidget(tip)
+        layout.addWidget(mode_box)
+
         box = QGroupBox("USB / ADB")
         form = QFormLayout(box)
         form.addRow("ADB", QLabel(str(ADB)))
@@ -136,6 +167,12 @@ class AdvancedSettingsDialog(QDialog):
         form.addRow("HTTP", QLabel(f"127.0.0.1:{HTTP_PORT}"))
         form.addRow("WebSocket", QLabel(f"127.0.0.1:{WS_PORT}"))
         form.addRow("GUI control", QLabel(f"127.0.0.1:{CONTROL_PORT}"))
+        mac = self.config["general"].get("bluetooth_mac") or "(auto from paired Tab)"
+        form.addRow("Bluetooth MAC", QLabel(str(mac)))
+        form.addRow(
+            "Bluetooth channel",
+            QLabel(str(self.config["general"].get("bluetooth_channel", 5))),
+        )
         try:
             mons = list_monitors()
             mon_text = "\n".join(
@@ -147,9 +184,6 @@ class AdvancedSettingsDialog(QDialog):
         monitors.setWordWrap(True)
         form.addRow("Monitors", monitors)
         layout.addWidget(box)
-        tip = QLabel("Connection recovery and status polish continue in Phase 2C.")
-        tip.setWordWrap(True)
-        layout.addWidget(tip)
         layout.addStretch()
         return page
 
@@ -161,4 +195,10 @@ class AdvancedSettingsDialog(QDialog):
             cfg["pen"]["profiles"][key]["monitor_id"] = widgets["picker"].selected_id()
             cfg["pen"]["profiles"][key]["mapping"] = widgets["mapping"].currentData()
             cfg["pen"]["profiles"][key]["area_size"] = widgets["area"].value() / 100.0
+        mode = "auto"
+        for key, radio in self._mode_radios.items():
+            if radio.isChecked():
+                mode = key
+                break
+        cfg["general"]["connection_mode"] = mode
         return migrate_config(cfg)
