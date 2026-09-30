@@ -329,7 +329,8 @@ const RECONNECT_MAX_MS = 5000;
 
 // Same page for both transports: served by Windows over USB (WebSocket), or bundled
 // in the Android app and talking through the native Bluetooth bridge.
-const BT = !!(window.GalaxyBT && window.GalaxyBT.sendPacket);
+// The app exposes GalaxyBT in USB mode too, so only the bundled (file:) copy is Bluetooth.
+const BT = location.protocol === "file:" && !!(window.GalaxyBT && window.GalaxyBT.sendPacket);
 const TRANSPORT = BT ? "Bluetooth" : "USB";
 
 const pointers = new Map();
