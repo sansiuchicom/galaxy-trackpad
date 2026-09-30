@@ -195,7 +195,11 @@ def _handshake(sock: socket.socket, channel: int) -> bool:
         return False
 
 
-def _connect(mac: str, prefer: int | None = None) -> tuple[socket.socket, int]:
+def _connect(
+    mac: str,
+    prefer: int | None = None,
+    should_abort=None,
+) -> tuple[socket.socket, int]:
     first = prefer if prefer is not None else RFCOMM_CHANNEL
     channels: list[int] = [first, first]
     for c in range(1, 13):
@@ -206,11 +210,16 @@ def _connect(mac: str, prefer: int | None = None) -> tuple[socket.socket, int]:
     _log("Tab status must say: Listening on channel N")
     last_err = "no channel answered"
     for i, ch in enumerate(channels):
+        if should_abort and should_abort():
+            raise ConnectionError("Bluetooth dial aborted (USB active or stop)")
         retry = " retry" if i == 1 and ch == first else ""
         _log(f"  try channel {ch}{retry}...")
         sock = _try_connect(mac, ch)
         if sock is None:
             continue
+        if should_abort and should_abort():
+            _safe_close(sock)
+            raise ConnectionError("Bluetooth dial aborted (USB active or stop)")
         _log(f"  connect ok on channel {ch} - verifying GT BT Lab...")
         if _handshake(sock, ch):
             _log(f"Connected on channel {ch} (lab verified)")

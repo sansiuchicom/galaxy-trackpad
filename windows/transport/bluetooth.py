@@ -5,7 +5,7 @@ import re
 import socket
 import threading
 import time
-from typing import Any
+from typing import Any, Callable
 
 from windows.applog import debug, info, state
 from windows.settings.store import (
@@ -113,7 +113,11 @@ def _handle_packet(shared: SharedInput, sock: socket.socket, packet: Any) -> Non
     shared.apply(SharedInput.BT, packet)
 
 
-def _run_one_session(shared: SharedInput, stop: threading.Event) -> None:
+def _run_one_session(
+    shared: SharedInput,
+    stop: threading.Event,
+    should_abort: Callable[[], bool],
+) -> None:
     mac = _pick_mac()
     if not mac:
         info("Bluetooth: no paired Galaxy Tab MAC - pair in Windows Settings")
@@ -124,7 +128,9 @@ def _run_one_session(shared: SharedInput, stop: threading.Event) -> None:
     info(f"Bluetooth: dialing {mac}" + (f" prefer ch={prefer}" if prefer else ""))
     sock: socket.socket | None = None
     try:
-        sock, ch = bt1._connect(mac, prefer=prefer)
+        sock, ch = bt1._connect(mac, prefer=prefer, should_abort=should_abort)
+        if should_abort():
+            raise ConnectionError("Bluetooth dial aborted (USB active or stop)")
         _remember_mac(mac)
         io = bt1._LineBuf(sock)
         sock.settimeout(5.0)
@@ -161,36 +167,78 @@ def run_bluetooth_worker(shared: SharedInput, stop: threading.Event) -> None:
     """
     Dial Tab when connection_mode is auto/bluetooth.
 
-    - USB WebSocket up → idle (yield to USB).
-    - After USB drop (usb_seen) → dial with short backoff.
-    - Never saw USB this run → still dial, but sparsely (~30s+) so idle PC is quiet.
+    Auto: wait for USB first; while USB WebSocket is up do not dial;
+    after unplug wait briefly for Tab BT pad, then dial with backoff.
     """
     info("Bluetooth worker started")
     fail_streak = 0
+    saw_usb = False
+    # Give USB reverse + WebSocket a head start on engine start.
+    info("Bluetooth: waiting up to 8s for USB before first dial")
+    for _ in range(8):
+        if stop.is_set():
+            return
+        if shared.usb_connected:
+            break
+        stop.wait(1.0)
+
     while not stop.is_set():
         mode = _mode()
         if mode == "usb":
             fail_streak = 0
             stop.wait(3.0)
             continue
+
         if mode == "auto" and shared.usb_connected:
+            if not saw_usb:
+                info("Bluetooth: USB active - BT dial paused")
+            saw_usb = True
             fail_streak = 0
             stop.wait(1.0)
             continue
+
+        # USB just dropped - Tab needs a moment to open BT pad + RFCOMM listen.
+        if mode == "auto" and saw_usb and not shared.usb_connected:
+            saw_usb = False
+            fail_streak = 0
+            info("Bluetooth: USB dropped - waiting 4s for Tab BT pad")
+            stop.wait(4.0)
+            if stop.is_set() or shared.usb_connected:
+                continue
+
+        def should_abort() -> bool:
+            if stop.is_set():
+                return True
+            if _mode() == "auto" and shared.usb_connected:
+                return True
+            return False
+
+        if should_abort():
+            stop.wait(1.0)
+            continue
+
         try:
-            _run_one_session(shared, stop)
+            _run_one_session(shared, stop, should_abort)
             fail_streak = 0
         except (OSError, ConnectionError) as exc:
+            if "aborted" in str(exc).lower():
+                debug(f"Bluetooth dial aborted: {exc}")
+                fail_streak = 0
+                stop.wait(1.0)
+                continue
             fail_streak += 1
             debug(f"Bluetooth session ended: {exc}")
             if mode == "auto" and not shared.usb_seen:
-                # Sparse probes when Tab was never on USB this engine run.
                 delay = min(120.0, 30.0 * fail_streak)
             else:
-                # Recent USB session - reconnect sooner.
                 delay = min(60.0, 5.0 * (2 ** min(fail_streak - 1, 3)))
             info(f"Bluetooth: retry in {delay:.0f}s ({exc})")
-            stop.wait(delay)
+            # Abort wait early if USB comes back
+            end = time.monotonic() + delay
+            while time.monotonic() < end and not stop.is_set():
+                if mode == "auto" and shared.usb_connected:
+                    break
+                stop.wait(0.5)
             continue
         except Exception as exc:  # noqa: BLE001 - keep worker alive
             fail_streak += 1
