@@ -32,28 +32,18 @@ def _log(msg: str) -> None:
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
-def _line_send(sock: socket.socket, line: str) -> None:
-    sock.sendall((line.strip() + "\n").encode("utf-8"))
-    _log(f"SEND >> {line.strip()}")
-
-
-def _line_recv(sock: socket.socket) -> str:
-    buf = b""
-    while b"\n" not in buf:
-        chunk = sock.recv(256)
-        if not chunk:
-            raise ConnectionError("Socket closed while reading")
-        buf += chunk
-    return buf.split(b"\n", 1)[0].decode("utf-8", errors="replace").strip()
-
-
 def _upgrade_frame(sock: socket.socket) -> None:
-    _line_send(sock, "MODE FRAME")
-    line = _line_recv(sock)
+    io = bt1._LineBuf(sock)
+    sock.settimeout(5.0)
+    io.send("MODE FRAME")
+    line = io.recv_line()
     _log(f"RECV << {line}")
     if "FRAME" not in line.upper() or not line.upper().startswith("ACK"):
         raise ConnectionError(f"Expected ACK FRAME, got: {line!r}")
     _log("Framed mode ON (uint32 BE length + JSON)")
+    if io.buf:
+        # Should be empty; framed reads use raw socket next.
+        raise ConnectionError("Unexpected leftover bytes after MODE FRAME")
 
 
 def _run_pad_session(sock: socket.socket) -> None:
@@ -158,10 +148,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     finally:
         if sock is not None:
-            try:
-                sock.close()
-            except OSError:
-                pass
+            bt1._safe_close(sock)
     return 0
 
 

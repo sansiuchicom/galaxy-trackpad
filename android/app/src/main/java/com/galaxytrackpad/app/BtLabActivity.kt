@@ -44,6 +44,8 @@ class BtLabActivity : AppCompatActivity() {
     private var adapter: BluetoothAdapter? = null
     private var serverSocket: BluetoothServerSocket? = null
     private var clientSocket: BluetoothSocket? = null
+    private var listenChannel: Int = FIXED_CHANNEL
+    private var listenAfterPerms: Boolean = false
 
     private lateinit var status: TextView
     private lateinit var logView: TextView
@@ -59,7 +61,15 @@ class BtLabActivity : AppCompatActivity() {
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
             val ok = result.values.all { it }
             appendLog(if (ok) "Bluetooth permission granted" else "Bluetooth permission denied")
-            if (ok) showLocalAddress()
+            if (ok) {
+                showLocalAddress()
+                if (listenAfterPerms) {
+                    listenAfterPerms = false
+                    startListening()
+                }
+            } else {
+                listenAfterPerms = false
+            }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -172,6 +182,7 @@ class BtLabActivity : AppCompatActivity() {
             }
         }
         if (need.isNotEmpty()) {
+            listenAfterPerms = true
             permissionLauncher.launch(need.toTypedArray())
             return
         }
@@ -233,6 +244,13 @@ class BtLabActivity : AppCompatActivity() {
                     clientSocket = sock
                     running.set(true)
                     frameMode.set(false)
+                    // Identify ourselves before HELLO — mute RFCOMM services won't do this.
+                    try {
+                        writeRaw(sock.outputStream, "READY GTBT ch=$listenChannel\n")
+                        runOnUiThread { appendLog("SEND >> READY GTBT ch=$listenChannel") }
+                    } catch (e: Exception) {
+                        runOnUiThread { appendLog("READY send failed: ${e.message}") }
+                    }
                     handleClient(sock)
                     running.set(false)
                     frameMode.set(false)
@@ -253,22 +271,51 @@ class BtLabActivity : AppCompatActivity() {
 
     @SuppressLint("MissingPermission")
     private fun openServerSocket(bt: BluetoothAdapter): BluetoothServerSocket {
+        // Prefer fixed channel 5 (Windows dials this first). Fall back to UUID record.
         try {
             val method = bt.javaClass.getMethod(
                 "listenUsingInsecureRfcommOnChannel",
                 Int::class.javaPrimitiveType,
             )
             val sock = method.invoke(bt, FIXED_CHANNEL) as BluetoothServerSocket
+            listenChannel = FIXED_CHANNEL
             runOnUiThread {
-                appendLog("Listening on FIXED channel $FIXED_CHANNEL (Windows dials this)")
+                appendLog("Listening on FIXED channel $FIXED_CHANNEL")
+                setStatus("Listening on channel $FIXED_CHANNEL — start PC client")
             }
             return sock
         } catch (e: Exception) {
             runOnUiThread {
                 appendLog("Fixed channel $FIXED_CHANNEL failed: ${e.message}")
-                appendLog("Fallback: UUID service record (Windows will probe channels)")
             }
-            return bt.listenUsingInsecureRfcommWithServiceRecord(SERVICE_NAME, SERVICE_UUID)
+        }
+        val sock = bt.listenUsingInsecureRfcommWithServiceRecord(SERVICE_NAME, SERVICE_UUID)
+        listenChannel = peekServerChannel(sock) ?: -1
+        runOnUiThread {
+            appendLog("UUID service record open (channel=$listenChannel)")
+            setStatus(
+                if (listenChannel > 0) {
+                    "Listening on channel $listenChannel — start PC client"
+                } else {
+                    "Listening (UUID) — start PC client"
+                },
+            )
+        }
+        return sock
+    }
+
+    private fun peekServerChannel(server: BluetoothServerSocket): Int? {
+        return try {
+            val field = server.javaClass.getDeclaredField("mChannel")
+            field.isAccessible = true
+            field.getInt(server)
+        } catch (_: Exception) {
+            try {
+                val method = server.javaClass.getMethod("getChannel")
+                method.invoke(server) as Int
+            } catch (_: Exception) {
+                null
+            }
         }
     }
 

@@ -106,86 +106,121 @@ def _pick_mac_interactive(devices: list[tuple[str, str]]) -> str | None:
         return None
 
 
-def _try_connect(mac: str, channel: int, timeout: float = 3.0) -> socket.socket | None:
+def _safe_close(sock: socket.socket | None) -> None:
+    if sock is None:
+        return
+    try:
+        sock.settimeout(0.25)
+    except OSError:
+        pass
+    try:
+        sock.close()
+    except Exception:
+        pass
+
+
+class _LineBuf:
+    """RFCOMM may coalesce READY+ACK into one recv — keep leftovers."""
+
+    def __init__(self, sock: socket.socket) -> None:
+        self.sock = sock
+        self.buf = b""
+
+    def send(self, line: str) -> None:
+        self.sock.sendall((line.strip() + "\n").encode("utf-8"))
+        _log(f"SEND >> {line.strip()}")
+
+    def recv_line(self) -> str:
+        while b"\n" not in self.buf:
+            chunk = self.sock.recv(256)
+            if not chunk:
+                raise ConnectionError("Socket closed while reading")
+            self.buf += chunk
+        line, self.buf = self.buf.split(b"\n", 1)
+        return line.decode("utf-8", errors="replace").strip()
+
+
+def _try_connect(mac: str, channel: int, timeout: float = 1.5) -> socket.socket | None:
     sock = socket.socket(AF_BTH, socket.SOCK_STREAM, BTPROTO_RFCOMM)
     sock.settimeout(timeout)
     try:
         sock.connect((mac, channel))
         return sock
     except OSError:
-        try:
-            sock.close()
-        except OSError:
-            pass
+        _safe_close(sock)
         return None
-
-
-def _recv_line(sock: socket.socket) -> str:
-    buf = b""
-    while b"\n" not in buf:
-        chunk = sock.recv(256)
-        if not chunk:
-            raise ConnectionError("Socket closed while reading")
-        buf += chunk
-    return buf.split(b"\n", 1)[0].decode("utf-8", errors="replace").strip()
-
-
-def _send(sock: socket.socket, line: str) -> None:
-    sock.sendall((line.strip() + "\n").encode("utf-8"))
-    _log(f"SEND >> {line.strip()}")
 
 
 def _handshake(sock: socket.socket, channel: int) -> bool:
     """
     Confirm this RFCOMM channel is our lab (not some other Tab service).
-    Other services often accept then close -> 'Socket closed while reading'.
+    Tab sends READY on accept; we then HELLO/ACK and PING/PONG.
     """
-    sock.settimeout(8.0)
+    sock.settimeout(2.5)
+    io = _LineBuf(sock)
     try:
-        _send(sock, f"{MSG_HELLO} from Windows")
-        line = _recv_line(sock)
-        _log(f"RECV << {line}")
-        if not line.upper().startswith(MSG_ACK):
-            _log(f"  channel {channel}: not our lab (wanted ACK)")
+        io.send(f"{MSG_HELLO} from Windows")
+        got_ack = False
+        got_ready = False
+        deadline = time.monotonic() + 2.5
+        while time.monotonic() < deadline and not got_ack:
+            remaining = max(0.15, deadline - time.monotonic())
+            sock.settimeout(remaining)
+            line = io.recv_line()
+            _log(f"RECV << {line}")
+            upper = line.upper()
+            if upper.startswith("READY") and "GTBT" in upper:
+                got_ready = True
+                continue
+            if upper.startswith(MSG_ACK):
+                got_ack = True
+                break
+            _log(f"  channel {channel}: unexpected line, not lab")
             return False
-        _send(sock, MSG_PING)
-        line = _recv_line(sock)
+        if not got_ack:
+            _log(f"  channel {channel}: no ACK (is GT BT Lab on Listen?)")
+            return False
+        if not got_ready:
+            _log("  (no READY banner — ACK still accepted)")
+        io.send(MSG_PING)
+        sock.settimeout(2.5)
+        line = io.recv_line()
         _log(f"RECV << {line}")
         if not line.upper().startswith(MSG_PONG):
             _log(f"  channel {channel}: ACK ok but no PONG")
             return False
         return True
-    except (OSError, ConnectionError) as exc:
+    except (OSError, ConnectionError, TimeoutError) as exc:
         _log(f"  channel {channel}: handshake failed ({exc})")
         return False
 
 
-def _connect(mac: str) -> tuple[socket.socket, int]:
-    # Prefer fixed lab channel, then probe the rest — verify with HELLO/ACK.
-    channels = [RFCOMM_CHANNEL] + [c for c in range(1, 31) if c != RFCOMM_CHANNEL]
-    _log(f"Connecting to {mac} (RFCOMM channels + HELLO handshake)...")
+def _connect(mac: str, prefer: int | None = None) -> tuple[socket.socket, int]:
+    first = prefer if prefer is not None else RFCOMM_CHANNEL
+    channels = [first]
+    for c in list(range(1, 16)) + list(range(16, 31)):
+        if c not in channels:
+            channels.append(c)
+    _log(f"Connecting to {mac} (RFCOMM + READY/HELLO check)...")
+    _log("Tab must show Listening (GT BT Lab icon, not USB app)")
     last_err = "no channel answered"
     for ch in channels:
         _log(f"  try channel {ch}...")
         sock = _try_connect(mac, ch)
         if sock is None:
             continue
-        _log(f"  TCP-like connect ok on channel {ch} — verifying lab handshake...")
+        _log(f"  connect ok on channel {ch} — verifying GT BT Lab...")
         if _handshake(sock, ch):
             _log(f"Connected on channel {ch} (lab verified)")
             return sock, ch
-        try:
-            sock.close()
-        except OSError:
-            pass
+        _safe_close(sock)
         last_err = f"channel {ch} accepted but was not GT BT Lab"
     raise ConnectionError(
         f"Could not reach GT BT Lab on {mac}.\n"
         f"  Last: {last_err}\n"
-        "  - Reinstall/open latest GT BT Lab -> Listen\n"
-        "  - Log should say 'Listening on FIXED channel 5'\n"
-        "  - Tab MAC from paired list (not XX:XX / 02:00:...)\n"
-        "  - Tab paired under Windows Bluetooth settings"
+        "  1) Open GT BT Lab (not the USB Galaxy Trackpad icon)\n"
+        "  2) Tap Listen — status must say Listening on channel N\n"
+        "  3) Then re-run this Windows client"
     )
 
 
@@ -267,10 +302,7 @@ def main(argv: list[str] | None = None) -> int:
         _log(f"Session failed: {exc}")
         return 1
     finally:
-        try:
-            sock.close()
-        except OSError:
-            pass
+        _safe_close(sock)
     return 0
 
 
