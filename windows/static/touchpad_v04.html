@@ -1,421 +1,573 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
 <meta charset="UTF-8">
-
-<meta
-    name="viewport"
-    content="
-        width=device-width,
-        initial-scale=1.0,
-        maximum-scale=1.0,
-        user-scalable=no
-    "
->
-
-<title>Galaxy Trackpad v0.4</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Galaxy Trackpad</title>
 <style>
-
-* {
-    box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 html, body {
     margin: 0;
     width: 100%;
     height: 100%;
     overflow: hidden;
-
-    background: #15191f;
-    color: white;
-
-    font-family: Arial, sans-serif;
-
+    background: #0e1116;
+    color: #e8edf5;
+    font-family: "Segoe UI", "Helvetica Neue", sans-serif;
     touch-action: none;
     user-select: none;
+    -webkit-user-select: none;
     overscroll-behavior: none;
 }
 
-#pad {
+#app {
+    display: flex;
     width: 100vw;
     height: 100dvh;
+}
 
-    background: #15191f;
+/* ----- Left menu ----- */
+#menu {
+    width: 180px;
+    flex: 0 0 180px;
+    background: #12161d;
+    border-right: 1px solid #222833;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 16px 16px;
+    gap: 18px;
+    z-index: 5;
+    /* Menu never becomes touchpad input */
+    touch-action: manipulation;
+    pointer-events: auto;
+}
 
-    touch-action: none;
+#app.fullscreen #menu { display: none; }
+
+.brand {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #9aa7b8;
+}
+
+.block-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #6b7788;
+    margin-bottom: 8px;
+}
+
+#connTitle {
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+#connSub {
+    margin-top: 4px;
+    font-size: 13px;
+    color: #8b97a8;
+}
+
+.conn-ready #connTitle { color: #5dde9f; }
+.conn-wait #connTitle { color: #9aa7b8; }
+.conn-recon #connTitle { color: #f0a35a; }
+.conn-error #connTitle { color: #f07178; }
+
+.profile-list { display: flex; flex-direction: column; gap: 8px; }
+
+.profile-btn, .menu-btn {
+    width: 100%;
+    text-align: left;
+    border: 1px solid #2a3340;
+    background: #171b22;
+    color: #d7dee8;
+    border-radius: 8px;
+    padding: 12px 12px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.25;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.profile-btn.active {
+    border-color: #3d8bfd;
+    background: #1a2433;
+    color: #ffffff;
+}
+
+.profile-btn:active, .menu-btn:active {
+    background: #1f2630;
+}
+
+.menu-spacer { flex: 1; }
+
+.menu-btn.ghost {
+    background: transparent;
+    color: #aab4c3;
+}
+
+/* ----- Pad ----- */
+#stage {
+    flex: 1;
     position: relative;
+    min-width: 0;
+    background: #171b22;
 }
 
-#status {
+#pad {
     position: absolute;
-    top: 25px;
-    left: 25px;
+    inset: 0;
+    touch-action: none;
+    /* Subtle graph-paper grid */
+    background-color: #171b22;
+    background-image:
+        linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px);
+    background-size: 48px 48px;
+}
 
-    font-size: 19px;
-    line-height: 1.6;
+#penOverlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    display: none;
+}
 
+#penOverlay.on { display: block; }
+
+#penFrame {
+    position: absolute;
+    border: 1.5px solid rgba(180, 210, 255, 0.45);
+    border-radius: 2px;
+    background: transparent;
+}
+
+#penLabel {
+    position: absolute;
+    top: 8px;
+    left: 10px;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: rgba(200, 220, 255, 0.7);
+    text-transform: uppercase;
+}
+
+/* Fullscreen chrome (not part of pad hit-testing for Windows) */
+#fsChrome {
+    display: none;
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    right: 14px;
+    z-index: 6;
     pointer-events: none;
 }
 
-#info {
-    position: absolute;
-    bottom: 25px;
-    left: 25px;
+#app.fullscreen #fsChrome { display: flex; align-items: flex-start; gap: 12px; }
 
-    font-size: 15px;
-    color: #aaa;
-
+#fsStatus {
     pointer-events: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(18, 22, 29, 0.82);
+    font-size: 13px;
+    font-weight: 700;
+    color: #d7dee8;
 }
 
+#fsStatus .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #6b7788;
+    flex: 0 0 auto;
+}
+
+#fsStatus.conn-ready .dot { background: #5dde9f; box-shadow: 0 0 0 3px rgba(93, 222, 159, 0.22); }
+#fsStatus.conn-wait .dot { background: #9aa7b8; }
+#fsStatus.conn-recon .dot { background: #f0a35a; }
+#fsStatus.conn-error .dot { background: #f07178; }
+
+#fsBack {
+    margin-left: auto;
+    pointer-events: auto;
+    touch-action: manipulation;
+    border: 1px solid #2a3340;
+    background: rgba(18, 22, 29, 0.9);
+    color: #e8edf5;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    min-width: 96px;
+    min-height: 44px;
+}
+
+#settingsSheet {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    background: rgba(8, 10, 14, 0.72);
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+}
+
+#settingsSheet.open { display: flex; }
+
+#settingsCard {
+    width: min(420px, 86vw);
+    background: #151a22;
+    border: 1px solid #2a3340;
+    border-radius: 12px;
+    padding: 22px 20px;
+    color: #d7dee8;
+    touch-action: manipulation;
+}
+
+#settingsCard h2 {
+    margin: 0 0 12px;
+    font-size: 18px;
+}
+
+#settingsCard p {
+    margin: 0 0 10px;
+    font-size: 14px;
+    line-height: 1.45;
+    color: #9aa7b8;
+}
+
+#settingsCard .row {
+    margin: 14px 0;
+    font-size: 14px;
+}
+
+#settingsClose {
+    margin-top: 8px;
+    width: 100%;
+}
 </style>
-
 </head>
-
 <body>
+<div id="app">
+    <aside id="menu">
+        <div class="brand">GALAXY TRACKPAD</div>
 
-<div id="pad">
+        <div id="connBlock" class="conn-wait">
+            <div class="block-label">CONNECTION</div>
+            <div id="connTitle">WAITING</div>
+            <div id="connSub">Connect USB</div>
+        </div>
 
-    <div id="status">
-        Galaxy Trackpad v0.4
-        <br><br>
-        Connecting...
+        <div>
+            <div class="block-label">PEN PROFILE</div>
+            <div class="profile-list">
+                <button type="button" class="profile-btn active" data-profile="standard" id="btnEveryday">Everyday</button>
+                <button type="button" class="profile-btn" data-profile="drawing" id="btnDrawing">Drawing &amp; Signature</button>
+            </div>
+        </div>
+
+        <div class="menu-spacer"></div>
+
+        <button type="button" class="menu-btn ghost" id="btnSettings">Settings</button>
+        <button type="button" class="menu-btn" id="btnFullscreen">Fullscreen</button>
+    </aside>
+
+    <div id="stage">
+        <div id="pad">
+            <div id="penOverlay">
+                <div id="penFrame">
+                    <div id="penLabel">S Pen Area</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="fsChrome">
+            <div id="fsStatus" class="conn-wait"><span class="dot" aria-hidden="true"></span><span class="fsText">Connect USB</span></div>
+            <button type="button" id="fsBack">Menu</button>
+        </div>
     </div>
-
-    <div id="info">
-        Touchpad + S Pen
-    </div>
-
 </div>
 
+<div id="settingsSheet">
+    <div id="settingsCard">
+        <h2>Settings</h2>
+        <div class="row" id="settingsConn">Connection: —</div>
+        <div class="row">App page: WebView / HTML shell</div>
+        <div class="row">Cursor, scroll, monitors: Windows app</div>
+        <p>If stuck on Waiting: start Windows Galaxy Trackpad, allow USB debugging, keep cable connected. Close Chrome on the tablet so it does not hold the WebSocket.</p>
+        <button type="button" class="menu-btn" id="settingsClose">Close</button>
+    </div>
+</div>
 
 <script>
-
-// ==========================================
-// 1. Basic configuration
-// ==========================================
-
+const app = document.getElementById("app");
 const pad = document.getElementById("pad");
-const status = document.getElementById("status");
-
-const pointers = new Map();
+const menu = document.getElementById("menu");
+const connBlock = document.getElementById("connBlock");
+const connTitle = document.getElementById("connTitle");
+const connSub = document.getElementById("connSub");
+const fsStatus = document.getElementById("fsStatus");
+const penOverlay = document.getElementById("penOverlay");
+const penFrame = document.getElementById("penFrame");
+const btnEveryday = document.getElementById("btnEveryday");
+const btnDrawing = document.getElementById("btnDrawing");
 
 const WS_URL = "ws://127.0.0.1:8766";
-
 const RECONNECT_DELAY = 1500;
 
+const pointers = new Map();
 let socket = null;
-
 let connected = false;
-
 let reconnectTimer = null;
+let activeProfile = "standard";
+let activeRect = { left: 0, top: 0, right: 1, bottom: 1 };
+let profilePending = null;
+let lastUiState = "wait"; // wait | ready | recon | error
 
-
-// ==========================================
-// 2. Update connection status
-// ==========================================
-
-function updateStatus(message) {
-
-    status.innerHTML =
-        "Galaxy Trackpad v0.4" +
-        "<br><br>" +
-        message;
-
+function setConnectionUi(kind, title, sub) {
+    lastUiState = kind;
+    connBlock.className = "conn-" + kind;
+    connTitle.textContent = title;
+    connSub.textContent = sub;
+    fsStatus.className = "conn-" + kind;
+    // Fullscreen: colored dot + short transport label (no CONNECTED word).
+    const fsText = fsStatus.querySelector(".fsText");
+    if (fsText) {
+        if (kind === "ready") fsText.textContent = sub || "USB";
+        else if (kind === "recon") fsText.textContent = sub || "Reconnecting…";
+        else if (kind === "error") fsText.textContent = sub || "Error";
+        else fsText.textContent = sub || "Connect USB";
+    }
+    const sc = document.getElementById("settingsConn");
+    if (sc) sc.textContent = "Connection: " + title + (sub ? " / " + sub : "");
 }
 
-
-// ==========================================
-// 3. Reconnect scheduler
-// ==========================================
+function releaseAllContacts() {
+    if (pointers.size === 0) return;
+    pointers.clear();
+    send("up");
+}
 
 function scheduleReconnect() {
-
-    // Prevent multiple reconnect timers.
-    if (reconnectTimer !== null) {
-        return;
-    }
-
+    if (reconnectTimer !== null) return;
     reconnectTimer = setTimeout(() => {
-
         reconnectTimer = null;
-
         connect();
-
     }, RECONNECT_DELAY);
-
 }
-
-
-// ==========================================
-// 4. WebSocket connection
-// ==========================================
 
 function connect() {
-
-    // Avoid creating duplicate connections.
     if (socket !== null) {
-
-        if (
-            socket.readyState === WebSocket.OPEN ||
-            socket.readyState === WebSocket.CONNECTING
-        ) {
+        if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
             return;
         }
-
     }
 
-    updateStatus("Connecting...");
-
+    setConnectionUi("wait", "WAITING", "Connect USB");
     socket = new WebSocket(WS_URL);
 
-
-    // --------------------------------------
-    // Connected
-    // --------------------------------------
-
     socket.onopen = () => {
-
         connected = true;
-
-        // Start every connection with
-        // a fresh contact state.
         pointers.clear();
-
-        updateStatus(
-            "USB Connected" +
-            "<br>Active contacts: 0"
-        );
-
-        console.log(
-            "Galaxy Trackpad connected"
-        );
-
+        // Not CONNECTED until we have state (or at least an open socket briefly).
+        setConnectionUi("recon", "SYNCING", "Waiting for Windows…");
+        try {
+            socket.send(JSON.stringify({ type: "hello" }));
+        } catch (e) {}
     };
 
+    socket.onmessage = (ev) => {
+        let msg;
+        try { msg = JSON.parse(ev.data); } catch (e) { return; }
+        if (!msg || typeof msg !== "object") return;
 
-    // --------------------------------------
-    // Disconnected
-    // --------------------------------------
+        if (msg.type === "state") {
+            applyServerState(msg);
+            setConnectionUi("ready", "CONNECTED", "USB");
+            return;
+        }
+        if (msg.type === "ack" && msg.action === "set_profile") {
+            if (msg.ok) {
+                profilePending = null;
+            } else {
+                profilePending = null;
+                paintProfileButtons(activeProfile);
+            }
+        }
+    };
 
     socket.onclose = () => {
-
         connected = false;
-
-        // Clear contacts from the
-        // previous connection.
         pointers.clear();
-
-        updateStatus(
-            "Disconnected" +
-            "<br>Reconnecting..."
-        );
-
-        console.log(
-            "Galaxy Trackpad disconnected"
-        );
-
+        setConnectionUi("recon", "DISCONNECTED", "Reconnecting…");
         scheduleReconnect();
-
     };
-
-
-    // --------------------------------------
-    // Connection error
-    // --------------------------------------
 
     socket.onerror = () => {
-
-        console.log(
-            "WebSocket connection error"
-        );
-
-        // Closing the socket ensures
-        // the reconnect logic runs.
-        socket.close();
-
+        try { socket.close(); } catch (e) {}
     };
-
 }
 
+function applyServerState(msg) {
+    const pen = msg.pen || {};
+    const name = pen.active_profile === "drawing" ? "drawing" : "standard";
+    activeProfile = name;
+    if (profilePending && profilePending !== name) {
+        // Still waiting for our request to land; keep pending highlight lightly.
+    } else {
+        profilePending = null;
+        paintProfileButtons(name);
+    }
+    if (pen.active_rect) {
+        activeRect = {
+            left: Number(pen.active_rect.left) || 0,
+            top: Number(pen.active_rect.top) || 0,
+            right: Number(pen.active_rect.right) || 1,
+            bottom: Number(pen.active_rect.bottom) || 1
+        };
+    }
+    updatePenOverlay();
+}
 
-// Start the first connection.
-connect();
+function paintProfileButtons(name) {
+    btnEveryday.classList.toggle("active", name === "standard");
+    btnDrawing.classList.toggle("active", name === "drawing");
+}
 
+function updatePenOverlay() {
+    // Border for both Everyday and Drawing — Windows rect is authoritative.
+    penOverlay.classList.add("on");
+    const l = activeRect.left * 100;
+    const t = activeRect.top * 100;
+    const w = Math.max(0, (activeRect.right - activeRect.left) * 100);
+    const h = Math.max(0, (activeRect.bottom - activeRect.top) * 100);
+    penFrame.style.left = l + "%";
+    penFrame.style.top = t + "%";
+    penFrame.style.width = w + "%";
+    penFrame.style.height = h + "%";
+    const label = document.getElementById("penLabel");
+    if (label) {
+        label.textContent = "S Pen Area";
+        label.style.opacity = activeProfile === "drawing" ? "0.7" : "0.4";
+    }
+}
 
-// ==========================================
-// 5. Read touch and pen information
-// ==========================================
+function requestProfile(name) {
+    if (!connected || !socket || socket.readyState !== WebSocket.OPEN) return;
+    profilePending = name;
+    paintProfileButtons(name);
+    socket.send(JSON.stringify({ type: "set_profile", profile: name }));
+}
 
 function getContact(event) {
-
     const rect = pad.getBoundingClientRect();
-
-    const x =
-        (event.clientX - rect.left) / rect.width;
-
-    const y =
-        (event.clientY - rect.top) / rect.height;
-
+    const x = (event.clientX - rect.left) / rect.width;
+    const y = (event.clientY - rect.top) / rect.height;
     return {
-
         id: event.pointerId,
-
         tool: event.pointerType,
-
-        x: Math.max(
-            0,
-            Math.min(1, x)
-        ),
-
-        y: Math.max(
-            0,
-            Math.min(1, y)
-        ),
-
+        x: Math.max(0, Math.min(1, x)),
+        y: Math.max(0, Math.min(1, y)),
         pressure: event.pressure,
-
         tiltX: event.tiltX,
-
         tiltY: event.tiltY
-
     };
-
 }
-
-
-// ==========================================
-// 6. Send touch data
-// ==========================================
 
 function send(eventName) {
-
-    if (
-        !connected ||
-        socket === null ||
-        socket.readyState !== WebSocket.OPEN
-    ) {
-        return;
-    }
-
-    const contacts = Array.from(
-        pointers.values()
-    );
-
+    if (!connected || socket === null || socket.readyState !== WebSocket.OPEN) return;
     socket.send(JSON.stringify({
-
         event: eventName,
-
         timestamp: performance.now(),
-
-        contacts: contacts
-
+        contacts: Array.from(pointers.values())
     }));
-
-    updateStatus(
-        "USB Connected" +
-        "<br>Active contacts: " +
-        contacts.length
-    );
-
 }
 
+function setFullscreen(on) {
+    releaseAllContacts();
+    app.classList.toggle("fullscreen", on);
+    // Layout change: drop contacts already done; pad rect updates on next pointer.
+}
 
-// ==========================================
-// 7. Pointer DOWN
-// ==========================================
+btnEveryday.addEventListener("click", (e) => {
+    e.preventDefault();
+    requestProfile("standard");
+});
+btnDrawing.addEventListener("click", (e) => {
+    e.preventDefault();
+    requestProfile("drawing");
+});
 
-pad.addEventListener(
-    "pointerdown",
-    event => {
+document.getElementById("btnFullscreen").addEventListener("click", (e) => {
+    e.preventDefault();
+    setFullscreen(true);
+});
+document.getElementById("fsBack").addEventListener("click", (e) => {
+    e.preventDefault();
+    setFullscreen(false);
+});
 
-        event.preventDefault();
+const settingsSheet = document.getElementById("settingsSheet");
+document.getElementById("btnSettings").addEventListener("click", (e) => {
+    e.preventDefault();
+    settingsSheet.classList.add("open");
+});
+document.getElementById("settingsClose").addEventListener("click", (e) => {
+    e.preventDefault();
+    settingsSheet.classList.remove("open");
+});
+settingsSheet.addEventListener("click", (e) => {
+    if (e.target === settingsSheet) settingsSheet.classList.remove("open");
+});
 
-        if (!connected) {
-            return;
-        }
+// Stop menu / chrome pointers from ever entering the pad map.
+function isPadTarget(event) {
+    return event.target === pad || pad.contains(event.target);
+}
 
-        pad.setPointerCapture(
-            event.pointerId
-        );
+pad.addEventListener("pointerdown", (event) => {
+    if (!isPadTarget(event)) return;
+    event.preventDefault();
+    if (!connected) return;
+    pad.setPointerCapture(event.pointerId);
+    pointers.set(event.pointerId, getContact(event));
+    send("down");
+});
 
-        pointers.set(
-            event.pointerId,
-            getContact(event)
-        );
-
-        send("down");
-
-    }
-);
-
-
-// ==========================================
-// 8. Pointer MOVE
-// ==========================================
-
-pad.addEventListener(
-    "pointermove",
-    event => {
-
-        if (!pointers.has(event.pointerId)) {
-            return;
-        }
-
-        event.preventDefault();
-
-        pointers.set(
-            event.pointerId,
-            getContact(event)
-        );
-
-        send("move");
-
-    }
-);
-
-
-// ==========================================
-// 9. Pointer UP / CANCEL
-// ==========================================
+pad.addEventListener("pointermove", (event) => {
+    if (!pointers.has(event.pointerId)) return;
+    event.preventDefault();
+    pointers.set(event.pointerId, getContact(event));
+    send("move");
+});
 
 function release(event) {
-
+    if (!pointers.has(event.pointerId)) return;
     event.preventDefault();
-
-    if (!pointers.has(event.pointerId)) {
-        return;
-    }
-
-    pointers.delete(
-        event.pointerId
-    );
-
+    pointers.delete(event.pointerId);
     send("up");
-
 }
 
-pad.addEventListener(
-    "pointerup",
-    release
-);
+pad.addEventListener("pointerup", release);
+pad.addEventListener("pointercancel", release);
+pad.addEventListener("contextmenu", (e) => e.preventDefault());
+menu.addEventListener("contextmenu", (e) => e.preventDefault());
 
-pad.addEventListener(
-    "pointercancel",
-    release
-);
+window.addEventListener("resize", () => {
+    updatePenOverlay();
+});
 
-
-// Disable the browser context menu.
-pad.addEventListener(
-    "contextmenu",
-    event => event.preventDefault()
-);
-
+connect();
 </script>
-
 </body>
 </html>

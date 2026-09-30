@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.GalaxyTrackpad" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/trackpad_bg</item>
+        <item name="android:statusBarColor">@color/trackpad_bg</item>
+        <item name="android:navigationBarColor">@color/trackpad_bg</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+</resources>

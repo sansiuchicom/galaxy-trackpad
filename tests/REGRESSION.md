@@ -76,3 +76,33 @@ python -m unittest tests.test_pen_mapping -v
 - [ ] USB unplug releases contacts; reconnect restores reverse ports
 - [ ] Missing ADB / busy port surfaces as `[ERROR]` without hanging the GUI
 - [ ] STOP / tray Quit still cleanly release inputs
+
+## Phase 3A — Android WebView shell
+
+See also [android/README.md](../android/README.md).
+
+**Setup:** Windows GUI + engine + USB reverse as usual. Install debug APK from `android/`
+(Android Studio → Open `C:\touchpad\android` → Run). Do **not** open Chrome for the pass.
+
+- [ ] App launches landscape; loads pad without typing a URL
+- [ ] Status: Connecting → USB Connected
+- [ ] All Phase 1 touchpad gesture checks above via the **app**
+- [ ] S Pen auto + pressure/tilt via the **app**
+- [ ] USB unplug → reconnect without force-stopping the app
+- [ ] Windows restart → tablet WS recovers
+- [ ] Home / power briefly → no stuck Windows contacts
+- [ ] Screen stays on while app is foreground
+- [ ] Chrome path still works (regression: HTTP page unchanged)
+
+**Out of scope for 3A:** side menu, profile sync UI, Drawing overlay, bundled HTML assets.
+
+## Phase 3B — Menu + profile sync
+
+Requires **Windows engine restart** (state protocol + last-client-wins WS).
+
+- [ ] Side menu + grid pad; menu clicks do not move cursor
+- [ ] CONNECTED after Windows `state` message
+- [ ] Profile sync both directions (tablet ↔ Windows Everyday/Drawing)
+- [ ] Drawing shows S Pen Area; fingers still full pad
+- [ ] Fullscreen / Menu chrome excluded from input
+- [ ] Settings sheet is informational only (no duplicate sensitivity controls)

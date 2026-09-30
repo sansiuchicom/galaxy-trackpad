@@ -20,6 +20,14 @@ venv/
 # Local runtime settings (keep example in repo)
 **/galaxytrackpad_settings.json
 
+# Android / Gradle
+android/.gradle/
+android/**/build/
+android/local.properties
+android/*.iml
+*.apk
+*.aab
+
 # IDE / OS
 .idea/
 .vscode/

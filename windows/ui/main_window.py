@@ -30,7 +30,7 @@ from PySide6.QtWidgets import (
 from windows.autostart import is_enabled as autostart_is_enabled
 from windows.autostart import set_enabled as autostart_set_enabled
 from windows.autostart import sync_from_config as autostart_sync
-from windows.paths import CONTROL_PORT, REPO_ROOT
+from windows.paths import CONTROL_PORT, REPO_ROOT, SETTINGS_PATH
 from windows.settings.store import (
     PROFILE_DRAWING,
     PROFILE_STANDARD,
@@ -88,6 +88,16 @@ class MainWindow(QMainWindow):
         self._reload_timer = QTimer(self)
         self._reload_timer.setSingleShot(True)
         self._reload_timer.timeout.connect(self.apply_changes)
+
+        # Pick up profile changes saved by the Android client.
+        try:
+            self._settings_mtime = SETTINGS_PATH.stat().st_mtime
+        except OSError:
+            self._settings_mtime = 0.0
+        self._settings_watch = QTimer(self)
+        self._settings_watch.setInterval(1000)
+        self._settings_watch.timeout.connect(self.poll_settings_file)
+        self._settings_watch.start()
 
         if QSystemTrayIcon.isSystemTrayAvailable():
             self.make_tray()
@@ -423,12 +433,33 @@ class MainWindow(QMainWindow):
         try:
             self.config = migrate_config(self.config)
             save_config(self.config)
+            try:
+                self._settings_mtime = SETTINGS_PATH.stat().st_mtime
+            except OSError:
+                pass
         except OSError as exc:
             self.log(f"Settings save error: {exc}")
             return
         if (self._reload_timer is not None and self.control_ready
                 and self.process.state() != QProcess.ProcessState.NotRunning):
             self._reload_timer.start(250)
+
+    def poll_settings_file(self):
+        """Sync Windows radios when Android (or another writer) updates the JSON."""
+        try:
+            mtime = SETTINGS_PATH.stat().st_mtime
+        except OSError:
+            return
+        if mtime <= getattr(self, "_settings_mtime", 0):
+            return
+        self._settings_mtime = mtime
+        try:
+            self.config = load_config()
+        except OSError:
+            return
+        self._pen_ui_ready = False
+        self.sync_pen_controls_from_config()
+        self._pen_ui_ready = True
 
     def apply_changes(self):
         if not self.control_ready or self.stop_pending:

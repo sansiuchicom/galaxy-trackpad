@@ -1,0 +1,4 @@
+## This file is machine-local. Copy to local.properties and set your SDK path.
+## Android Studio usually writes local.properties automatically on first sync.
+#
+# sdk.dir=C\:\\Users\\YOU\\AppData\\Local\\Android\\Sdk

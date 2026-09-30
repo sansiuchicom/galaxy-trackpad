@@ -235,6 +235,11 @@ def reload_settings() -> dict[str, Any]:
         notify_settings_reloaded()
     except Exception as exc:  # pragma: no cover - engine-only path
         info(f"Pen reload note: {exc}")
+    try:
+        from windows.transport.websocket import request_state_broadcast
+        request_state_broadcast()
+    except Exception:
+        pass
     return config
 
 

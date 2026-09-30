@@ -1,0 +1,17 @@
+# Built artifacts
+/.gradle/
+/build/
+/app/build/
+/local.properties
+*.iml
+.idea/
+.cxx/
+captures/
+*.apk
+*.ap_
+*.aab
+*.dex
+
+# Keystore (never commit)
+*.jks
+*.keystore

@@ -2,8 +2,9 @@
 
 Turn a Samsung Galaxy Tab (e.g. **Tab S7 / SM-T870**) into a **Windows Precision Touchpad** plus optional **S Pen** tablet.
 
-**Status:** Phase 1–2 complete (packaged Windows app + S Pen profiles + UX + reliability).  
-**Next:** Phase 3 — Android WebView app (no Chrome URL typing).
+**Status:** Phase 1–2 complete. Phase **3A** Android WebView shell is in the repo
+(`android/`) — still loads the Windows-served HTML over ADB reverse.  
+**Next:** Verify 3A on Tab S7, then 3B UI + profile sync.
 
 Connection today: **USB + ADB reverse + WebSocket**.  
 Input: Windows `CreateSyntheticPointerDevice2` / `InjectSyntheticPointerInput` (`PT_TOUCHPAD`, pen). No custom kernel driver.
@@ -44,7 +45,7 @@ windows/
   static/       # touchpad_v04.html (served to the tablet)
   engine.py     # --engine process
   applog.py     # info / debug / error / state lines
-android/        # WebView app (Phase 3)
+android/        # WebView app (Phase 3A shell — see android/README.md)
 tests/          # regression checklist + mapping unit tests
 archive/        # frozen prototypes (do not run daily)
 platform-tools/ # local ADB — not in git
@@ -86,7 +87,13 @@ python -m windows
 With **Auto-start engine** on, the engine starts when the app opens.  
 **Start with Windows** registers an HKCU Run entry that launches `--tray` at logon.
 
-### Tablet page (until Phase 3)
+### Tablet
+
+**Preferred (Phase 3A):** install the Android app from `android/` (Android Studio →
+Open → Run). It loads the same page over reverse without typing a URL.
+Details / test checklist: [android/README.md](android/README.md).
+
+**Fallback (Chrome):**
 
 1. Plug in USB and allow debugging if prompted.
 2. Wait until the GUI shows USB ready / connected path.
@@ -132,7 +139,9 @@ Manual checklist: [tests/REGRESSION.md](tests/REGRESSION.md).
 |-------|--------|
 | 1 — Package structure, single entry, preserve v0.8 | Done |
 | 2 — S Pen profiles, UX, autostart, reliability | Done |
-| 3 — Android WebView app | Next |
+| 3A — Android WebView shell (HTTP URL) | Done (device verified) |
+| 3B — Menu / status / pen sync UI | In progress — restart engine to test |
+| 3C — Stability + release APK | Later |
 | 4 — Windows installer / APK packaging | Later |
 | 5 — Bluetooth transport | Later |
 
