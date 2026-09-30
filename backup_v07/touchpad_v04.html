@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="
+        width=device-width,
+        initial-scale=1.0,
+        maximum-scale=1.0,
+        user-scalable=no
+    "
+>
+
+<title>Galaxy Trackpad v0.4</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+
+    background: #15191f;
+    color: white;
+
+    font-family: Arial, sans-serif;
+
+    touch-action: none;
+    user-select: none;
+    overscroll-behavior: none;
+}
+
+#pad {
+    width: 100vw;
+    height: 100dvh;
+
+    background: #15191f;
+
+    touch-action: none;
+    position: relative;
+}
+
+#status {
+    position: absolute;
+    top: 25px;
+    left: 25px;
+
+    font-size: 19px;
+    line-height: 1.6;
+
+    pointer-events: none;
+}
+
+#info {
+    position: absolute;
+    bottom: 25px;
+    left: 25px;
+
+    font-size: 15px;
+    color: #aaa;
+
+    pointer-events: none;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="pad">
+
+    <div id="status">
+        Galaxy Trackpad v0.4
+        <br><br>
+        Connecting...
+    </div>
+
+    <div id="info">
+        Touchpad + S Pen
+    </div>
+
+</div>
+
+
+<script>
+
+// ==========================================
+// 1. Basic configuration
+// ==========================================
+
+const pad = document.getElementById("pad");
+const status = document.getElementById("status");
+
+const pointers = new Map();
+
+const WS_URL = "ws://127.0.0.1:8766";
+
+const RECONNECT_DELAY = 1500;
+
+let socket = null;
+
+let connected = false;
+
+let reconnectTimer = null;
+
+
+// ==========================================
+// 2. Update connection status
+// ==========================================
+
+function updateStatus(message) {
+
+    status.innerHTML =
+        "Galaxy Trackpad v0.4" +
+        "<br><br>" +
+        message;
+
+}
+
+
+// ==========================================
+// 3. Reconnect scheduler
+// ==========================================
+
+function scheduleReconnect() {
+
+    // Prevent multiple reconnect timers.
+    if (reconnectTimer !== null) {
+        return;
+    }
+
+    reconnectTimer = setTimeout(() => {
+
+        reconnectTimer = null;
+
+        connect();
+
+    }, RECONNECT_DELAY);
+
+}
+
+
+// ==========================================
+// 4. WebSocket connection
+// ==========================================
+
+function connect() {
+
+    // Avoid creating duplicate connections.
+    if (socket !== null) {
+
+        if (
+            socket.readyState === WebSocket.OPEN ||
+            socket.readyState === WebSocket.CONNECTING
+        ) {
+            return;
+        }
+
+    }
+
+    updateStatus("Connecting...");
+
+    socket = new WebSocket(WS_URL);
+
+
+    // --------------------------------------
+    // Connected
+    // --------------------------------------
+
+    socket.onopen = () => {
+
+        connected = true;
+
+        // Start every connection with
+        // a fresh contact state.
+        pointers.clear();
+
+        updateStatus(
+            "USB Connected" +
+            "<br>Active contacts: 0"
+        );
+
+        console.log(
+            "Galaxy Trackpad connected"
+        );
+
+    };
+
+
+    // --------------------------------------
+    // Disconnected
+    // --------------------------------------
+
+    socket.onclose = () => {
+
+        connected = false;
+
+        // Clear contacts from the
+        // previous connection.
+        pointers.clear();
+
+        updateStatus(
+            "Disconnected" +
+            "<br>Reconnecting..."
+        );
+
+        console.log(
+            "Galaxy Trackpad disconnected"
+        );
+
+        scheduleReconnect();
+
+    };
+
+
+    // --------------------------------------
+    // Connection error
+    // --------------------------------------
+
+    socket.onerror = () => {
+
+        console.log(
+            "WebSocket connection error"
+        );
+
+        // Closing the socket ensures
+        // the reconnect logic runs.
+        socket.close();
+
+    };
+
+}
+
+
+// Start the first connection.
+connect();
+
+
+// ==========================================
+// 5. Read touch and pen information
+// ==========================================
+
+function getContact(event) {
+
+    const rect = pad.getBoundingClientRect();
+
+    const x =
+        (event.clientX - rect.left) / rect.width;
+
+    const y =
+        (event.clientY - rect.top) / rect.height;
+
+    return {
+
+        id: event.pointerId,
+
+        tool: event.pointerType,
+
+        x: Math.max(
+            0,
+            Math.min(1, x)
+        ),
+
+        y: Math.max(
+            0,
+            Math.min(1, y)
+        ),
+
+        pressure: event.pressure,
+
+        tiltX: event.tiltX,
+
+        tiltY: event.tiltY
+
+    };
+
+}
+
+
+// ==========================================
+// 6. Send touch data
+// ==========================================
+
+function send(eventName) {
+
+    if (
+        !connected ||
+        socket === null ||
+        socket.readyState !== WebSocket.OPEN
+    ) {
+        return;
+    }
+
+    const contacts = Array.from(
+        pointers.values()
+    );
+
+    socket.send(JSON.stringify({
+
+        event: eventName,
+
+        timestamp: performance.now(),
+
+        contacts: contacts
+
+    }));
+
+    updateStatus(
+        "USB Connected" +
+        "<br>Active contacts: " +
+        contacts.length
+    );
+
+}
+
+
+// ==========================================
+// 7. Pointer DOWN
+// ==========================================
+
+pad.addEventListener(
+    "pointerdown",
+    event => {
+
+        event.preventDefault();
+
+        if (!connected) {
+            return;
+        }
+
+        pad.setPointerCapture(
+            event.pointerId
+        );
+
+        pointers.set(
+            event.pointerId,
+            getContact(event)
+        );
+
+        send("down");
+
+    }
+);
+
+
+// ==========================================
+// 8. Pointer MOVE
+// ==========================================
+
+pad.addEventListener(
+    "pointermove",
+    event => {
+
+        if (!pointers.has(event.pointerId)) {
+            return;
+        }
+
+        event.preventDefault();
+
+        pointers.set(
+            event.pointerId,
+            getContact(event)
+        );
+
+        send("move");
+
+    }
+);
+
+
+// ==========================================
+// 9. Pointer UP / CANCEL
+// ==========================================
+
+function release(event) {
+
+    event.preventDefault();
+
+    if (!pointers.has(event.pointerId)) {
+        return;
+    }
+
+    pointers.delete(
+        event.pointerId
+    );
+
+    send("up");
+
+}
+
+pad.addEventListener(
+    "pointerup",
+    release
+);
+
+pad.addEventListener(
+    "pointercancel",
+    release
+);
+
+
+// Disable the browser context menu.
+pad.addEventListener(
+    "contextmenu",
+    event => event.preventDefault()
+);
+
+</script>
+
+</body>
+</html>

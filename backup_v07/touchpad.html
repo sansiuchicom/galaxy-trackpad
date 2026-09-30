@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+>
+
+<title>Galaxy Precision Touchpad</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #15191f;
+    color: white;
+    font-family: Arial, sans-serif;
+    touch-action: none;
+    user-select: none;
+}
+
+#pad {
+    width: 100vw;
+    height: 100dvh;
+    background: #15191f;
+    touch-action: none;
+    position: relative;
+}
+
+#status {
+    position: absolute;
+    top: 25px;
+    left: 25px;
+    font-size: 19px;
+    pointer-events: none;
+}
+
+#info {
+    position: absolute;
+    bottom: 25px;
+    left: 25px;
+    font-size: 16px;
+    color: #aaa;
+    pointer-events: none;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="pad">
+
+    <div id="status">
+        Galaxy Precision Touchpad
+        <br><br>
+        Connecting...
+    </div>
+
+    <div id="info">
+        Touch the screen or use S Pen.
+    </div>
+
+</div>
+
+<script>
+
+const pad = document.getElementById("pad");
+const status = document.getElementById("status");
+
+const pointers = new Map();
+
+const socket = new WebSocket(
+    "ws://127.0.0.1:8766"
+);
+
+socket.onopen = () => {
+
+    status.innerHTML =
+        "Galaxy Precision Touchpad" +
+        "<br><br>USB Connected";
+
+};
+
+socket.onclose = () => {
+
+    status.innerHTML =
+        "Galaxy Precision Touchpad" +
+        "<br><br>Disconnected";
+
+};
+
+socket.onerror = () => {
+
+    status.innerHTML =
+        "Galaxy Precision Touchpad" +
+        "<br><br>Connection Error";
+
+};
+
+
+// Normalize contact coordinates to 0-1.
+function getContact(event) {
+
+    const rect = pad.getBoundingClientRect();
+
+    return {
+
+        id: event.pointerId,
+
+        tool: event.pointerType,
+
+        x: Math.max(
+            0,
+            Math.min(
+                1,
+                (event.clientX - rect.left) / rect.width
+            )
+        ),
+
+        y: Math.max(
+            0,
+            Math.min(
+                1,
+                (event.clientY - rect.top) / rect.height
+            )
+        ),
+
+        pressure: event.pressure,
+
+        tiltX: event.tiltX,
+
+        tiltY: event.tiltY
+
+    };
+
+}
+
+
+// Send the current active contacts.
+function send(eventName) {
+
+    const contacts = Array.from(
+        pointers.values()
+    );
+
+    if (socket.readyState === WebSocket.OPEN) {
+
+        socket.send(JSON.stringify({
+
+            event: eventName,
+
+            timestamp: performance.now(),
+
+            contacts: contacts
+
+        }));
+
+    }
+
+    status.innerHTML =
+        "Galaxy Precision Touchpad" +
+        "<br><br>USB Connected" +
+        "<br>Active contacts: " +
+        contacts.length;
+
+}
+
+
+// Finger or S Pen touches the surface.
+pad.addEventListener("pointerdown", event => {
+
+    event.preventDefault();
+
+    pad.setPointerCapture(event.pointerId);
+
+    pointers.set(
+        event.pointerId,
+        getContact(event)
+    );
+
+    send("down");
+
+});
+
+
+// Finger or S Pen moves.
+pad.addEventListener("pointermove", event => {
+
+    if (!pointers.has(event.pointerId)) {
+        return;
+    }
+
+    event.preventDefault();
+
+    pointers.set(
+        event.pointerId,
+        getContact(event)
+    );
+
+    send("move");
+
+});
+
+
+// Finger or S Pen leaves the surface.
+function release(event) {
+
+    event.preventDefault();
+
+    pointers.delete(event.pointerId);
+
+    send("up");
+
+}
+
+pad.addEventListener("pointerup", release);
+
+pad.addEventListener("pointercancel", release);
+
+</script>
+
+</body>
+
+</html>

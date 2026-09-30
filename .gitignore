@@ -1,0 +1,31 @@
+# Local ADB (download separately; see README)
+platform-tools/
+platform-tools/**
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.env
+
+# Local runtime settings (keep example in repo)
+**/galaxytrackpad_settings.json
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs / temp
+*.log
+*.tmp
+.cache/
