@@ -3,15 +3,13 @@ package com.galaxytrackpad.app
 import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothServerSocket
 import android.bluetooth.BluetoothSocket
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.widget.ArrayAdapter
 import android.widget.Button
-import android.widget.ListView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,33 +23,31 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * BT-1 lab only: connect to the Windows RFCOMM server and exchange HELLO/ACK.
- * Does not talk to the USB WebView touchpad path.
+ * BT-1 lab: Tab listens on RFCOMM; Windows client dials in.
+ * USB Galaxy Trackpad / WebView path is unused here.
  */
 class BtLabActivity : AppCompatActivity() {
 
     private val io = Executors.newSingleThreadExecutor()
     private val running = AtomicBoolean(false)
+    private val acceptLoop = AtomicBoolean(false)
 
     private var adapter: BluetoothAdapter? = null
-    private var socket: BluetoothSocket? = null
+    private var serverSocket: BluetoothServerSocket? = null
+    private var clientSocket: BluetoothSocket? = null
 
     private lateinit var status: TextView
     private lateinit var logView: TextView
-    private lateinit var list: ListView
-    private lateinit var btnRefresh: Button
+    private lateinit var btnListen: Button
     private lateinit var btnHello: Button
     private lateinit var btnPing: Button
-    private lateinit var btnDisconnect: Button
-
-    private val devices = mutableListOf<BluetoothDevice>()
-    private lateinit var listAdapter: ArrayAdapter<String>
+    private lateinit var btnStop: Button
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
             val ok = result.values.all { it }
             appendLog(if (ok) "Bluetooth permission granted" else "Bluetooth permission denied")
-            if (ok) refreshBonded()
+            if (ok) showLocalAddress()
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,44 +56,37 @@ class BtLabActivity : AppCompatActivity() {
 
         status = findViewById(R.id.btStatus)
         logView = findViewById(R.id.btLog)
-        list = findViewById(R.id.btDeviceList)
-        btnRefresh = findViewById(R.id.btRefresh)
+        btnListen = findViewById(R.id.btListen)
         btnHello = findViewById(R.id.btHello)
         btnPing = findViewById(R.id.btPing)
-        btnDisconnect = findViewById(R.id.btDisconnect)
-
-        listAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, mutableListOf())
-        list.adapter = listAdapter
+        btnStop = findViewById(R.id.btStop)
 
         val mgr = getSystemService(BluetoothManager::class.java)
         adapter = mgr?.adapter
         if (adapter == null) {
             setStatus("No Bluetooth adapter")
-            appendLog("This device has no Bluetooth adapter")
             return
         }
 
-        btnRefresh.setOnClickListener { ensurePermsAndRefresh() }
+        btnListen.setOnClickListener { ensurePermsAndListen() }
         btnHello.setOnClickListener { sendLine("HELLO from Tab") }
         btnPing.setOnClickListener { sendLine("PING") }
-        btnDisconnect.setOnClickListener { disconnect("User disconnect") }
-        list.setOnItemClickListener { _, _, position, _ ->
-            if (position in devices.indices) connectTo(devices[position])
-        }
+        btnStop.setOnClickListener { stopAll("User stop") }
 
-        setStatus("Idle — pair PC in system settings first")
-        appendLog("BT-1 lab. Windows must run: python -m bluetooth_lab.windows_server")
-        appendLog("RFCOMM channel=$RFCOMM_CHANNEL")
-        ensurePermsAndRefresh()
+        setStatus("Idle — pair PC, then tap Listen")
+        appendLog("BT-1: Tab = server, Windows = client")
+        appendLog("Do NOT need GalaxyTrackpad.exe for this test")
+        appendLog("Windows: python -m bluetooth_lab.windows_client <TAB_MAC>")
+        ensurePerms()
     }
 
     override fun onDestroy() {
-        disconnect("Activity destroy")
+        stopAll("Activity destroy")
         io.shutdownNow()
         super.onDestroy()
     }
 
-    private fun ensurePermsAndRefresh() {
+    private fun ensurePerms() {
         val need = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
@@ -105,103 +94,145 @@ class BtLabActivity : AppCompatActivity() {
             ) {
                 need += Manifest.permission.BLUETOOTH_CONNECT
             }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADVERTISE)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                need += Manifest.permission.BLUETOOTH_ADVERTISE
+            }
+        }
+        if (need.isNotEmpty()) {
+            permissionLauncher.launch(need.toTypedArray())
+        } else {
+            showLocalAddress()
+        }
+    }
+
+    private fun ensurePermsAndListen() {
+        val need = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                need += Manifest.permission.BLUETOOTH_CONNECT
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADVERTISE)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                need += Manifest.permission.BLUETOOTH_ADVERTISE
+            }
         }
         if (need.isNotEmpty()) {
             permissionLauncher.launch(need.toTypedArray())
             return
         }
-        refreshBonded()
+        startListening()
+    }
+
+    @SuppressLint("MissingPermission", "HardwareIds")
+    private fun showLocalAddress() {
+        val bt = adapter ?: return
+        val addr = try {
+            bt.address
+        } catch (_: SecurityException) {
+            "(permission needed)"
+        }
+        appendLog("Tab Bluetooth name=${bt.name}  MAC=$addr")
+        appendLog("Give that MAC to Windows client if asked")
+        setStatus("Ready — MAC $addr — tap Listen")
     }
 
     @SuppressLint("MissingPermission")
-    private fun refreshBonded() {
+    private fun startListening() {
         val bt = adapter
         if (bt == null) return
         if (!bt.isEnabled) {
-            setStatus("Bluetooth OFF — turn it on")
-            appendLog("Enable Bluetooth in Android settings")
+            setStatus("Bluetooth OFF")
+            appendLog("Turn Bluetooth on")
             return
         }
-        devices.clear()
-        devices.addAll(bt.bondedDevices.orEmpty())
-        listAdapter.clear()
-        if (devices.isEmpty()) {
-            listAdapter.add("(No paired devices — pair this Tab with the PC first)")
-        } else {
-            devices.forEach { d ->
-                listAdapter.add("${d.name ?: "(no name)"}  ${d.address}")
-            }
-        }
-        listAdapter.notifyDataSetChanged()
-        setStatus("Paired devices: ${devices.size}. Tap a PC to connect.")
-        appendLog("Refreshed bonded list (${devices.size})")
-    }
-
-    @SuppressLint("MissingPermission")
-    private fun connectTo(device: BluetoothDevice) {
-        disconnect("Reconnect")
-        setStatus("Connecting to ${device.name ?: device.address}…")
-        appendLog("Connecting ${device.address} channel=$RFCOMM_CHANNEL …")
+        stopAll("Restart listen")
+        setStatus("Listening… start Windows client now")
+        appendLog("listenUsingInsecureRfcommWithServiceRecord($SERVICE_NAME)")
+        acceptLoop.set(true)
         io.execute {
             try {
-                val sock = createSocket(device)
-                sock.connect()
-                socket = sock
-                running.set(true)
+                val server = bt.listenUsingInsecureRfcommWithServiceRecord(
+                    SERVICE_NAME,
+                    SERVICE_UUID,
+                )
+                serverSocket = server
                 runOnUiThread {
-                    setStatus("CONNECTED to ${device.name ?: device.address}")
-                    appendLog("Socket connected")
-                    Toast.makeText(this, "BT connected", Toast.LENGTH_SHORT).show()
+                    appendLog("Server socket open — waiting for Windows…")
+                    Toast.makeText(this, "Listening", Toast.LENGTH_SHORT).show()
                 }
-                // Auto HELLO once connected
-                writeRaw("HELLO from Tab\n")
-                readLoop(sock)
+                while (acceptLoop.get()) {
+                    val sock = try {
+                        server.accept()
+                    } catch (e: Exception) {
+                        if (acceptLoop.get()) {
+                            runOnUiThread { appendLog("accept ended: ${e.message}") }
+                        }
+                        break
+                    } ?: break
+                    runOnUiThread {
+                        setStatus("CONNECTED from Windows")
+                        appendLog("Client accepted")
+                    }
+                    clientSocket = sock
+                    running.set(true)
+                    // Handle one client; then continue listening if still wanted
+                    handleClient(sock)
+                    running.set(false)
+                    clientSocket = null
+                    runOnUiThread { setStatus("Client gone — still listening") }
+                }
             } catch (e: Exception) {
                 runOnUiThread {
-                    setStatus("Connect failed")
+                    setStatus("Listen failed")
                     appendLog("ERROR: ${e.message}")
                 }
-                disconnect("Connect failed")
             }
         }
     }
 
-    @SuppressLint("MissingPermission")
-    private fun createSocket(device: BluetoothDevice): BluetoothSocket {
-        // Prefer fixed-channel socket so we match the Windows lab server (no SDP).
-        return try {
-            val m = device.javaClass.getMethod(
-                "createInsecureRfcommSocket",
-                Integer.TYPE,
-            )
-            @Suppress("UNCHECKED_CAST")
-            m.invoke(device, RFCOMM_CHANNEL) as BluetoothSocket
-        } catch (_: Exception) {
-            device.createInsecureRfcommSocketToServiceRecord(SERVICE_UUID)
-        }
-    }
-
-    private fun readLoop(sock: BluetoothSocket) {
+    private fun handleClient(sock: BluetoothSocket) {
         try {
             val reader = BufferedReader(InputStreamReader(sock.inputStream, Charsets.UTF_8))
             while (running.get()) {
                 val line = reader.readLine() ?: break
                 runOnUiThread { appendLog("RECV << $line") }
+                val upper = line.trim().uppercase()
+                val reply = when {
+                    upper.startsWith("HELLO") ->
+                        "ACK Tab RFCOMM lab uuid=$SERVICE_UUID"
+                    upper.startsWith("PING") ->
+                        "PONG ${System.currentTimeMillis()}"
+                    else -> "ACK echo:$line"
+                }
+                writeRaw(sock, reply + "\n")
+                runOnUiThread { appendLog("SEND >> $reply") }
             }
         } catch (e: Exception) {
             if (running.get()) {
-                runOnUiThread { appendLog("Read ended: ${e.message}") }
+                runOnUiThread { appendLog("Session error: ${e.message}") }
             }
         } finally {
-            runOnUiThread { setStatus("Disconnected") }
-            disconnect("Read loop end")
+            try {
+                sock.close()
+            } catch (_: Exception) {
+            }
         }
     }
 
     private fun sendLine(text: String) {
         io.execute {
+            val sock = clientSocket
+            if (sock == null) {
+                runOnUiThread { appendLog("Not connected — Wait for Windows client") }
+                return@execute
+            }
             try {
-                writeRaw(text.trim() + "\n")
+                writeRaw(sock, text.trim() + "\n")
                 runOnUiThread { appendLog("SEND >> $text") }
             } catch (e: Exception) {
                 runOnUiThread { appendLog("Send failed: ${e.message}") }
@@ -209,22 +240,28 @@ class BtLabActivity : AppCompatActivity() {
         }
     }
 
-    private fun writeRaw(text: String) {
-        val sock = socket ?: throw IllegalStateException("Not connected")
+    private fun writeRaw(sock: BluetoothSocket, text: String) {
         val w = OutputStreamWriter(sock.outputStream, Charsets.UTF_8)
         w.write(text)
         w.flush()
     }
 
-    private fun disconnect(reason: String) {
+    private fun stopAll(reason: String) {
+        acceptLoop.set(false)
         running.set(false)
         try {
-            socket?.close()
+            clientSocket?.close()
         } catch (_: Exception) {
         }
-        socket = null
+        clientSocket = null
+        try {
+            serverSocket?.close()
+        } catch (_: Exception) {
+        }
+        serverSocket = null
         runOnUiThread {
-            appendLog("Disconnected ($reason)")
+            appendLog("Stopped ($reason)")
+            setStatus("Stopped — tap Listen to wait again")
         }
     }
 
@@ -238,7 +275,7 @@ class BtLabActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val RFCOMM_CHANNEL = 5
+        private const val SERVICE_NAME = "GalaxyTrackpadLab"
         private val SERVICE_UUID: UUID =
             UUID.fromString("a1b2c3d4-e5f6-7890-abcd-ef1234567890")
     }
