@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
     QCheckBox,
-    QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
