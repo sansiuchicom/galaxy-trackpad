@@ -2,6 +2,10 @@ package com.galaxytrackpad.app
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -30,8 +34,8 @@ import com.galaxytrackpad.app.databinding.ActivityMainBinding
 /**
  * WebView shell: USB pad when Windows HTTP/WS is up; Bluetooth fallback on USB loss.
  *
- * No periodic HTTP polling while USB is healthy — the pad page notifies via
- * [GalaxyShell] when the WebSocket drops (cable unplug).
+ * Cable unplug is detected via USB_STATE (WebSocket often stays half-open).
+ * GalaxyShell is a backup when WS closes cleanly.
  */
 class MainActivity : AppCompatActivity() {
 
@@ -41,12 +45,23 @@ class MainActivity : AppCompatActivity() {
     private var destroyed = false
     private var btMode = false
     private var unhealthySince = 0L
+    private var usbReceiverRegistered = false
 
     private var btServer: RfcommPadServer? = null
 
     private val enterBtAfterUsbLost = Runnable {
-        if (destroyed || btMode || pageHealthy) return@Runnable
-        enterBluetoothPad("USB lost")
+        if (destroyed || btMode) return@Runnable
+        enterBluetoothPad("USB unplugged")
+    }
+
+    private val usbReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action != ACTION_USB_STATE) return
+            val connected = intent.getBooleanExtra("connected", true)
+            if (!connected) {
+                scheduleEnterBluetooth()
+            }
+        }
     }
 
     private val permissionLauncher =
@@ -58,7 +73,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-    /** Only while waiting for first USB page / already unhealthy — not while CONNECTED. */
     private val watchdogRunnable = object : Runnable {
         override fun run() {
             if (destroyed || btMode || pageHealthy) return
@@ -73,7 +87,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Rare probe only in BT mode so plugging USB back can return to cable path. */
     private val btUsbProbeRunnable = object : Runnable {
         override fun run() {
             if (destroyed || !btMode) return
@@ -93,6 +106,7 @@ class MainActivity : AppCompatActivity() {
 
         hideSystemBars()
         setupWebView(binding.webView)
+        registerUsbReceiver()
 
         loadTrackpad()
         startWatchdog()
@@ -139,6 +153,7 @@ class MainActivity : AppCompatActivity() {
         mainHandler.removeCallbacks(watchdogRunnable)
         mainHandler.removeCallbacks(enterBtAfterUsbLost)
         mainHandler.removeCallbacks(btUsbProbeRunnable)
+        unregisterUsbReceiver()
         btServer?.stop()
         btServer = null
         binding.webView.apply {
@@ -148,6 +163,34 @@ class MainActivity : AppCompatActivity() {
             destroy()
         }
         super.onDestroy()
+    }
+
+    private fun registerUsbReceiver() {
+        if (usbReceiverRegistered) return
+        val filter = IntentFilter(ACTION_USB_STATE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(usbReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(usbReceiver, filter)
+        }
+        usbReceiverRegistered = true
+    }
+
+    private fun unregisterUsbReceiver() {
+        if (!usbReceiverRegistered) return
+        try {
+            unregisterReceiver(usbReceiver)
+        } catch (_: Exception) {
+        }
+        usbReceiverRegistered = false
+    }
+
+    private fun scheduleEnterBluetooth() {
+        if (destroyed || btMode) return
+        markUnhealthy()
+        mainHandler.removeCallbacks(enterBtAfterUsbLost)
+        mainHandler.postDelayed(enterBtAfterUsbLost, USB_LOST_GRACE_MS)
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -207,7 +250,6 @@ class MainActivity : AppCompatActivity() {
         webView.webChromeClient = WebChromeClient()
     }
 
-    /** BT pad contact frames. */
     inner class PadBridge {
         @JavascriptInterface
         fun sendPacket(json: String) {
@@ -215,16 +257,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** USB WebSocket lifecycle from touchpad_v04.html (no polling). */
     inner class ShellBridge {
         @JavascriptInterface
         fun onUsbLost() {
-            runOnUiThread {
-                if (destroyed || btMode) return@runOnUiThread
-                markUnhealthy()
-                mainHandler.removeCallbacks(enterBtAfterUsbLost)
-                mainHandler.postDelayed(enterBtAfterUsbLost, USB_LOST_GRACE_MS)
-            }
+            runOnUiThread { scheduleEnterBluetooth() }
         }
 
         @JavascriptInterface
@@ -232,9 +268,7 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 if (destroyed) return@runOnUiThread
                 mainHandler.removeCallbacks(enterBtAfterUsbLost)
-                if (!btMode) {
-                    markHealthy()
-                }
+                if (!btMode) markHealthy()
             }
         }
     }
@@ -270,6 +304,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         btMode = true
+        pageHealthy = false
         mainHandler.removeCallbacks(watchdogRunnable)
         mainHandler.removeCallbacks(enterBtAfterUsbLost)
         ensureBtServer()
@@ -355,15 +390,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
+        private const val ACTION_USB_STATE = "android.hardware.usb.action.USB_STATE"
         private const val TRACKPAD_ORIGIN = "http://127.0.0.1:8765"
-        const val TRACKPAD_URL = "http://127.0.0.1:8765/touchpad_v04.html?v=092"
+        const val TRACKPAD_URL = "http://127.0.0.1:8765/touchpad_v04.html?v=093"
         private const val WAITING_URL = "file:///android_asset/waiting.html"
         private const val BT_PAD_URL = "file:///android_asset/touchpad_bt.html"
         private const val RELOAD_DELAY_MS = 2000L
         private const val BT_FALLBACK_AFTER_MS = 8000L
-        /** Brief WS blip grace before leaving USB for BT. */
-        private const val USB_LOST_GRACE_MS = 2500L
-        /** Only while on BT pad — check if cable returned (~15s). */
+        private const val USB_LOST_GRACE_MS = 1500L
         private const val BT_USB_PROBE_MS = 15_000L
 
         private const val JS_RELEASE_ALL = """
