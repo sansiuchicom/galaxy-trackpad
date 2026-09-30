@@ -31,19 +31,34 @@ html, body {
 </head>
 <body>
 <div id="bar">
-  <span id="status">BT pad</span>
-  <span id="hint">same contacts JSON as USB</span>
+  <span id="status">Waiting for PC…</span>
+  <span id="hint">Bluetooth — PC Galaxy Trackpad must be running (Automatic)</span>
 </div>
 <div id="pad"></div>
 <script>
 const pad = document.getElementById("pad");
 const statusEl = document.getElementById("status");
+const hintEl = document.getElementById("hint");
 const pointers = new Map();
-let connected = true;
+let linked = false;
 
 function setStatus(t) { statusEl.textContent = t; }
+function setHint(t) { hintEl.textContent = t; }
+
+// Called from Android when RFCOMM framed mode is on.
+window.__gtBtLinked = function (ok) {
+  linked = !!ok;
+  if (linked) {
+    setStatus("CONNECTED");
+    setHint("Bluetooth pad — move fingers");
+  } else {
+    setStatus("Waiting for PC…");
+    setHint("Bluetooth — PC Galaxy Trackpad must be running (Automatic)");
+  }
+};
 
 function post(obj) {
+  if (!linked) return;
   try {
     if (window.GalaxyBT && GalaxyBT.sendPacket) {
       GalaxyBT.sendPacket(JSON.stringify(obj));
@@ -68,7 +83,6 @@ function getContact(event) {
 }
 
 function send(eventName) {
-  if (!connected) return;
   post({
     event: eventName,
     timestamp: performance.now(),
@@ -104,8 +118,6 @@ document.addEventListener("visibilitychange", () => {
     send("up");
   }
 });
-
-setStatus("Ready — touch pad");
 </script>
 </body>
 </html>

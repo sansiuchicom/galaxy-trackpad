@@ -28,6 +28,7 @@ class RfcommPadServer(
     private val context: Context,
     private val onLog: (String) -> Unit = {},
     private val onClient: (Boolean) -> Unit = {},
+    private val onFramed: (Boolean) -> Unit = {},
 ) {
     private val io = Executors.newSingleThreadExecutor()
     private val acceptLoop = AtomicBoolean(false)
@@ -86,6 +87,7 @@ class RfcommPadServer(
                     frameMode.set(false)
                     clientSocket = null
                     onClient(false)
+                    onFramed(false)
                     onLog("BT client gone — still listening")
                 }
             } catch (e: Exception) {
@@ -188,6 +190,7 @@ class RfcommPadServer(
                         writeRaw(output, "ACK FRAME\n")
                         frameMode.set(true)
                         onLog("BT framed pad mode ON")
+                        onFramed(true)
                     }
                     upper.startsWith("HELLO") -> {
                         writeRaw(

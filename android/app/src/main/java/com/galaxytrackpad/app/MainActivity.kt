@@ -275,7 +275,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun ensureBtServer() {
         if (btServer == null) {
-            btServer = RfcommPadServer(this)
+            btServer = RfcommPadServer(
+                this,
+                onFramed = { linked ->
+                    runOnUiThread {
+                        binding.webView.evaluateJavascript(
+                            "window.__gtBtLinked && window.__gtBtLinked(${linked})",
+                            null,
+                        )
+                    }
+                },
+            )
         }
         if (btServer?.hasBluetoothPermission() != true) {
             requestBtPerms()

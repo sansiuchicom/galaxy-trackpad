@@ -159,13 +159,11 @@ def _run_one_session(shared: SharedInput, stop: threading.Event) -> None:
 
 def run_bluetooth_worker(shared: SharedInput, stop: threading.Event) -> None:
     """
-    Dial Tab when connection_mode allows it.
+    Dial Tab when connection_mode is auto/bluetooth.
 
-    Auto policy (idle-friendly):
-    - While USB WebSocket is up → do not dial.
-    - After USB was seen then lost → dial with short backoff (user unplugged).
-    - Never saw USB this run → long backoff (tablet not in a USB session;
-      use Connection mode "Bluetooth only" for pure wireless cold start).
+    - USB WebSocket up → idle (yield to USB).
+    - After USB drop (usb_seen) → dial with short backoff.
+    - Never saw USB this run → still dial, but sparsely (~30s+) so idle PC is quiet.
     """
     info("Bluetooth worker started")
     fail_streak = 0
@@ -179,18 +177,18 @@ def run_bluetooth_worker(shared: SharedInput, stop: threading.Event) -> None:
             fail_streak = 0
             stop.wait(1.0)
             continue
-        if mode == "auto" and not shared.usb_seen:
-            # Cold start / tablet unused over USB — don't hammer RFCOMM.
-            stop.wait(60.0)
-            continue
         try:
             _run_one_session(shared, stop)
             fail_streak = 0
         except (OSError, ConnectionError, ValueError) as exc:
             fail_streak += 1
             debug(f"Bluetooth session ended: {exc}")
-            # 5s, 10s, 20s, 40s … cap 120s
-            delay = min(120.0, 5.0 * (2 ** min(fail_streak - 1, 4)))
+            if mode == "auto" and not shared.usb_seen:
+                # Sparse probes when Tab was never on USB this engine run.
+                delay = min(120.0, 30.0 * fail_streak)
+            else:
+                # Recent USB session — reconnect sooner.
+                delay = min(60.0, 5.0 * (2 ** min(fail_streak - 1, 3)))
             info(f"Bluetooth: retry in {delay:.0f}s ({exc})")
             stop.wait(delay)
             continue
