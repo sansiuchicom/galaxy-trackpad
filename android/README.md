@@ -65,12 +65,15 @@ This is **personal signing**, not Play Store.
 
 ### CLI (optional)
 
-After Gradle wrapper exists (Studio sync once):
+Needs **JDK 17** on PATH / `JAVA_HOME` (Android Studio’s JBR may be newer than Gradle 8.9 supports).
 
 ```powershell
 cd C:\touchpad\android
+$env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-17.0.20.101-hotspot"  # adjust if needed
 .\gradlew.bat :app:assembleRelease
 ```
+
+Output: `app\build\outputs\apk\release\app-release.apk` (signed when `keystore.properties` exists locally).
 
 ---
 
