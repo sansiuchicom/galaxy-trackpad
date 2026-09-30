@@ -146,10 +146,6 @@ def _run_one_session(
         write_frame(sock, build_client_state())
         sock.settimeout(30.0)
         while not stop.is_set():
-            mode = _mode()
-            if mode == "usb" or (mode == "auto" and shared.usb_connected):
-                info("Bluetooth: yielding to USB")
-                break
             try:
                 packet = read_frame(sock)
             except socket.timeout:
@@ -163,86 +159,37 @@ def _run_one_session(
 
 
 def run_bluetooth_worker(shared: SharedInput, stop: threading.Event) -> None:
-    """
-    Dial Tab when connection_mode is auto/bluetooth.
+    """Dial the Tab only when this engine was started in Bluetooth mode."""
+    mode = _mode()
+    info(f"Connection mode for this engine run: {mode}")
+    if mode != "bluetooth":
+        info("Bluetooth dial is off. Stop the engine and set Bluetooth before Start to use it.")
+        while not stop.is_set():
+            stop.wait(5.0)
+        info("Bluetooth worker stopped")
+        return
 
-    Auto: wait for USB first; while USB WebSocket is up do not dial;
-    after unplug wait briefly for Tab BT pad, then dial with backoff.
-    """
-    info("Bluetooth worker started")
+    info("Bluetooth mode: dialing Tab (no USB fallback)")
     fail_streak = 0
-    saw_usb = False
-    # Give USB reverse + WebSocket a head start on engine start.
-    info("Bluetooth: waiting up to 8s for USB before first dial")
-    for _ in range(8):
-        if stop.is_set():
-            return
-        if shared.usb_connected:
-            break
-        stop.wait(1.0)
-
     while not stop.is_set():
-        mode = _mode()
-        if mode == "usb":
-            fail_streak = 0
-            stop.wait(3.0)
-            continue
-
-        if mode == "auto" and shared.usb_connected:
-            if not saw_usb:
-                info("Bluetooth: USB active - BT dial paused")
-            saw_usb = True
-            fail_streak = 0
-            stop.wait(1.0)
-            continue
-
-        # USB just dropped - Tab needs a moment to open BT pad + RFCOMM listen.
-        if mode == "auto" and saw_usb and not shared.usb_connected:
-            saw_usb = False
-            fail_streak = 0
-            info("Bluetooth: USB dropped - waiting 4s for Tab BT pad")
-            stop.wait(4.0)
-            if stop.is_set() or shared.usb_connected:
-                continue
-
         def should_abort() -> bool:
-            if stop.is_set():
-                return True
-            if _mode() == "auto" and shared.usb_connected:
-                return True
-            return False
-
-        if should_abort():
-            stop.wait(1.0)
-            continue
+            return stop.is_set()
 
         try:
             _run_one_session(shared, stop, should_abort)
             fail_streak = 0
         except (OSError, ConnectionError) as exc:
-            if "aborted" in str(exc).lower():
-                debug(f"Bluetooth dial aborted: {exc}")
-                fail_streak = 0
-                stop.wait(1.0)
-                continue
+            if stop.is_set() or "aborted" in str(exc).lower():
+                break
             fail_streak += 1
-            debug(f"Bluetooth session ended: {exc}")
-            if mode == "auto" and not shared.usb_seen:
-                delay = min(120.0, 30.0 * fail_streak)
-            else:
-                delay = min(60.0, 5.0 * (2 ** min(fail_streak - 1, 3)))
+            delay = min(30.0, 3.0 * fail_streak)
             info(f"Bluetooth: retry in {delay:.0f}s ({exc})")
-            # Abort wait early if USB comes back
-            end = time.monotonic() + delay
-            while time.monotonic() < end and not stop.is_set():
-                if mode == "auto" and shared.usb_connected:
-                    break
-                stop.wait(0.5)
+            stop.wait(delay)
             continue
-        except Exception as exc:  # noqa: BLE001 - keep worker alive
+        except Exception as exc:  # noqa: BLE001
             fail_streak += 1
             info(f"Bluetooth: unexpected error {exc}")
-            stop.wait(min(120.0, 10.0 * fail_streak))
+            stop.wait(min(30.0, 5.0 * fail_streak))
             continue
         stop.wait(2.0)
     info("Bluetooth worker stopped")

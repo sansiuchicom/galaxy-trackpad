@@ -43,8 +43,8 @@ DEFAULTS: dict[str, Any] = {
         "start_with_windows": True,
         "auto_start_engine": True,
         "debug_log": False,
-        # usb | auto | bluetooth — usb keeps v0.9 behavior; auto prefers USB then BT.
-        "connection_mode": "auto",
+        # usb | bluetooth. Chosen before the engine starts. No mid-session switch.
+        "connection_mode": "usb",
         "bluetooth_mac": "",
         "bluetooth_channel": 5,
     },
@@ -162,9 +162,8 @@ def migrate_config(raw: Any) -> dict[str, Any]:
     mode = str(general.get("connection_mode", DEFAULTS["general"]["connection_mode"])).lower()
     if mode in ("bt", "bluetooth"):
         mode = "bluetooth"
-    elif mode == "auto":
-        mode = "auto"
     else:
+        # "auto" is retired: a session is USB or Bluetooth, never both.
         mode = "usb"
     out["general"]["connection_mode"] = mode
     out["general"]["bluetooth_mac"] = str(general.get("bluetooth_mac", "") or "")

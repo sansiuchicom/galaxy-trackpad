@@ -135,11 +135,12 @@ class AdvancedSettingsDialog(QDialog):
         mode_box = QGroupBox("Connection mode")
         mode_layout = QVBoxLayout(mode_box)
         self._mode_group = QButtonGroup(self)
-        current = str(self.config["general"].get("connection_mode", "auto")).lower()
+        current = str(self.config["general"].get("connection_mode", "usb")).lower()
+        if current not in ("usb", "bluetooth"):
+            current = "usb"
         options = [
-            ("auto", "Automatic — prefer USB when connected, else Bluetooth"),
-            ("usb", "USB only — classic Galaxy Trackpad cable path"),
-            ("bluetooth", "Bluetooth only — no USB pad (Tab must Listen / BT pad)"),
+            ("usb", "USB — cable only for this engine run"),
+            ("bluetooth", "Bluetooth — no cable for this engine run"),
         ]
         self._mode_radios: dict[str, QRadioButton] = {}
         for key, label in options:
@@ -150,12 +151,10 @@ class AdvancedSettingsDialog(QDialog):
             if key == current or (current in ("bt",) and key == "bluetooth"):
                 radio.setChecked(True)
         if not any(r.isChecked() for r in self._mode_radios.values()):
-            self._mode_radios["auto"].setChecked(True)
+            self._mode_radios["usb"].setChecked(True)
         tip = QLabel(
-            "Automatic: prefer USB while the cable works; after you unplug, Windows "
-            "dials Bluetooth (with quiet backoff if the Tab is not listening). "
-            "Pure wireless cold start → choose Bluetooth only. "
-            "Restart the engine after changing mode."
+            "Pick this before Start. Stop the engine to change it. "
+            "The tablet app asks USB or Bluetooth each time it opens. Both sides must match."
         )
         tip.setWordWrap(True)
         tip.setObjectName("muted")
