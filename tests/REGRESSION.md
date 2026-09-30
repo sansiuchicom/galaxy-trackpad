@@ -34,7 +34,7 @@ Tablet: open `http://127.0.0.1:8765/touchpad_v04.html` after USB reverse is read
 
 - [ ] Finger vs S Pen auto switch
 - [ ] Pen pressure / tilt in Paint or OneNote
-- [ ] Disabling S Pen applies on next START
+- [ ] Pen always active when tip detected (no ON/OFF toggle)
 
 ## Connection / lifecycle
 
@@ -57,3 +57,13 @@ Tablet: open `http://127.0.0.1:8765/touchpad_v04.html` after USB reverse is read
 ```powershell
 python -m unittest tests.test_pen_mapping -v
 ```
+
+## Phase 2B — Windows UX
+
+- [ ] Main window: profile combo + Configure / Advanced
+- [ ] Advanced: monitor map click-select + Identify Displays
+- [ ] Standard / Drawing profiles edit independently and persist
+- [ ] Start with Windows registers HKCU Run (`python ... main.py --tray`)
+- [ ] `--tray` starts hidden in system tray
+- [ ] Auto-start engine launches engine after GUI opens (waits if no USB)
+- [ ] Touchpad sensitivities and gestures still unaffected by pen profile edits

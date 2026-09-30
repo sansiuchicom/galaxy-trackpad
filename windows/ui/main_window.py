@@ -25,8 +25,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from windows.autostart import is_enabled as autostart_is_enabled
+from windows.autostart import set_enabled as autostart_set_enabled
+from windows.autostart import sync_from_config as autostart_sync
 from windows.paths import CONTROL_PORT, REPO_ROOT
-from windows.core.displays import list_monitors
 from windows.settings.store import (
     PROFILE_DRAWING,
     PROFILE_STANDARD,
@@ -34,13 +36,14 @@ from windows.settings.store import (
     migrate_config,
     save_config,
     set_active_profile,
-    update_active_profile_fields,
 )
+from windows.ui.advanced_dialog import AdvancedSettingsDialog
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, start_hidden: bool = False):
         super().__init__()
+        self.start_hidden = start_hidden
         self.config = load_config()
         try:
             save_config(self.config)  # Persist flat→nested migration once.
@@ -66,9 +69,9 @@ class MainWindow(QMainWindow):
         self.tray_notified = False
         self.tray = None
 
-        self.setWindowTitle("Galaxy Trackpad · Phase 2A")
-        self.resize(535, 900)
-        self.setMinimumSize(460, 760)
+        self.setWindowTitle("Galaxy Trackpad")
+        self.resize(535, 780)
+        self.setMinimumSize(460, 680)
         self.build_ui()
         self.apply_style()
         self.set_status("●  Engine stopped", "Not running", "Not running")
@@ -81,6 +84,14 @@ class MainWindow(QMainWindow):
             self.make_tray()
         else:
             self.log("System tray unavailable. Normal window behavior will be used.")
+
+        try:
+            autostart_sync(bool(self.config["general"].get("start_with_windows", True)))
+        except OSError as exc:
+            self.log(f"Autostart sync failed: {exc}")
+
+        if self.config["general"].get("auto_start_engine", True):
+            QTimer.singleShot(600, self.start_engine)
 
     # ---------- UI ----------
     def card(self):
@@ -121,31 +132,6 @@ class MainWindow(QMainWindow):
         bar.valueChanged.connect(changed)
         layout.addLayout(row)
         layout.addWidget(bar)
-        return outer
-
-    def area_slider(self):
-        outer = QWidget()
-        layout = QVBoxLayout(outer)
-        layout.setContentsMargins(0, 0, 0, 0)
-        row = QHBoxLayout()
-        row.addWidget(QLabel("Active area size"))
-        row.addStretch()
-        self.area_value = QLabel()
-        self.area_value.setObjectName("value")
-        row.addWidget(self.area_value)
-        self.area_bar = QSlider(Qt.Orientation.Horizontal)
-        self.area_bar.setRange(50, 100)
-        layout.addLayout(row)
-        layout.addWidget(self.area_bar)
-
-        def changed(value):
-            self.area_value.setText(f"{value}%")
-            self.config = update_active_profile_fields(
-                self.config, area_size=value / 100.0
-            )
-            self.save_settings()
-
-        self.area_bar.valueChanged.connect(changed)
         return outer
 
     def build_ui(self):
@@ -192,18 +178,17 @@ class MainWindow(QMainWindow):
         self.logs.setReadOnly(True)
         self.logs.setPlaceholderText("Engine messages appear here")
         self.logs.document().setMaximumBlockCount(120)
-        self.logs.setFixedHeight(120)
+        self.logs.setFixedHeight(110)
         layout.addWidget(self.logs)
 
-        layout.addWidget(self.section("TOUCHPAD  ·  LIVE SETTINGS"))
+        layout.addWidget(self.section("TOUCHPAD"))
         frame, inside = self.card()
         inside.addWidget(self.slider("Cursor sensitivity", "cursor_sensitivity"))
         inside.addWidget(self.slider("Scroll sensitivity", "scroll_sensitivity"))
         layout.addWidget(frame)
 
-        layout.addWidget(self.section("S PEN  ·  LIVE PROFILES"))
+        layout.addWidget(self.section("S PEN"))
         frame, inside = self.card()
-
         row = QHBoxLayout()
         row.addWidget(QLabel("Active profile"))
         row.addStretch()
@@ -213,115 +198,80 @@ class MainWindow(QMainWindow):
         self.profile_combo.currentIndexChanged.connect(self.on_profile_changed)
         row.addWidget(self.profile_combo)
         inside.addLayout(row)
-
-        row = QHBoxLayout()
-        row.addWidget(QLabel("Target display"))
-        row.addStretch()
-        self.monitor_combo = QComboBox()
-        self.monitor_combo.currentIndexChanged.connect(self.on_monitor_changed)
-        row.addWidget(self.monitor_combo)
-        inside.addLayout(row)
-
-        row = QHBoxLayout()
-        row.addWidget(QLabel("Mapping"))
-        row.addStretch()
-        self.mapping_combo = QComboBox()
-        self.mapping_combo.addItem("Stretch", "stretch")
-        self.mapping_combo.addItem("Preserve aspect ratio", "preserve_aspect_ratio")
-        self.mapping_combo.currentIndexChanged.connect(self.on_mapping_changed)
-        row.addWidget(self.mapping_combo)
-        inside.addLayout(row)
-
-        inside.addWidget(self.area_slider())
-        note = QLabel(
-            "Pen tip always draws when detected · mapping reloads live "
-            "(queued until tip up if pen is down)"
-        )
+        configure = QPushButton("Configure Pen Profiles…")
+        configure.clicked.connect(self.open_advanced)
+        inside.addWidget(configure)
+        note = QLabel("Finger touchpad is independent of pen profile settings.")
         note.setObjectName("muted")
         note.setWordWrap(True)
         inside.addWidget(note)
         layout.addWidget(frame)
 
-        auto = QCheckBox("Auto-start engine (Phase 2B wires login start)")
-        auto.setChecked(bool(self.config["general"].get("auto_start_engine", True)))
-        auto.toggled.connect(
+        layout.addWidget(self.section("GENERAL"))
+        frame, inside = self.card()
+        self.start_with_windows = QCheckBox("Start with Windows")
+        self.start_with_windows.setChecked(
+            bool(self.config["general"].get("start_with_windows", True))
+        )
+        self.start_with_windows.toggled.connect(self.on_start_with_windows)
+        inside.addWidget(self.start_with_windows)
+        self.auto_start_engine = QCheckBox("Auto-start engine when Galaxy Trackpad opens")
+        self.auto_start_engine.setChecked(
+            bool(self.config["general"].get("auto_start_engine", True))
+        )
+        self.auto_start_engine.toggled.connect(
             lambda checked: self.change_general("auto_start_engine", checked)
         )
-        layout.addWidget(auto)
-        footer = QLabel("Phase 2A  ·  Touchpad unchanged  ·  Pen mapping via RELOAD")
+        inside.addWidget(self.auto_start_engine)
+        advanced = QPushButton("Advanced Settings…")
+        advanced.clicked.connect(self.open_advanced)
+        inside.addWidget(advanced)
+        layout.addWidget(frame)
+
+        footer = QLabel("Phase 2B  ·  Tray autostart  ·  Advanced pen / monitor settings")
         footer.setObjectName("muted")
         footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(footer)
 
         self._pen_ui_ready = False
-        self.refresh_monitor_list()
         self.sync_pen_controls_from_config()
         self._pen_ui_ready = True
 
-    def refresh_monitor_list(self):
-        self.monitor_combo.blockSignals(True)
-        self.monitor_combo.clear()
-        self.monitor_combo.addItem("Primary", "primary")
-        try:
-            for mon in list_monitors():
-                self.monitor_combo.addItem(mon.name, mon.id)
-        except OSError as exc:
-            self.log(f"Monitor list error: {exc}")
-        self.monitor_combo.blockSignals(False)
-
     def sync_pen_controls_from_config(self):
         self.config = migrate_config(self.config)
-        pen = self.config["pen"]
-        name = pen.get("active_profile", PROFILE_STANDARD)
+        name = self.config["pen"].get("active_profile", PROFILE_STANDARD)
         idx = self.profile_combo.findData(name)
         self.profile_combo.blockSignals(True)
         self.profile_combo.setCurrentIndex(max(0, idx))
         self.profile_combo.blockSignals(False)
 
-        profile = pen["profiles"][name]
-        mid = profile.get("monitor_id", "primary")
-        midx = self.monitor_combo.findData(mid)
-        if midx < 0:
-            midx = 0
-        self.monitor_combo.blockSignals(True)
-        self.monitor_combo.setCurrentIndex(midx)
-        self.monitor_combo.blockSignals(False)
-
-        mapping = profile.get("mapping", "stretch")
-        map_idx = self.mapping_combo.findData(mapping)
-        self.mapping_combo.blockSignals(True)
-        self.mapping_combo.setCurrentIndex(max(0, map_idx))
-        self.mapping_combo.blockSignals(False)
-
-        area = int(round(float(profile.get("area_size", 1.0)) * 100))
-        self.area_bar.blockSignals(True)
-        self.area_bar.setValue(area)
-        self.area_value.setText(f"{area}%")
-        self.area_bar.blockSignals(False)
-
     def on_profile_changed(self, _index):
         if not getattr(self, "_pen_ui_ready", False):
             return
-        name = self.profile_combo.currentData()
-        self.config = set_active_profile(self.config, name)
+        self.config = set_active_profile(self.config, self.profile_combo.currentData())
+        self.save_settings()
+
+    def on_start_with_windows(self, checked: bool):
+        self.change_general("start_with_windows", checked)
+        try:
+            autostart_set_enabled(checked)
+            state = "enabled" if checked else "disabled"
+            self.log(f"Start with Windows {state}")
+        except OSError as exc:
+            self.log(f"Could not update Windows startup entry: {exc}")
+            # Revert checkbox if registry write failed.
+            self.start_with_windows.blockSignals(True)
+            self.start_with_windows.setChecked(autostart_is_enabled())
+            self.start_with_windows.blockSignals(False)
+
+    def open_advanced(self):
+        dialog = AdvancedSettingsDialog(self.config, self)
+        if dialog.exec() != dialog.DialogCode.Accepted:
+            return
+        self.config = dialog.result_config()
         self.sync_pen_controls_from_config()
         self.save_settings()
-
-    def on_monitor_changed(self, _index):
-        if not getattr(self, "_pen_ui_ready", False):
-            return
-        self.config = update_active_profile_fields(
-            self.config, monitor_id=self.monitor_combo.currentData()
-        )
-        self.save_settings()
-
-    def on_mapping_changed(self, _index):
-        if not getattr(self, "_pen_ui_ready", False):
-            return
-        self.config = update_active_profile_fields(
-            self.config, mapping=self.mapping_combo.currentData()
-        )
-        self.save_settings()
+        self.log("Advanced settings saved")
 
     def apply_style(self):
         self.setStyleSheet("""
@@ -665,11 +615,15 @@ class MainWindow(QMainWindow):
             event.ignore()
 
 
-def run_gui() -> int:
+def run_gui(start_hidden: bool = False) -> int:
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     if QSystemTrayIcon.isSystemTrayAvailable():
         app.setQuitOnLastWindowClosed(False)
-    window = MainWindow()
-    window.show()
+    window = MainWindow(start_hidden=start_hidden)
+    if start_hidden and QSystemTrayIcon.isSystemTrayAvailable():
+        window.hide()
+        window.log("Started in tray mode")
+    else:
+        window.show()
     return app.exec()

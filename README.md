@@ -43,7 +43,15 @@ conda activate galaxytrackpad
 python -m windows
 ```
 
+Tray / logon style:
+
+```powershell
+python -m windows --tray
+```
+
 START in the GUI launches `python -m windows --engine`.
+With **Auto-start engine** enabled, the engine starts automatically after the window opens.
+**Start with Windows** writes an HKCU Run entry that launches `--tray` at logon.
 
 Ports (localhost): HTTP `8765`, WebSocket `8766`, GUI control `8767`.
 
