@@ -3,6 +3,8 @@ package com.galaxytrackpad.app
 import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothClass
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothServerSocket
 import android.bluetooth.BluetoothSocket
@@ -18,6 +20,7 @@ import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import java.io.ByteArrayOutputStream
@@ -97,6 +100,7 @@ class BtLabActivity : AppCompatActivity() {
         setupPadWebView()
 
         btnListen.setOnClickListener { ensurePermsAndListen() }
+        findViewById<Button>(R.id.btConnectPc).setOnClickListener { pickPcAndConnect() }
         btnHello.setOnClickListener { sendLine("HELLO from Tab") }
         btnPing.setOnClickListener { sendLine("PING") }
         btnStop.setOnClickListener { stopAll("User stop") }
@@ -268,6 +272,72 @@ class BtLabActivity : AppCompatActivity() {
                     setStatus("Listen failed")
                     appendLog("ERROR: ${e.message}")
                 }
+            }
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun pickPcAndConnect() {
+        val bt = adapter ?: return
+        if (!bt.isEnabled) {
+            setStatus("Bluetooth OFF")
+            return
+        }
+        val bonded = try {
+            bt.bondedDevices.toList()
+        } catch (e: SecurityException) {
+            appendLog("Need Bluetooth permission: ${e.message}")
+            ensurePerms()
+            return
+        }
+        val computers = bonded.filter {
+            it.bluetoothClass?.majorDeviceClass == BluetoothClass.Device.Major.COMPUTER
+        }
+        val choices = computers.ifEmpty { bonded }
+        if (choices.isEmpty()) {
+            setStatus("No paired devices — pair the PC in Settings first")
+            return
+        }
+        val labels = choices.map { "${it.name ?: "Unknown"}  (${it.address})" }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Connect to which PC?")
+            .setItems(labels) { _, which -> connectToPc(choices[which]) }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun connectToPc(device: BluetoothDevice) {
+        stopAllQuiet()
+        runOnUiThread { showPad(false) }
+        val name = device.name ?: device.address
+        setStatus("Connecting to $name…")
+        appendLog("Dial PC $name via SDP UUID (PC must run windows_pad_server)")
+        io.execute {
+            val sock = try {
+                adapter?.cancelDiscovery()
+                device.createRfcommSocketToServiceRecord(SERVICE_UUID).also { it.connect() }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    setStatus("Could not reach $name")
+                    appendLog("connect failed: ${e.message}")
+                }
+                return@execute
+            }
+            runOnUiThread {
+                setStatus("CONNECTED to $name")
+                appendLog("Connected to PC $name")
+            }
+            clientSocket = sock
+            running.set(true)
+            frameMode.set(false)
+            handleClient(sock)
+            running.set(false)
+            frameMode.set(false)
+            clientSocket = null
+            runOnUiThread {
+                showPad(false)
+                setStatus("Disconnected from $name")
             }
         }
     }
