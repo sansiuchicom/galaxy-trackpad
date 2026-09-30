@@ -28,7 +28,7 @@ def main() -> int:
     if sys.platform != "win32":
         _log("Windows only")
         return 1
-    from bluetooth_lab.winrt_rfcomm import RfcommServer
+    from windows.transport.winrt_rfcomm import RfcommServer
 
     parser = argparse.ArgumentParser(description="BT lab pad server (Tab dials PC)")
     parser.add_argument("--no-pacing", action="store_true", help="inject on arrival")

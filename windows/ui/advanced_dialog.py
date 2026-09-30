@@ -1,9 +1,10 @@
 """Advanced Settings dialog (touchpad placeholders, pen profiles, connection)."""
 from __future__ import annotations
 
+import platform
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QButtonGroup,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -11,7 +12,6 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
-    QRadioButton,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -132,34 +132,17 @@ class AdvancedSettingsDialog(QDialog):
         page = QWidget()
         layout = QVBoxLayout(page)
 
-        mode_box = QGroupBox("Connection mode")
-        mode_layout = QVBoxLayout(mode_box)
-        self._mode_group = QButtonGroup(self)
-        current = str(self.config["general"].get("connection_mode", "usb")).lower()
-        if current not in ("usb", "bluetooth"):
-            current = "usb"
-        options = [
-            ("usb", "USB — cable only for this engine run"),
-            ("bluetooth", "Bluetooth — no cable for this engine run"),
-        ]
-        self._mode_radios: dict[str, QRadioButton] = {}
-        for key, label in options:
-            radio = QRadioButton(label)
-            self._mode_group.addButton(radio)
-            self._mode_radios[key] = radio
-            mode_layout.addWidget(radio)
-            if key == current or (current in ("bt",) and key == "bluetooth"):
-                radio.setChecked(True)
-        if not any(r.isChecked() for r in self._mode_radios.values()):
-            self._mode_radios["usb"].setChecked(True)
+        bt_box = QGroupBox("Bluetooth")
+        bt_layout = QVBoxLayout(bt_box)
         tip = QLabel(
-            "Pick this before Start. Stop the engine to change it. "
-            "The tablet app asks USB or Bluetooth each time it opens. Both sides must match."
+            f"While the engine runs, this PC waits for a tablet as '{platform.node()}'. "
+            "Pair the tablet in Windows Bluetooth settings once, then on the tablet "
+            "choose Bluetooth and pick this PC."
         )
         tip.setWordWrap(True)
         tip.setObjectName("muted")
-        mode_layout.addWidget(tip)
-        layout.addWidget(mode_box)
+        bt_layout.addWidget(tip)
+        layout.addWidget(bt_box)
 
         box = QGroupBox("USB / ADB")
         form = QFormLayout(box)
@@ -168,12 +151,6 @@ class AdvancedSettingsDialog(QDialog):
         form.addRow("HTTP", QLabel(f"127.0.0.1:{HTTP_PORT}"))
         form.addRow("WebSocket", QLabel(f"127.0.0.1:{WS_PORT}"))
         form.addRow("GUI control", QLabel(f"127.0.0.1:{CONTROL_PORT}"))
-        mac = self.config["general"].get("bluetooth_mac") or "(auto from paired Tab)"
-        form.addRow("Bluetooth MAC", QLabel(str(mac)))
-        form.addRow(
-            "Bluetooth channel",
-            QLabel(str(self.config["general"].get("bluetooth_channel", 5))),
-        )
         try:
             mons = list_monitors()
             mon_text = "\n".join(
@@ -196,10 +173,4 @@ class AdvancedSettingsDialog(QDialog):
             cfg["pen"]["profiles"][key]["monitor_id"] = widgets["picker"].selected_id()
             cfg["pen"]["profiles"][key]["mapping"] = widgets["mapping"].currentData()
             cfg["pen"]["profiles"][key]["area_size"] = widgets["area"].value() / 100.0
-        mode = "auto"
-        for key, radio in self._mode_radios.items():
-            if radio.isChecked():
-                mode = key
-                break
-        cfg["general"]["connection_mode"] = mode
         return migrate_config(cfg)

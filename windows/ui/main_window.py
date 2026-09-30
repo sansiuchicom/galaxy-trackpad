@@ -76,6 +76,8 @@ class MainWindow(QMainWindow):
         self.engine_phase = "stopped"
         self.usb_phase = "unknown"
         self.tablet_phase = "disconnected"
+        self.transport_phase = "none"
+        self.peer_name = ""
         self.show_debug_logs = bool(
             self.config.get("general", {}).get("debug_log", False)
         )
@@ -276,27 +278,10 @@ class MainWindow(QMainWindow):
         self.debug_logs.toggled.connect(self.on_debug_logs_toggled)
         inside.addWidget(self.debug_logs)
 
-        inside.addWidget(QLabel("Connection (applies on next Start)"))
-        self.conn_group = QButtonGroup(self)
-        self.radio_usb = QRadioButton("USB")
-        self.radio_bt = QRadioButton("Bluetooth")
-        saved_mode = str(self.config["general"].get("connection_mode", "usb")).lower()
-        self.radio_bt.setChecked(saved_mode == "bluetooth")
-        self.radio_usb.setChecked(saved_mode != "bluetooth")
-        self.conn_group.addButton(self.radio_usb)
-        self.conn_group.addButton(self.radio_bt)
-        conn_row = QHBoxLayout()
-        conn_row.addWidget(self.radio_usb)
-        conn_row.addWidget(self.radio_bt)
-        conn_row.addStretch()
-        inside.addLayout(conn_row)
-        self.radio_usb.toggled.connect(
-            lambda checked: checked and self.change_general("connection_mode", "usb")
+        conn_hint = QLabel(
+            "USB and Bluetooth are both ready while running. "
+            "Choose on the tablet; for Bluetooth, pick this PC there."
         )
-        self.radio_bt.toggled.connect(
-            lambda checked: checked and self.change_general("connection_mode", "bluetooth")
-        )
-        conn_hint = QLabel("Stop, pick, then Start. The tablet picks the same way when it opens.")
         conn_hint.setObjectName("muted")
         conn_hint.setWordWrap(True)
         inside.addWidget(conn_hint)
@@ -551,8 +536,11 @@ class MainWindow(QMainWindow):
             self.set_status("●  Stopping…", "Releasing", "Releasing")
         elif engine == "error":
             self.set_status("●  Error", "Stopped", "Stopped")
+        elif tablet == "connected" and self.transport_phase == "bluetooth":
+            peer = f" · {self.peer_name}" if self.peer_name else ""
+            self.set_status(f"●  Connected · Bluetooth{peer}", "Active", "Available")
         elif tablet == "connected":
-            self.set_status("●  Connected", "Active", "Available")
+            self.set_status("●  Connected · USB", "Active", "Available")
         elif usb == "unauthorized":
             self.set_status("●  Unlock tablet USB debugging", "Ready", "Ready")
         elif usb == "waiting":
@@ -619,7 +607,11 @@ class MainWindow(QMainWindow):
     def inspect_engine_line(self, line):
         if line.startswith("[STATE]"):
             fields = {}
-            for part in line[7:].split():
+            body = line[7:]
+            if " peer=" in body:
+                # Tablet names contain spaces; peer is always the last field.
+                body, self.peer_name = body.split(" peer=", 1)
+            for part in body.split():
                 if "=" in part:
                     key, value = part.split("=", 1)
                     fields[key] = value
@@ -629,6 +621,10 @@ class MainWindow(QMainWindow):
                 self.usb_phase = fields["usb"]
             if "tablet" in fields:
                 self.tablet_phase = fields["tablet"]
+            if "transport" in fields:
+                self.transport_phase = fields["transport"]
+                if self.transport_phase != "bluetooth":
+                    self.peer_name = ""
             if self.engine_phase == "running" and not self.control_ready:
                 # control-ready print may arrive slightly after first STATE
                 pass

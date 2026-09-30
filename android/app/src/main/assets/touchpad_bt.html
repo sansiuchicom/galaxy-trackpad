@@ -31,8 +31,8 @@ html, body {
 </head>
 <body>
 <div id="bar">
-  <span id="status">Waiting for PC…</span>
-  <span id="hint">Bluetooth — PC Galaxy Trackpad must be running (Automatic)</span>
+  <span id="status">Not connected</span>
+  <span id="hint">Pick a PC to connect over Bluetooth</span>
 </div>
 <div id="pad"></div>
 <script>
@@ -53,13 +53,7 @@ window.__gtBtLog = function (msg) {
 // Called from Android when RFCOMM framed mode is on.
 window.__gtBtLinked = function (ok) {
   linked = !!ok;
-  if (linked) {
-    setStatus("CONNECTED");
-    setHint("Bluetooth pad — move fingers");
-  } else {
-    setStatus("Waiting for PC…");
-    setHint("Bluetooth — PC Galaxy Trackpad must be running (Automatic)");
-  }
+  setStatus(linked ? "Bluetooth" : "Not connected");
 };
 
 function post(obj) {

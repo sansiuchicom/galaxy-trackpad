@@ -16,7 +16,8 @@ from winrt.windows.devices.bluetooth.rfcomm import RfcommServiceId, RfcommServic
 from winrt.windows.networking.sockets import SocketProtectionLevel, StreamSocketListener
 from winrt.windows.storage.streams import Buffer, DataWriter, InputStreamOptions
 
-from bluetooth_lab.constants import SERVICE_UUID
+# Must match SERVICE_UUID in the Android app and bluetooth_lab/constants.py.
+SERVICE_UUID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 
 # Each WinRT read is an async round trip; pull whatever has arrived in one go.
 _READ_CHUNK = 8192
@@ -49,6 +50,10 @@ class WinRtSocket:
 
     def settimeout(self, timeout: float | None) -> None:
         self._timeout = timeout
+
+    def unread(self, data: bytes) -> None:
+        """Give back bytes a line reader pulled past the end of the handshake."""
+        self._buf = data + self._buf
 
     async def _read(self, n: int) -> bytes:
         result = await self._sock.input_stream.read_async(Buffer(n), n, InputStreamOptions.PARTIAL)

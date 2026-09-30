@@ -2,6 +2,10 @@ package com.galaxytrackpad.app
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.bluetooth.BluetoothClass
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -19,16 +23,18 @@ import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.galaxytrackpad.app.bluetooth.RfcommPadServer
+import com.galaxytrackpad.app.bluetooth.RfcommPadClient
 import com.galaxytrackpad.app.databinding.ActivityMainBinding
 
 /**
- * One transport per launch: USB or Bluetooth. No mid-session switch.
- * PC engine must be started in the same mode.
+ * One transport per launch, chosen on this screen: USB or Bluetooth. No mid-session switch.
+ * For Bluetooth the user picks a paired PC; the PC engine is always advertising.
  */
 class MainActivity : AppCompatActivity() {
 
@@ -38,15 +44,17 @@ class MainActivity : AppCompatActivity() {
     private var destroyed = false
     private var mode: String? = null
 
-    private var btServer: RfcommPadServer? = null
+    private var btClient: RfcommPadClient? = null
+    private var btDevice: BluetoothDevice? = null
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
             if (mode != MODE_BT) return@registerForActivityResult
             if (result.values.all { it }) {
-                btServer?.start()
+                pickPc()
             } else {
-                Toast.makeText(this, "Bluetooth permission denied", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Bluetooth permission is needed to reach the PC", Toast.LENGTH_LONG).show()
+                backToChooser()
             }
         }
 
@@ -91,8 +99,6 @@ class MainActivity : AppCompatActivity() {
             binding.webView.evaluateJavascript(JS_RESUME_SYNC, null)
         } else if (mode == MODE_USB) {
             startWatchdog()
-        } else if (mode == MODE_BT) {
-            ensureBtServer()
         }
     }
 
@@ -114,8 +120,8 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         destroyed = true
         mainHandler.removeCallbacks(watchdogRunnable)
-        btServer?.stop()
-        btServer = null
+        btClient?.shutdown()
+        btClient = null
         binding.webView.apply {
             stopLoading()
             loadUrl("about:blank")
@@ -132,13 +138,23 @@ class MainActivity : AppCompatActivity() {
         binding.webView.visibility = View.VISIBLE
         if (selected == MODE_BT) {
             binding.webView.loadUrl(BT_PAD_URL)
-            ensureBtServer()
-            Toast.makeText(this, "Bluetooth — PC must be in Bluetooth mode", Toast.LENGTH_LONG).show()
+            if (hasBluetoothPermission()) {
+                pickPc()
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                permissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT))
+            }
         } else {
             loadTrackpad()
             startWatchdog()
-            Toast.makeText(this, "USB — PC must be in USB mode", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    /** Only before anything connected: the user backed out of the PC picker. */
+    private fun backToChooser() {
+        mode = null
+        binding.webView.loadUrl("about:blank")
+        binding.webView.visibility = View.GONE
+        binding.chooser.visibility = View.VISIBLE
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -166,6 +182,9 @@ class MainActivity : AppCompatActivity() {
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
+                if (mode == MODE_BT && btClient?.isLinked() == true) {
+                    view?.evaluateJavascript("window.__gtBtLinked && window.__gtBtLinked(true)", null)
+                }
                 if (mode != MODE_USB) return
                 if (url != null && url.startsWith(TRACKPAD_ORIGIN)) {
                     pageHealthy = true
@@ -202,45 +221,84 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun sendPacket(json: String) {
             if (mode != MODE_BT) return
-            btServer?.sendPacketJson(json)
+            btClient?.sendPacketJson(json)
         }
     }
 
-    private fun ensureBtServer() {
-        if (btServer == null) {
-            btServer = RfcommPadServer(
-                this,
-                onLog = { msg ->
-                    runOnUiThread {
-                        val safe = org.json.JSONObject.quote(msg)
-                        binding.webView.evaluateJavascript(
-                            "window.__gtBtLog && window.__gtBtLog($safe)",
-                            null,
-                        )
-                    }
-                },
-                onFramed = { linked ->
-                    runOnUiThread {
-                        binding.webView.evaluateJavascript(
-                            "window.__gtBtLinked && window.__gtBtLinked($linked)",
-                            null,
-                        )
-                    }
-                },
-            )
-        }
-        if (btServer?.hasBluetoothPermission() != true) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                permissionLauncher.launch(
-                    arrayOf(
-                        Manifest.permission.BLUETOOTH_CONNECT,
-                        Manifest.permission.BLUETOOTH_ADVERTISE,
-                    ),
-                )
-            }
+    private fun hasBluetoothPermission(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) ==
+            PackageManager.PERMISSION_GRANTED
+
+    @SuppressLint("MissingPermission")
+    private fun pickPc() {
+        val adapter = getSystemService(BluetoothManager::class.java)?.adapter
+        if (adapter == null || !adapter.isEnabled) {
+            Toast.makeText(this, "Turn Bluetooth on, then choose Bluetooth again", Toast.LENGTH_LONG).show()
+            backToChooser()
             return
         }
-        btServer?.start()
+        val bonded = adapter.bondedDevices.toList()
+        val computers = bonded.filter {
+            it.bluetoothClass?.majorDeviceClass == BluetoothClass.Device.Major.COMPUTER
+        }
+        val last = getPreferences(MODE_PRIVATE).getString(PREF_LAST_PC, null)
+        val choices = computers.ifEmpty { bonded }.sortedByDescending { it.address == last }
+        if (choices.isEmpty()) {
+            AlertDialog.Builder(this)
+                .setTitle("No paired PC")
+                .setMessage("Pair this tablet with the PC in Bluetooth settings first.")
+                .setPositiveButton("OK") { _, _ -> backToChooser() }
+                .setCancelable(false)
+                .show()
+            return
+        }
+        val labels = choices.map { it.name ?: it.address }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Connect to which PC?")
+            .setItems(labels) { _, which -> connectTo(choices[which]) }
+            .setNegativeButton("Cancel") { _, _ -> backToChooser() }
+            .setCancelable(false)
+            .show()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun connectTo(device: BluetoothDevice) {
+        val adapter = getSystemService(BluetoothManager::class.java)?.adapter ?: return
+        btDevice = device
+        getPreferences(MODE_PRIVATE).edit().putString(PREF_LAST_PC, device.address).apply()
+        val pcName = device.name ?: device.address
+        padLog("Connecting to $pcName…")
+        btClient?.shutdown()
+        btClient = RfcommPadClient(
+            adapter,
+            tabletName = adapter.name ?: Build.MODEL,
+            onLinked = {
+                runOnUiThread {
+                    binding.webView.evaluateJavascript("window.__gtBtLinked && window.__gtBtLinked(true)", null)
+                    padLog("Connected to $pcName")
+                }
+            },
+            onClosed = { reason -> runOnUiThread { onBtClosed(pcName, reason) } },
+        ).also { it.connect(device) }
+    }
+
+    private fun onBtClosed(pcName: String, reason: String) {
+        if (destroyed) return
+        binding.webView.evaluateJavascript("window.__gtBtLinked && window.__gtBtLinked(false)", null)
+        padLog("Not connected to $pcName")
+        AlertDialog.Builder(this)
+            .setTitle("Not connected to $pcName")
+            .setMessage(reason)
+            .setPositiveButton("Reconnect") { _, _ -> btDevice?.let(::connectTo) }
+            .setNeutralButton("Other PC") { _, _ -> pickPc() }
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun padLog(message: String) {
+        val safe = org.json.JSONObject.quote(message)
+        binding.webView.evaluateJavascript("window.__gtBtLog && window.__gtBtLog($safe)", null)
     }
 
     private fun startWatchdog() {
@@ -277,6 +335,7 @@ class MainActivity : AppCompatActivity() {
         private const val WAITING_URL = "file:///android_asset/waiting.html"
         private const val BT_PAD_URL = "file:///android_asset/touchpad_bt.html"
         private const val RELOAD_DELAY_MS = 2000L
+        private const val PREF_LAST_PC = "bt_last_pc"
 
         private const val JS_RELEASE_ALL = """
             (function () {

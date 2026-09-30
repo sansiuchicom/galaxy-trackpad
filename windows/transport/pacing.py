@@ -11,7 +11,7 @@ import collections
 import ctypes
 import threading
 import time
-from typing import Any
+from typing import Any, Callable
 
 from windows.transport.input_dispatch import InputSession
 
@@ -23,7 +23,14 @@ _WINDOW_S = 2.0
 
 
 class PacedInput:
-    def __init__(self, max_delay_s: float = MAX_DELAY_S, percentile: float = JITTER_PERCENTILE) -> None:
+    def __init__(
+        self,
+        max_delay_s: float = MAX_DELAY_S,
+        percentile: float = JITTER_PERCENTILE,
+        sink: Callable[[dict[str, Any]], None] | None = None,
+    ) -> None:
+        """Without a sink, owns an InputSession; with one, forwards packets to it."""
+        self._sink = sink
         self._max_delay = max_delay_s
         self._percentile = percentile
         self._queue: collections.deque[tuple[float, dict[str, Any]]] = collections.deque()
@@ -64,7 +71,8 @@ class PacedInput:
         winmm = ctypes.WinDLL("winmm")
         # Default Windows wait granularity is ~15.6 ms, which would reintroduce the stutter.
         winmm.timeBeginPeriod(1)
-        session = InputSession()
+        session = InputSession() if self._sink is None else None
+        apply = self._sink or session.apply_packet
         self._ready.set()
         try:
             while True:
@@ -79,9 +87,13 @@ class PacedInput:
                         self._cond.wait(wait)
                         continue
                     self._queue.popleft()
-                session.apply_packet(packet)
+                try:
+                    apply(packet)
+                except Exception:  # noqa: BLE001 - one bad packet must not stop input
+                    pass
         finally:
-            session.close()
+            if session is not None:
+                session.close()
             winmm.timeEndPeriod(1)
 
     def close(self) -> None:
