@@ -38,8 +38,44 @@ from windows.settings.store import (
     migrate_config,
     save_config,
     set_active_profile,
+    update_active_profile_fields,
 )
 from windows.ui.advanced_dialog import AdvancedSettingsDialog
+
+
+class JumpSlider(QSlider):
+    """Horizontal slider: click groove to jump; mouse wheel does not change value."""
+
+    def wheelEvent(self, event):
+        event.ignore()
+
+    def _value_at(self, pos) -> int:
+        x = max(0.0, min(float(pos.x()), float(max(self.width() - 1, 1))))
+        span = self.maximum() - self.minimum()
+        return self.minimum() + round((x / max(self.width() - 1, 1)) * span)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self.isEnabled():
+            self.setSliderDown(True)
+            self.setValue(self._value_at(event.position()))
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self.isSliderDown() and event.buttons() & Qt.MouseButton.LeftButton:
+            self.setValue(self._value_at(event.position()))
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self.isSliderDown():
+            self.setSliderDown(False)
+            self.sliderReleased.emit()
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
 
 
 class MainWindow(QMainWindow):
@@ -131,7 +167,7 @@ class MainWindow(QMainWindow):
         value_label = QLabel()
         value_label.setObjectName("value")
         row.addWidget(value_label)
-        bar = QSlider(Qt.Orientation.Horizontal)
+        bar = JumpSlider(Qt.Orientation.Horizontal)
         bar.setRange(50, 200)
         current = float(self.config["touchpad"].get(key, 1.0))
         bar.setValue(round(current * 100))
@@ -145,6 +181,34 @@ class MainWindow(QMainWindow):
         bar.valueChanged.connect(changed)
         layout.addLayout(row)
         layout.addWidget(bar)
+        return outer
+
+    def pen_area_slider(self):
+        outer = QWidget()
+        outer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        layout = QVBoxLayout(outer)
+        layout.setContentsMargins(0, 0, 0, 0)
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Active area size"))
+        row.addStretch()
+        self.area_value = QLabel()
+        self.area_value.setObjectName("value")
+        row.addWidget(self.area_value)
+        self.area_bar = JumpSlider(Qt.Orientation.Horizontal)
+        self.area_bar.setRange(50, 100)
+        layout.addLayout(row)
+        layout.addWidget(self.area_bar)
+
+        def changed(value):
+            self.area_value.setText(f"{value}%")
+            if not getattr(self, "_pen_ui_ready", False):
+                return
+            self.config = update_active_profile_fields(
+                self.config, area_size=value / 100.0
+            )
+            self.save_settings()
+
+        self.area_bar.valueChanged.connect(changed)
         return outer
 
     def build_ui(self):
@@ -225,10 +289,24 @@ class MainWindow(QMainWindow):
         self.profile_combo.currentIndexChanged.connect(self.on_profile_changed)
         row.addWidget(self.profile_combo)
         inside.addLayout(row)
-        self.configure_pen_button = self.action_button("Configure Pen Profiles…")
-        self.configure_pen_button.clicked.connect(self.open_advanced)
-        inside.addWidget(self.configure_pen_button)
-        note = QLabel("Finger touchpad is independent of pen profile settings.")
+
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Mapping"))
+        row.addStretch()
+        self.mapping_combo = QComboBox()
+        self.mapping_combo.setMinimumWidth(190)
+        self.mapping_combo.setMinimumHeight(32)
+        self.mapping_combo.addItem("Stretch", "stretch")
+        self.mapping_combo.addItem("Preserve aspect ratio", "preserve_aspect_ratio")
+        self.mapping_combo.currentIndexChanged.connect(self.on_mapping_changed)
+        row.addWidget(self.mapping_combo)
+        inside.addLayout(row)
+
+        inside.addWidget(self.pen_area_slider())
+        note = QLabel(
+            "Monitor target and Identify Displays are in Advanced Settings. "
+            "Finger touchpad stays independent of pen profile."
+        )
         note.setObjectName("muted")
         note.setWordWrap(True)
         inside.addWidget(note)
@@ -263,16 +341,39 @@ class MainWindow(QMainWindow):
 
     def sync_pen_controls_from_config(self):
         self.config = migrate_config(self.config)
-        name = self.config["pen"].get("active_profile", PROFILE_STANDARD)
+        pen = self.config["pen"]
+        name = pen.get("active_profile", PROFILE_STANDARD)
         idx = self.profile_combo.findData(name)
         self.profile_combo.blockSignals(True)
         self.profile_combo.setCurrentIndex(max(0, idx))
         self.profile_combo.blockSignals(False)
 
+        profile = pen["profiles"][name]
+        mapping = profile.get("mapping", "stretch")
+        map_idx = self.mapping_combo.findData(mapping)
+        self.mapping_combo.blockSignals(True)
+        self.mapping_combo.setCurrentIndex(max(0, map_idx))
+        self.mapping_combo.blockSignals(False)
+
+        area = int(round(float(profile.get("area_size", 1.0)) * 100))
+        self.area_bar.blockSignals(True)
+        self.area_bar.setValue(area)
+        self.area_value.setText(f"{area}%")
+        self.area_bar.blockSignals(False)
+
     def on_profile_changed(self, _index):
         if not getattr(self, "_pen_ui_ready", False):
             return
         self.config = set_active_profile(self.config, self.profile_combo.currentData())
+        self.sync_pen_controls_from_config()
+        self.save_settings()
+
+    def on_mapping_changed(self, _index):
+        if not getattr(self, "_pen_ui_ready", False):
+            return
+        self.config = update_active_profile_fields(
+            self.config, mapping=self.mapping_combo.currentData()
+        )
         self.save_settings()
 
     def on_start_with_windows(self, checked: bool):
@@ -335,9 +436,15 @@ class MainWindow(QMainWindow):
                 background: #0b1220; border: 1px solid #374151;
                 border-radius: 7px; font: 11px Consolas; color: #d1d5db;
             }
-            QSlider::groove:horizontal { height: 5px; background: #4b5563; border-radius: 2px; }
+            QSlider::groove:horizontal {
+                height: 10px; background: #4b5563; border-radius: 5px;
+            }
             QSlider::handle:horizontal {
-                background: #60a5fa; width: 15px; margin: -5px 0; border-radius: 3px;
+                background: #60a5fa; width: 18px; height: 18px;
+                margin: -5px 0; border-radius: 9px;
+            }
+            QSlider::sub-page:horizontal {
+                background: #3b82f6; border-radius: 5px;
             }
             QCheckBox { spacing: 9px; }
             QComboBox {
