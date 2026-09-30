@@ -1,195 +1,92 @@
-# Galaxy Trackpad — Bluetooth plan (updated)
+# Galaxy Trackpad — Bluetooth
 
-Status: **BT-1 in progress** (lab code on branch `dev/bluetooth`)  
-Stable USB release to preserve: **v0.9.1**  
-Development line: **v0.10.0-dev** (branch `dev/bluetooth`)
+Shipped in **v0.10.0**. USB still works exactly as in v0.9.1.
 
-Bluetooth is a **first-class connection mode**, not a side experiment that replaces USB.
-USB remains the reference path. Bluetooth reuses the same input engine.
+Bluetooth is a **byte pipe for the same pad JSON** as USB — not a Bluetooth HID mouse/touchpad.
+Same pad page, same Windows input engine, same settings and pen profiles.
 
 ---
 
-## 1. Product goal
+## 1. How to use it
 
-| | USB (v0.9.1) | Bluetooth (target) |
-|---|---|---|
-| Multitouch / Windows gestures | Yes | Same engine — verify latency |
-| S Pen (pressure / tilt) | Yes | Same engine — verify stability |
-| Sensitivity / pen profiles | Yes | Same messages / Windows store |
-| Auto reconnect | Yes | Goal |
-| Network / Wi‑Fi | No | No |
-| Cable | Required | Not required after pairing |
+1. Pair the tablet and the PC once in the OS Bluetooth settings.
+2. Run Galaxy Trackpad on the PC and press **START**. The engine is always ready for USB **and** Bluetooth;
+   there is no mode switch on the PC.
+3. Open the tablet app and choose **Bluetooth**, then pick the PC from the list (last used PC is on top).
+4. The pad shows **CONNECTED · Bluetooth · &lt;PC name&gt;**.
 
-**Honest caveat:** Feature parity is the goal; *feel* parity is measured in BT-5. If BT is consistently worse, ship it with “USB recommended for drawing” rather than claiming identical UX.
+One transport per launch. Plugging in USB during a Bluetooth session does not switch; close the app and
+choose USB instead. If the link drops, the tablet offers **Reconnect** or **Other PC**.
 
-### Daily UX (target after BT-4)
-
-1. Windows Galaxy Trackpad in tray.  
-2. Tab app opens → tries last Bluetooth session (and/or USB if plugged).  
-3. Fingers = touchpad, S Pen = pen — same as USB.  
-4. No Chrome, no IP typing, no Wi‑Fi requirement.
+USB is still recommended for drawing: Bluetooth adds a small, steady delay (see §4).
 
 ---
 
-## 2. Architecture (locked)
-
-Bluetooth is a **byte pipe for the existing JSON**, not a Bluetooth HID mouse/touchpad.
+## 2. Architecture
 
 ```text
-Galaxy Tab (WebView)
-    │  Pointer Events → contacts / control JSON
+Galaxy Tab app
+  touchpad_v04.html (same file Windows serves over USB, bundled into the APK)
+    │  USB: WebSocket via ADB reverse :8766
+    │  Bluetooth: GalaxyBT bridge → RfcommPadClient (RFCOMM, dials the PC)
     ▼
-Input Sender (shared)
-    │
-    ├── USB Transport     → WebSocket (ADB reverse :8766)
-    └── Bluetooth Transport → RFCOMM framed stream
-            │
-            ▼
-     Session / Mux (one active input path)
-            │
-            ▼
-     Existing Windows input engine
-     (touchpad + pen + sensitivity + profiles)
+Windows engine
+  websocket.py (USB) ─┐
+  bluetooth.py (BT) ──┼─ SharedInput (one active transport, contacts released on switch/drop)
+                      ▼
+               touchpad + pen injection
 ```
 
-| Piece | Role |
+| Piece | File |
 |-------|------|
-| USB Transport | Current WebSocket + ADB reverse — **do not break** |
-| Bluetooth Transport | RFCOMM connect/send/recv/reconnect |
-| Session controller | Exactly one transport feeds the engine; no duplicate contacts |
-| Input engine | Untouched as much as possible |
+| RFCOMM service (WinRT, SDP-advertised) | `windows/transport/winrt_rfcomm.py` |
+| BT session: handshake, frames, state/profile | `windows/transport/bluetooth.py` |
+| Jitter buffer for BT input | `windows/transport/pacing.py` |
+| Tablet RFCOMM client | `android/.../bluetooth/RfcommPadClient.kt` |
+| Transport choice + PC picker | `android/.../MainActivity.kt` |
 
-HID / custom drivers / BLE GATT streaming are **out of scope** for v0.10.
+### Discovery
 
----
+- The PC advertises service UUID `a1b2c3d4-e5f6-7890-abcd-ef1234567890` through WinRT
+  `RfcommServiceProvider`. The RFCOMM channel number is assigned by Windows and **differs per PC**;
+  nothing hardcodes it.
+- The tablet connects with `createRfcommSocketToServiceRecord(UUID)` (SDP lookup). Only
+  `BLUETOOTH_CONNECT` permission is needed.
+- Plain Python `AF_BTH` server sockets do not publish SDP records, which is why the PC side uses WinRT (pywinrt).
 
-## 3. Technology choices
+### Wire protocol
 
-| Topic | Decision | Notes |
-|-------|----------|--------|
-| Radio | **Bluetooth Classic RFCOMM** first | Continuous coordinate stream; BLE later only if needed |
-| Who listens? | **Tab listens / Windows dials** (chosen in BT-1) | Fixed lab channel 5 for BT-1/2; UUID/SDP for production later |
-| Windows BT code | **Python first** | Same process as today’s app. If OS APIs block us, add a small **C#/C++ helper** and keep Python as orchestrator |
-| Android | RFCOMM via platform APIs | BT-1 = isolated test UI, not deep WebView hooks |
-| Message body | Reuse existing JSON | `contacts` packets + `type: state / set_profile / hello` |
-| Framing (RFCOMM) | **Length-prefixed JSON** from day one | e.g. `uint32_be length` + UTF-8 JSON (no bare newline-only framing) |
-| Security | Paired devices only | Prefer authenticated/encrypted RFCOMM; reject strangers injecting input |
-
----
-
-## 4. Phases
-
-Work on branch **`dev/bluetooth`**. Do not ship over v0.9.1 until BT-5 is acceptable.
-
-### BT-1 — RFCOMM lab (no input engine)
-
-**Status (dev/bluetooth): DONE** — Tab listens on fixed RFCOMM channel 5; Windows client dials, HELLO/ACK + PING/PONG verified.
-
-**Do not modify** the production USB path except behind a clearly separate lab entry.
-
-1. Pair Tab ↔ PC once in system settings; unplug USB.  
-2. Minimal Android RFCOMM test (extra Activity / debug screen).  
-3. Minimal Windows RFCOMM test (script or tiny window).  
-4. Exchange `HELLO` / `ACK` (and maybe a counter).  
-5. Detect disconnect; manual reconnect once.  
-6. Record which listen role worked better. → **Tab listens, Windows dials.**
-
-**Done when:** USB unplugged, bidirectional messages work, logs show connect/disconnect cleanly.
-
-### BT-2 — Pipe real pad data (still thin UI)
-
-**Status (dev/bluetooth): DONE (lab)** — GT BT Lab WebView pad → framed RFCOMM → `windows_pad_client` / `InputSession`. USB MainActivity / GalaxyTrackpad.exe integration is BT-3.
-
-1. Reuse WebView contact collection (no new gesture logic).  
-2. Bridge WebView → native (`JavascriptInterface` in lab; production may use `WebMessageListener`).  
-3. Send framed JSON over RFCOMM (`uint32_be` + UTF-8).  
-4. Windows BT receiver unwraps JSON → **existing** touchpad/pen update path (`windows/transport/input_dispatch.py`).  
-5. Prove: 1-finger move → multitouch → S Pen.
-
-**Done when:** Cursor/gestures/pen work over BT with USB cable out (engine path shared).
-
-### BT-3 — Integrate into real apps
-
-**Status (dev/bluetooth): in progress** — shared `InputSession`, Windows `connection_mode` (auto/usb/bluetooth), engine BT worker, MainActivity USB→BT fallback after ~8s.
-
-1. Connection mode (simple): **Automatic / USB / Bluetooth** (or equivalent clear labels).  
-2. Automatic = prefer USB when healthy; else BT — **never switch mid-gesture**; wait for all contacts up.  
-3. Share state/profile sync messages over BT.  
-4. Hide lab-only UI; keep USB v0.9 behavior as default fallback.
-
-**Done when:** One Windows app + one Android app can use either transport without a separate test binary for daily use.
-
-### BT-4 — Auto connect / reconnect
-
-1. Remember last peer after successful session.  
-2. Tray Windows waits; Tab open → connect attempt.  
-3. Reconnect with backoff; on drop → release all Windows contacts.  
-4. Pairing ≠ session: UI copy must say so.
-
-**Done when:** Cold start (no cable) reaches CONNECTED without manual RFCOMM plumbing each time.
-
-### BT-5 — Soak & latency
-
-| Check | Goal |
-|-------|------|
-| Latency | Measure vs USB (same gestures) |
-| Move stream | No multi-second cursor lag (coalesce moves if queued) |
-| Down/up | Never coalesce; order preserved |
-| Multitouch / pen | No stuck contacts after drop |
-| Long run | Hours without leak / wedged BT |
-
-**Done when:** Good enough to tag **v0.10.0** (or document limitations and still ship).
+1. PC → `HELLO <pc name>`, tablet → `ACK name=<tablet name>`
+2. `PING` / `PONG <ms>`
+3. `MODE FRAME` / `ACK FRAME`
+4. Then both directions: `uint32 big-endian length` + UTF-8 JSON — the same messages as the USB WebSocket
+   (`contacts` packets, `hello`, `state`, `set_profile`, `ack`).
 
 ---
 
-## 5. Repo layout (incremental — don’t create empty shells early)
+## 3. Latency work (why it feels smooth)
 
-Add modules only after BT-1 proves the link:
+| Problem | Fix |
+|---------|-----|
+| Many tiny reads/writes | PC reads 8 KB chunks; tablet writes header+body in one write |
+| Too many packets for the radio | Bluetooth page sends at most one move per display frame with all fingers, short numbers, pressure/tilt only for the pen |
+| Radio falls behind | Tablet keeps only the newest pending move; down/up are never dropped or reordered |
+| Bursty arrival → stutter | PC replays packets on the tablet's timeline with an adaptive buffer (80th percentile jitter, 5–25 ms), 1 ms timer |
 
-```text
-windows/transport/
-  websocket.py      # existing USB
-  bluetooth.py      # NEW after BT-1
-  session.py        # NEW when muxing (BT-3)
-
-android/.../bluetooth/   # NEW lab first, then production
-
-bluetooth-lab/           # OPTIONAL scratch for BT-1 only
-tests/bluetooth/         # NEW checklists / tiny scripts
-
-docs/BLUETOOTH.md        # this plan
-```
-
-Optional `bluetooth-helper/` only if Python RFCOMM is insufficient.
+USB behavior is unchanged by all of the above.
 
 ---
 
-## 6. Non‑negotiables
+## 4. Known limits
 
-1. **v0.9.1 USB stays usable** — branch away; don’t break main daily driver.  
-2. **No duplicate injection** if USB and BT are both up.  
-3. **Release contacts** on any transport drop.  
-4. **No HID rewrite** of the Windows touchpad stack.  
-5. **No Wi‑Fi dependency** for the BT path.  
-6. Version: develop as **0.10.0-dev**; release **0.10.0** when BT-5 passes.
+- Adds up to ~25 ms of smoothing delay on top of the radio.
+- One tablet session at a time (newest wins, same as USB).
+- No automatic reconnect across app launches; the tablet remembers the last PC and puts it first.
+- HID, BLE and Wi‑Fi transports are out of scope.
 
 ---
 
-## 7. Immediate next actions (when coding starts)
+## 5. Lab tools
 
-1. Branch `dev/bluetooth` — **done**.  
-2. Pair Tab + PC; confirm both OS UIs show paired (cable out).  
-3. BT-1 lab: see **[bluetooth_lab/README.md](../bluetooth_lab/README.md)**  
-   - Windows: `python -m bluetooth_lab.windows_server`  
-   - Tab: **GT BT Lab** icon → connect → HELLO/ACK  
-4. Decide listen role + Python vs helper from real logs.  
-5. Only then touch WebView → engine wiring (BT-2).
-
----
-
-## 8. Explicitly deferred
-
-- BLE as primary transport  
-- Play/Store packaging for BT builds  
-- Fancy multi-PC device pickers (beyond “last device”)  
-- Claiming identical latency to USB before BT-5 numbers exist  
+`bluetooth_lab/` keeps the standalone test tools used to build this (GT BT Lab activity on the tablet,
+Python lab server/clients on the PC). See [bluetooth_lab/README.md](../bluetooth_lab/README.md).

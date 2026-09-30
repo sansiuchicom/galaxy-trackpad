@@ -187,7 +187,7 @@ class MainWindow(QMainWindow):
         title.setObjectName("title")
         title.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         layout.addWidget(title)
-        hint = QLabel("Windows touchpad + S Pen  ·  USB / ADB")
+        hint = QLabel("Windows touchpad + S Pen  ·  USB or Bluetooth")
         hint.setObjectName("muted")
         hint.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         layout.addWidget(hint)

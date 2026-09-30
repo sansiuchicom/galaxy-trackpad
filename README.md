@@ -2,10 +2,10 @@
 
 Turn a Samsung Galaxy Tab (e.g. **Tab S7 / SM-T870**) into a **Windows Precision Touchpad** plus optional **S Pen** tablet.
 
-**Current release: [v0.9.1](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.9.1)** (pre-1.0 daily driver)  
+**Current release: [v0.10.0](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.10.0)** (pre-1.0 daily driver)  
 **v1.0.0** comes after longer real-world use. Not on Play Store / Microsoft Store.
 
-Connection: **USB + ADB reverse + WebSocket**.  
+Connection: **USB** (ADB reverse + WebSocket) or **Bluetooth** (RFCOMM, after pairing) — chosen on the tablet at launch.  
 Input: Windows synthetic Precision Touchpad + pen. No custom kernel driver.
 
 ---
@@ -14,16 +14,16 @@ Input: Windows synthetic Precision Touchpad + pen. No custom kernel driver.
 
 ### 1. Download
 
-From the [**v0.9.1 release**](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.9.1):
+From the [**v0.10.0 release**](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.10.0):
 
 | File | What |
 |------|------|
-| `GalaxyTrackpad-windows-v0.9.1.zip` | Windows app + bundled `platform-tools` (ADB) |
-| `GalaxyTrackpad-android-v0.9.1.zip` | Contains `GalaxyTrackpad-v0.9.1.apk` |
+| `GalaxyTrackpad-windows-v0.10.0.zip` | Windows app + bundled `platform-tools` (ADB) |
+| `GalaxyTrackpad-android-v0.10.0.zip` | Contains `GalaxyTrackpad-v0.10.0.apk` |
 
 ### 2. Windows PC
 
-1. Unzip `GalaxyTrackpad-windows-v0.9.1.zip` anywhere (keep the folder together — do not delete `_internal` or `platform-tools`).
+1. Unzip `GalaxyTrackpad-windows-v0.10.0.zip` anywhere (keep the folder together — do not delete `_internal` or `platform-tools`).
 2. Run **`GalaxyTrackpad.exe`**.
 3. Allow firewall prompts if Windows asks (localhost only is used).
 4. Leave **Auto-start engine** on (default). Status should move toward USB ready / waiting for tablet.
@@ -35,10 +35,14 @@ Optional: enable **Start with Windows** in the GUI so it opens in the tray at lo
 1. Enable **Developer options** → **USB debugging**.
 2. Plug USB into the PC; accept the debugging RSA prompt on the tablet if shown.
 3. Install the APK:
-   - Copy `GalaxyTrackpad-v0.9.1.apk` to the Tab and open it (allow “install unknown apps” for your file manager), **or**
+   - Copy `GalaxyTrackpad-v0.10.0.apk` to the Tab and open it (allow “install unknown apps” for your file manager), **or**
    - From the PC (with the Tab connected):  
-     `adb install -r GalaxyTrackpad-v0.9.1.apk`
-4. Open the **Galaxy Trackpad** app (landscape). You should see **CONNECTED / USB** when the Windows engine is ready.
+     `adb install -r GalaxyTrackpad-v0.10.0.apk`
+4. Open the **Galaxy Trackpad** app (landscape) and choose **USB**. You should see **CONNECTED · USB** when the Windows engine is ready.
+
+**Bluetooth instead of USB:** pair the Tab with the PC once in Bluetooth settings. Then open the app, choose **Bluetooth**, and pick the PC. USB debugging and the cable are only needed to install the APK. Details: [docs/BLUETOOTH.md](docs/BLUETOOTH.md).
+
+**Upgrading from a debug build** (Android Studio / `assembleDebug`): uninstall it first — the release APK has a different signature.
 
 No Chrome. No typing `http://127.0.0.1…`.
 
@@ -49,7 +53,7 @@ No Chrome. No typing `http://127.0.0.1…`.
 - **Fullscreen** on Android hides the side menu; **Menu** brings it back.
 - Sensitivity / monitor / pen mapping details → Windows app (**Advanced**).
 
-When done: Quit the Windows app (tray → Quit). The tablet app can stay installed.
+When done: **QUIT** in the Windows app (or tray → Quit). The tablet app can stay installed.
 
 ---
 
@@ -80,8 +84,8 @@ If the Tab shows **WAITING**: start/restart the Windows exe, check USB debugging
 - On-pad **S Pen Area** frame from Windows mapping  
 
 ### Apps
-- Windows: GUI + system tray, USB auto reverse / reconnect, Start with Windows  
-- Android: WebView client, connection status, fullscreen, keep-screen-on, offline waiting retry  
+- Windows: GUI + system tray, USB auto reverse / reconnect, Bluetooth always ready, Start with Windows  
+- Android: USB or Bluetooth at launch, paired-PC picker, connection status, fullscreen, keep-screen-on, offline waiting retry  
 
 ---
 
@@ -89,7 +93,7 @@ If the Tab shows **WAITING**: start/restart the Windows exe, check USB debugging
 
 - Windows 11 PC  
 - Samsung Galaxy Tab with **USB debugging** (verified: Tab S7 / SM-T870)  
-- USB cable (data-capable)  
+- USB cable (data-capable), or Bluetooth on both devices (paired)  
 - Release zips from GitHub (recommended) **or** build from source (below)
 
 ---
@@ -156,8 +160,8 @@ Manual: [tests/REGRESSION.md](tests/REGRESSION.md).
 |-------|--------|
 | 1–3 — Windows engine + Android WebView | Done |
 | 4A/4B — APK + Windows exe packaging | Done (`v0.9.1`) |
+| 5 — Bluetooth (RFCOMM transport) | Done (`v0.10.0`) — see [docs/BLUETOOTH.md](docs/BLUETOOTH.md) |
 | Longer soak / polish | In progress |
-| 5 — Bluetooth (first-class RFCOMM transport) | Planned — see [docs/BLUETOOTH.md](docs/BLUETOOTH.md) |
 | **1.0.0** | After real-world soak |
 
 ---

@@ -1,11 +1,13 @@
 # Bluetooth lab (BT-1 / BT-2)
 
-Independent RFCOMM lab. **GalaxyTrackpad.exe is NOT required.**
+Independent RFCOMM lab used to build the Bluetooth transport. **GalaxyTrackpad.exe is NOT required.**
+The shipped design (PC advertises, tablet dials) is described in [docs/BLUETOOTH.md](../docs/BLUETOOTH.md).
 
-| Phase | Tab | PC | Done when |
+| Test | Tab | PC | Done when |
 |-------|-----|-----|-----------|
 | BT-1 | GT BT Lab → Listen | `python -m bluetooth_lab.windows_client` | `BT-1 OK` HELLO/ACK PING/PONG |
 | BT-2 | GT BT Lab → Listen (pad appears) | `python -m bluetooth_lab.windows_pad_client` | Finger on pad moves Windows cursor |
+| PC listens (production role) | GT BT Lab → Connect to a PC | `python -m bluetooth_lab.windows_pad_server` | Same, with pacing (`--no-pacing`, `--max-buffer-ms`, `--percentile`) |
 
 Wire format after `MODE FRAME`: **uint32 big-endian length + UTF-8 JSON** (same contact fields as USB WebSocket).
 
@@ -28,7 +30,7 @@ Do **not** use `XX:XX:…` or `02:00:00:00:00:00`.
 ## BT-1 test
 
 1. Pair Tab ↔ PC. Unplug USB.  
-2. Tab: **GT BT Lab** → **Listen** (log: `Listening on FIXED channel 5`)  
+2. Tab: **GT BT Lab** → **Listen**  
 3. PC:
 
 ```powershell
@@ -68,4 +70,5 @@ If `INSTALL_FAILED_UPDATE_INCOMPATIBLE`:
 & "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r "C:\touchpad\android\app\build\outputs\apk\debug\app-debug.apk"
 ```
 
-Channel **5** is lab-fixed so Windows can dial without SDP. Production later uses UUID discovery; channel numbers are not PC-specific.
+Never hardcode RFCOMM channel numbers: they are assigned per device (channel 5 on this Tab belongs to another
+profile). The lab clients look the channel up via SDP (`bluetooth_lab/sdp_winrt.py`) by service UUID.

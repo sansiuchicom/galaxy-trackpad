@@ -341,7 +341,7 @@ class MainActivity : AppCompatActivity() {
         private const val MODE_USB = "usb"
         private const val MODE_BT = "bluetooth"
         private const val TRACKPAD_ORIGIN = "http://127.0.0.1:8765"
-        const val TRACKPAD_URL = "http://127.0.0.1:8765/touchpad_v04.html?v=094"
+        const val TRACKPAD_URL = "http://127.0.0.1:8765/touchpad_v04.html?v=0100"
         private const val WAITING_URL = "file:///android_asset/waiting.html"
         private const val BT_PAD_URL = "file:///android_asset/touchpad_v04.html"
         private const val RELOAD_DELAY_MS = 2000L
