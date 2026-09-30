@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GT BT Pad</title>
+<style>
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; width: 100%; height: 100%; overflow: hidden;
+  background: #0e1116; color: #e8edf5;
+  font-family: "Segoe UI", sans-serif;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+#bar {
+  height: 44px; display: flex; align-items: center; gap: 12px;
+  padding: 0 14px; background: #12161d; border-bottom: 1px solid #222833;
+  touch-action: manipulation;
+}
+#status { font-size: 14px; font-weight: 700; color: #5dde9f; }
+#hint { font-size: 12px; color: #8b97a8; }
+#pad {
+  position: absolute; left: 0; right: 0; top: 44px; bottom: 0;
+  background: #171b22;
+  background-image:
+    linear-gradient(#222833 1px, transparent 1px),
+    linear-gradient(90deg, #222833 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+</style>
+</head>
+<body>
+<div id="bar">
+  <span id="status">BT pad</span>
+  <span id="hint">same contacts JSON as USB</span>
+</div>
+<div id="pad"></div>
+<script>
+const pad = document.getElementById("pad");
+const statusEl = document.getElementById("status");
+const pointers = new Map();
+let connected = true;
+
+function setStatus(t) { statusEl.textContent = t; }
+
+function post(obj) {
+  try {
+    if (window.GalaxyBT && GalaxyBT.sendPacket) {
+      GalaxyBT.sendPacket(JSON.stringify(obj));
+    }
+  } catch (e) {}
+}
+
+function getContact(event) {
+  const r = pad.getBoundingClientRect();
+  const x = (event.clientX - r.left) / Math.max(1, r.width);
+  const y = (event.clientY - r.top) / Math.max(1, r.height);
+  const tool = event.pointerType === "pen" ? "pen" : "touch";
+  return {
+    id: event.pointerId,
+    tool,
+    x: Math.max(0, Math.min(1, x)),
+    y: Math.max(0, Math.min(1, y)),
+    pressure: event.pressure,
+    tiltX: event.tiltX,
+    tiltY: event.tiltY
+  };
+}
+
+function send(eventName) {
+  if (!connected) return;
+  post({
+    event: eventName,
+    timestamp: performance.now(),
+    contacts: Array.from(pointers.values())
+  });
+}
+
+pad.addEventListener("pointerdown", (event) => {
+  event.preventDefault();
+  pad.setPointerCapture(event.pointerId);
+  pointers.set(event.pointerId, getContact(event));
+  send("down");
+});
+pad.addEventListener("pointermove", (event) => {
+  if (!pointers.has(event.pointerId)) return;
+  event.preventDefault();
+  pointers.set(event.pointerId, getContact(event));
+  send("move");
+});
+function release(event) {
+  if (!pointers.has(event.pointerId)) return;
+  event.preventDefault();
+  pointers.delete(event.pointerId);
+  send("up");
+}
+pad.addEventListener("pointerup", release);
+pad.addEventListener("pointercancel", release);
+pad.addEventListener("contextmenu", (e) => e.preventDefault());
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    pointers.clear();
+    send("up");
+  }
+});
+
+setStatus("Ready — touch pad");
+</script>
+</body>
+</html>

@@ -9,27 +9,37 @@ import android.bluetooth.BluetoothSocket
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.view.View
+import android.webkit.JavascriptInterface
+import android.webkit.WebSettings
+import android.webkit.WebView
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import java.io.BufferedReader
-import java.io.InputStreamReader
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
+import java.io.OutputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * BT-1 lab: Tab listens on RFCOMM; Windows client dials in.
- * USB Galaxy Trackpad / WebView path is unused here.
+ * BT lab: Tab listens on RFCOMM.
+ * BT-1: line HELLO/ACK/PING/PONG
+ * BT-2: MODE FRAME → uint32 BE length + JSON contacts from WebView pad
  */
 class BtLabActivity : AppCompatActivity() {
 
     private val io = Executors.newSingleThreadExecutor()
     private val running = AtomicBoolean(false)
     private val acceptLoop = AtomicBoolean(false)
+    private val frameMode = AtomicBoolean(false)
+    private val writeLock = Any()
 
     private var adapter: BluetoothAdapter? = null
     private var serverSocket: BluetoothServerSocket? = null
@@ -37,6 +47,9 @@ class BtLabActivity : AppCompatActivity() {
 
     private lateinit var status: TextView
     private lateinit var logView: TextView
+    private lateinit var logScroll: View
+    private lateinit var chrome: View
+    private lateinit var padWeb: WebView
     private lateinit var btnListen: Button
     private lateinit var btnHello: Button
     private lateinit var btnPing: Button
@@ -55,6 +68,9 @@ class BtLabActivity : AppCompatActivity() {
 
         status = findViewById(R.id.btStatus)
         logView = findViewById(R.id.btLog)
+        logScroll = findViewById(R.id.btLogScroll)
+        chrome = findViewById(R.id.btChrome)
+        padWeb = findViewById(R.id.btPadWeb)
         btnListen = findViewById(R.id.btListen)
         btnHello = findViewById(R.id.btHello)
         btnPing = findViewById(R.id.btPing)
@@ -67,17 +83,17 @@ class BtLabActivity : AppCompatActivity() {
             return
         }
 
+        setupPadWebView()
+
         btnListen.setOnClickListener { ensurePermsAndListen() }
         btnHello.setOnClickListener { sendLine("HELLO from Tab") }
         btnPing.setOnClickListener { sendLine("PING") }
         btnStop.setOnClickListener { stopAll("User stop") }
 
         setStatus("Idle — pair PC, then tap Listen")
-        appendLog("BT-1: Tab = server, Windows = client")
-        appendLog("Do NOT need GalaxyTrackpad.exe")
-        appendLog("Android hides MAC (02:00:… is fake).")
-        appendLog("On PC: python -m bluetooth_lab.windows_client")
-        appendLog("Pick Tab from the paired list.")
+        appendLog("BT-2: Listen, then on PC:")
+        appendLog("  python -m bluetooth_lab.windows_pad_client")
+        appendLog("BT-1 only: python -m bluetooth_lab.windows_client")
         ensurePerms()
     }
 
@@ -85,6 +101,39 @@ class BtLabActivity : AppCompatActivity() {
         stopAll("Activity destroy")
         io.shutdownNow()
         super.onDestroy()
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun setupPadWebView() {
+        padWeb.settings.javaScriptEnabled = true
+        padWeb.settings.domStorageEnabled = true
+        padWeb.settings.cacheMode = WebSettings.LOAD_NO_CACHE
+        // file:// asset + binder thread; do not queue on the RFCOMM reader executor.
+        padWeb.addJavascriptInterface(PadBridge(), "GalaxyBT")
+    }
+
+    inner class PadBridge {
+        @JavascriptInterface
+        fun sendPacket(json: String) {
+            val sock = clientSocket
+            if (sock == null || !frameMode.get()) return
+            try {
+                synchronized(writeLock) {
+                    writeFrame(sock.outputStream, json.toByteArray(Charsets.UTF_8))
+                }
+            } catch (e: Exception) {
+                runOnUiThread { appendLog("frame send failed: ${e.message}") }
+            }
+        }
+    }
+
+    private fun showPad(show: Boolean) {
+        padWeb.visibility = if (show) View.VISIBLE else View.GONE
+        logScroll.visibility = if (show) View.GONE else View.VISIBLE
+        if (show) {
+            padWeb.loadUrl("file:///android_asset/touchpad_bt.html")
+            setStatus("PAD MODE — touch the pad")
+        }
     }
 
     private fun ensurePerms() {
@@ -157,7 +206,8 @@ class BtLabActivity : AppCompatActivity() {
             return
         }
         stopAllQuiet()
-        setStatus("Listening… start Windows client now")
+        runOnUiThread { showPad(false) }
+        setStatus("Listening… start Windows pad client now")
         acceptLoop.set(true)
         io.execute {
             try {
@@ -182,11 +232,15 @@ class BtLabActivity : AppCompatActivity() {
                     }
                     clientSocket = sock
                     running.set(true)
-                    // Handle one client; then continue listening if still wanted
+                    frameMode.set(false)
                     handleClient(sock)
                     running.set(false)
+                    frameMode.set(false)
                     clientSocket = null
-                    runOnUiThread { setStatus("Client gone — still listening") }
+                    runOnUiThread {
+                        showPad(false)
+                        setStatus("Client gone — still listening")
+                    }
                 }
             } catch (e: Exception) {
                 runOnUiThread {
@@ -197,11 +251,6 @@ class BtLabActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Prefer a fixed RFCOMM channel so Windows can dial without SDP.
-     * UUID-only listen assigns a dynamic channel; Windows often hits the wrong
-     * service on channel 5 and gets "Socket closed while reading".
-     */
     @SuppressLint("MissingPermission")
     private fun openServerSocket(bt: BluetoothAdapter): BluetoothServerSocket {
         try {
@@ -225,20 +274,42 @@ class BtLabActivity : AppCompatActivity() {
 
     private fun handleClient(sock: BluetoothSocket) {
         try {
-            val reader = BufferedReader(InputStreamReader(sock.inputStream, Charsets.UTF_8))
+            val input = sock.inputStream
+            val output = sock.outputStream
             while (running.get()) {
-                val line = reader.readLine() ?: break
+                if (frameMode.get()) {
+                    handleFramed(input, output)
+                    break
+                }
+                val line = readLineRaw(input) ?: break
                 runOnUiThread { appendLog("RECV << $line") }
                 val upper = line.trim().uppercase()
-                val reply = when {
-                    upper.startsWith("HELLO") ->
-                        "ACK Tab RFCOMM lab uuid=$SERVICE_UUID"
-                    upper.startsWith("PING") ->
-                        "PONG ${System.currentTimeMillis()}"
-                    else -> "ACK echo:$line"
+                when {
+                    upper == "MODE FRAME" -> {
+                        writeRaw(output, "ACK FRAME\n")
+                        runOnUiThread {
+                            appendLog("SEND >> ACK FRAME")
+                            appendLog("Framed pad mode ON")
+                            showPad(true)
+                        }
+                        frameMode.set(true)
+                    }
+                    upper.startsWith("HELLO") -> {
+                        val reply = "ACK Tab RFCOMM lab uuid=$SERVICE_UUID"
+                        writeRaw(output, reply + "\n")
+                        runOnUiThread { appendLog("SEND >> $reply") }
+                    }
+                    upper.startsWith("PING") -> {
+                        val reply = "PONG ${System.currentTimeMillis()}"
+                        writeRaw(output, reply + "\n")
+                        runOnUiThread { appendLog("SEND >> $reply") }
+                    }
+                    else -> {
+                        val reply = "ACK echo:$line"
+                        writeRaw(output, reply + "\n")
+                        runOnUiThread { appendLog("SEND >> $reply") }
+                    }
                 }
-                writeRaw(sock, reply + "\n")
-                runOnUiThread { appendLog("SEND >> $reply") }
             }
         } catch (e: Exception) {
             if (running.get()) {
@@ -252,6 +323,23 @@ class BtLabActivity : AppCompatActivity() {
         }
     }
 
+    private fun handleFramed(input: InputStream, output: OutputStream) {
+        while (running.get() && frameMode.get()) {
+            val body = try {
+                readFrame(input)
+            } catch (e: Exception) {
+                if (running.get()) {
+                    runOnUiThread { appendLog("frame read ended: ${e.message}") }
+                }
+                break
+            }
+            // PC may push state; we only log type for now.
+            val preview = body.toString(Charsets.UTF_8).take(80)
+            runOnUiThread { appendLog("RECV frame ${body.size}B $preview") }
+            // Contacts are Tab → PC; ignore PC→Tab input packets.
+        }
+    }
+
     private fun sendLine(text: String) {
         io.execute {
             val sock = clientSocket
@@ -259,8 +347,12 @@ class BtLabActivity : AppCompatActivity() {
                 runOnUiThread { appendLog("Not connected — Wait for Windows client") }
                 return@execute
             }
+            if (frameMode.get()) {
+                runOnUiThread { appendLog("In FRAME mode — use the pad, not HELLO/PING") }
+                return@execute
+            }
             try {
-                writeRaw(sock, text.trim() + "\n")
+                writeRaw(sock.outputStream, text.trim() + "\n")
                 runOnUiThread { appendLog("SEND >> $text") }
             } catch (e: Exception) {
                 runOnUiThread { appendLog("Send failed: ${e.message}") }
@@ -268,16 +360,17 @@ class BtLabActivity : AppCompatActivity() {
         }
     }
 
-    private fun writeRaw(sock: BluetoothSocket, text: String) {
-        // Write bytes directly — OutputStreamWriter can delay/hide flushes on BT.
-        sock.outputStream.write(text.toByteArray(Charsets.UTF_8))
-        sock.outputStream.flush()
+    private fun writeRaw(output: OutputStream, text: String) {
+        synchronized(writeLock) {
+            output.write(text.toByteArray(Charsets.UTF_8))
+            output.flush()
+        }
     }
 
-    /** Close sockets without UI noise (used before restarting Listen). */
     private fun stopAllQuiet() {
         acceptLoop.set(false)
         running.set(false)
+        frameMode.set(false)
         try {
             clientSocket?.close()
         } catch (_: Exception) {
@@ -293,6 +386,7 @@ class BtLabActivity : AppCompatActivity() {
     private fun stopAll(reason: String) {
         stopAllQuiet()
         runOnUiThread {
+            showPad(false)
             appendLog("Stopped ($reason)")
             setStatus("Stopped — tap Listen to wait again")
         }
@@ -313,5 +407,47 @@ class BtLabActivity : AppCompatActivity() {
         private const val FIXED_CHANNEL = 5
         private val SERVICE_UUID: UUID =
             UUID.fromString("a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+        private const val MAX_FRAME = 1_000_000
+
+        private fun readLineRaw(input: InputStream): String? {
+            val buf = ByteArrayOutputStream()
+            while (true) {
+                val b = input.read()
+                if (b < 0) {
+                    return if (buf.size() == 0) null else buf.toString(Charsets.UTF_8.name())
+                }
+                if (b == '\n'.code) break
+                if (b != '\r'.code) buf.write(b)
+            }
+            return buf.toString(Charsets.UTF_8.name())
+        }
+
+        private fun readExact(input: InputStream, n: Int): ByteArray {
+            val out = ByteArray(n)
+            var off = 0
+            while (off < n) {
+                val r = input.read(out, off, n - off)
+                if (r < 0) throw java.io.EOFException("closed")
+                off += r
+            }
+            return out
+        }
+
+        private fun readFrame(input: InputStream): ByteArray {
+            val header = readExact(input, 4)
+            val length = ByteBuffer.wrap(header).order(ByteOrder.BIG_ENDIAN).int
+            if (length < 0 || length > MAX_FRAME) {
+                throw IllegalArgumentException("bad frame length $length")
+            }
+            return readExact(input, length)
+        }
+
+        private fun writeFrame(output: OutputStream, body: ByteArray) {
+            if (body.size > MAX_FRAME) throw IllegalArgumentException("frame too large")
+            val header = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(body.size).array()
+            output.write(header)
+            output.write(body)
+            output.flush()
+        }
     }
 }

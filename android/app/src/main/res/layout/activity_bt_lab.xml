@@ -3,74 +3,91 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp"
     android:background="#0e1116">
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="GT BT Lab (BT-1)"
-        android:textColor="#e8edf5"
-        android:textSize="20sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="Tab listens · Windows dials · no exe needed"
-        android:textColor="#9aa7b8"
-        android:textSize="13sp" />
-
-    <TextView
-        android:id="@+id/btStatus"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:textColor="#7CF0C2"
-        android:textSize="15sp"
-        android:text="…" />
-
-    <Button
-        android:id="@+id/btListen"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="Listen (wait for Windows)" />
-
     <LinearLayout
+        android:id="@+id/btChrome"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="8dp">
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="GT BT Lab (BT-2)"
+            android:textColor="#e8edf5"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Tab listens · Windows pad client dials · framed JSON"
+            android:textColor="#9aa7b8"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/btStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="#7CF0C2"
+            android:textSize="15sp"
+            android:text="…" />
 
         <Button
-            android:id="@+id/btHello"
-            android:layout_width="0dp"
+            android:id="@+id/btListen"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="HELLO" />
+            android:layout_marginTop="12dp"
+            android:text="Listen (wait for Windows)" />
 
-        <Button
-            android:id="@+id/btPing"
-            android:layout_width="0dp"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="PING" />
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
 
-        <Button
-            android:id="@+id/btStop"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Stop" />
+            <Button
+                android:id="@+id/btHello"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="HELLO" />
+
+            <Button
+                android:id="@+id/btPing"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="PING" />
+
+            <Button
+                android:id="@+id/btStop"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Stop" />
+        </LinearLayout>
     </LinearLayout>
 
-    <ScrollView
+    <WebView
+        android:id="@+id/btPadWeb"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="12dp">
+        android:visibility="gone" />
+
+    <ScrollView
+        android:id="@+id/btLogScroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:paddingLeft="16dp"
+        android:paddingRight="16dp"
+        android:paddingBottom="16dp">
 
         <TextView
             android:id="@+id/btLog"

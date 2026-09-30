@@ -68,7 +68,7 @@ HID / custom drivers / BLE GATT streaming are **out of scope** for v0.10.
 | Topic | Decision | Notes |
 |-------|----------|--------|
 | Radio | **Bluetooth Classic RFCOMM** first | Continuous coordinate stream; BLE later only if needed |
-| Who listens? | **Undecided until BT-1** | Try both: Tab server / Windows server. Pick the more reliable for “open Tab → attach to PC” |
+| Who listens? | **Tab listens / Windows dials** (chosen in BT-1) | Fixed lab channel 5 for BT-1/2; UUID/SDP for production later |
 | Windows BT code | **Python first** | Same process as today’s app. If OS APIs block us, add a small **C#/C++ helper** and keep Python as orchestrator |
 | Android | RFCOMM via platform APIs | BT-1 = isolated test UI, not deep WebView hooks |
 | Message body | Reuse existing JSON | `contacts` packets + `type: state / set_profile / hello` |
@@ -83,6 +83,8 @@ Work on branch **`dev/bluetooth`**. Do not ship over v0.9.1 until BT-5 is accept
 
 ### BT-1 — RFCOMM lab (no input engine)
 
+**Status (dev/bluetooth): DONE** — Tab listens on fixed RFCOMM channel 5; Windows client dials, HELLO/ACK + PING/PONG verified.
+
 **Do not modify** the production USB path except behind a clearly separate lab entry.
 
 1. Pair Tab ↔ PC once in system settings; unplug USB.  
@@ -90,16 +92,18 @@ Work on branch **`dev/bluetooth`**. Do not ship over v0.9.1 until BT-5 is accept
 3. Minimal Windows RFCOMM test (script or tiny window).  
 4. Exchange `HELLO` / `ACK` (and maybe a counter).  
 5. Detect disconnect; manual reconnect once.  
-6. Record which listen role worked better.
+6. Record which listen role worked better. → **Tab listens, Windows dials.**
 
 **Done when:** USB unplugged, bidirectional messages work, logs show connect/disconnect cleanly.
 
 ### BT-2 — Pipe real pad data (still thin UI)
 
+**Status: in progress on lab path** — framed JSON + WebView pad in GT BT Lab; Windows `windows_pad_client` feeds `InputSession` (same engines as USB). Not yet in production MainActivity / GalaxyTrackpad.exe.
+
 1. Reuse WebView contact collection (no new gesture logic).  
-2. Bridge WebView → native only as needed (`WebMessageListener` preferred over broad JS interfaces).  
-3. Send framed JSON over RFCOMM.  
-4. Windows BT receiver unwraps JSON → **existing** touchpad/pen update path (same as WS handler guts).  
+2. Bridge WebView → native (`JavascriptInterface` in lab; production may use `WebMessageListener`).  
+3. Send framed JSON over RFCOMM (`uint32_be` + UTF-8).  
+4. Windows BT receiver unwraps JSON → **existing** touchpad/pen update path (`windows/transport/input_dispatch.py`).  
 5. Prove: 1-finger move → multitouch → S Pen.
 
 **Done when:** Cursor/gestures/pen work over BT with USB cable out (engine path shared).
