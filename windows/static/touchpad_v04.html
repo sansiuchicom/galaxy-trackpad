@@ -404,6 +404,9 @@ function connect() {
         try {
             socket.send(JSON.stringify({ type: "hello" }));
         } catch (e) {}
+        try {
+            if (window.GalaxyShell && GalaxyShell.onUsbRestored) GalaxyShell.onUsbRestored();
+        } catch (e) {}
     };
 
     socket.onmessage = (ev) => {
@@ -415,6 +418,9 @@ function connect() {
             applyServerState(msg);
             reconnectAttempt = 0;
             setConnectionUi("ready", "CONNECTED", "USB");
+            try {
+                if (window.GalaxyShell && GalaxyShell.onUsbRestored) GalaxyShell.onUsbRestored();
+            } catch (e) {}
             return;
         }
         if (msg.type === "ack" && msg.action === "set_profile") {
@@ -432,6 +438,10 @@ function connect() {
         pointers.clear();
         setConnectionUi("recon", "DISCONNECTED", "Reconnecting…");
         scheduleReconnect();
+        // Event-driven: Android may fall back to Bluetooth (no HTTP polling).
+        try {
+            if (window.GalaxyShell && GalaxyShell.onUsbLost) GalaxyShell.onUsbLost();
+        } catch (e) {}
     };
 
     socket.onerror = () => {
