@@ -157,7 +157,7 @@ Manual: [tests/REGRESSION.md](tests/REGRESSION.md).
 | 1–3 — Windows engine + Android WebView | Done |
 | 4A/4B — APK + Windows exe packaging | Done (`v0.9.1`) |
 | Longer soak / polish | In progress |
-| 5 — Bluetooth (keep USB) | Later |
+| 5 — Bluetooth (first-class RFCOMM transport) | Planned — see [docs/BLUETOOTH.md](docs/BLUETOOTH.md) |
 | **1.0.0** | After real-world soak |
 
 ---
