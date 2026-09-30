@@ -13,6 +13,7 @@ import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.WebSettings
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
@@ -120,6 +121,13 @@ class BtLabActivity : AppCompatActivity() {
         padWeb.settings.cacheMode = WebSettings.LOAD_NO_CACHE
         // file:// asset + binder thread; do not queue on the RFCOMM reader executor.
         padWeb.addJavascriptInterface(PadBridge(), "GalaxyBT")
+        padWeb.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView, url: String) {
+                if (frameMode.get()) {
+                    view.evaluateJavascript("window.__gtBtLinked && window.__gtBtLinked(true)", null)
+                }
+            }
+        }
     }
 
     inner class PadBridge {
