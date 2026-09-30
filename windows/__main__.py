@@ -1,19 +1,16 @@
 """Entry point: python -m windows [--engine]"""
-from pathlib import Path
+from __future__ import annotations
+
 import sys
-
-_PKG = Path(__file__).resolve().parent
-if str(_PKG) not in sys.path:
-    sys.path.insert(0, str(_PKG))
-
-import galaxytrackpad_v08 as app
 
 
 def main() -> None:
     if "--engine" in sys.argv:
-        app.engine_main()
+        from windows.engine import engine_main
+        engine_main()
     else:
-        app.gui_main()
+        from windows.ui.main_window import run_gui
+        raise SystemExit(run_gui())
 
 
 if __name__ == "__main__":

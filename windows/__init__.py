@@ -1,3 +1,3 @@
-"""Galaxy Trackpad Windows package (v0.8 runtime)."""
+"""Galaxy Trackpad Windows package."""
 
 __version__ = "0.8.0"

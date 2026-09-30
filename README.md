@@ -7,21 +7,27 @@ Current baseline: **v0.8** (USB + ADB reverse + WebSocket, `CreateSyntheticPoint
 ## Layout
 
 ```
-windows/     # Windows app + input engine (run from here)
-android/     # Android WebView app (Phase 3)
-tests/       # Automated / regression tests (WIP)
-archive/     # Frozen prototypes (test_files, backup_v04/v07)
-platform-tools/  # Local ADB only — not in git
+windows/
+  core/         # synthetic pointer, touchpad, pen, sensitivity
+  transport/    # HTTP, ADB/USB, WebSocket, GUI control port
+  settings/     # JSON config (cursor/scroll gain independent of Windows mouse)
+  ui/           # PySide6 window + system tray
+  static/       # touchpad_v04.html served to the tablet
+  engine.py     # --engine process
+android/        # WebView app (Phase 3)
+tests/          # regression checklist
+archive/        # frozen prototypes (do not run daily)
+platform-tools/ # local ADB only — not in git
 ```
 
 ## Requirements
 
 - Windows 11
 - Conda env `galaxytrackpad` (Python 3.13) **or** pip + `requirements.txt`
-- ADB: unzip [platform-tools](https://developer.android.com/tools/releases/platform-tools) into `platform-tools/` at the repo root so `platform-tools/adb.exe` exists
+- ADB: unzip [platform-tools](https://developer.android.com/tools/releases/platform-tools) into `platform-tools/` at the repo root
 - Galaxy Tab with USB debugging authorized
 
-```bash
+```powershell
 conda env create -f environment.yml
 conda activate galaxytrackpad
 # or: pip install -r requirements.txt
@@ -29,28 +35,26 @@ conda activate galaxytrackpad
 
 ## Run
 
-From the **repo root** (`C:\touchpad`):
+From the **repo root**:
 
-```bash
+```powershell
+cd C:\touchpad
+conda activate galaxytrackpad
 python -m windows
 ```
 
-START in the GUI launches the engine subprocess (`python -m windows --engine`).
+START in the GUI launches `python -m windows --engine`.
 
-Equivalent:
+Ports (localhost): HTTP `8765`, WebSocket `8766`, GUI control `8767`.
 
-```bash
-python windows/main.py
-```
+Settings file: `windows/galaxytrackpad_settings.json` (see `windows/settings.example.json`).
 
-Ports (localhost only): HTTP `8765`, WebSocket `8766`, GUI control `8767`.
+## Regression
 
-Copy `windows/settings.example.json` → `windows/galaxytrackpad_settings.json` if you want defaults on disk (the app also creates settings as you change sliders).
+See [tests/REGRESSION.md](tests/REGRESSION.md).
 
-## Archive
+## Notes
 
-Pre-restructure prototypes are under `archive/` (including the original `test_files` tree). Do not run those for daily use.
-
-## License / notes
-
-Local synthetic pointer injection; no custom kernel driver. Physical Windows mouse settings are not modified for cursor/scroll gain.
+- No custom kernel driver. Windows native touchpad gestures are used.
+- Cursor/scroll gain scales injected coordinates only; physical mouse settings are untouched.
+- Pre-restructure sources live under `archive/`.

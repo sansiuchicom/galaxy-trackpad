@@ -1,42 +1,35 @@
-"""Galaxy Trackpad v0.6 – first Windows GUI -> engine integration.
+"""PySide6 main window: settings, engine control, system tray (v0.6–v0.8 merged)."""
+from __future__ import annotations
 
-Requires PySide6 and the existing, working launch_v05.py in the same folder.
-Settings are saved but sensitivity / pen toggles are NOT applied to the engine yet.
-"""
-import json
 import sys
-from pathlib import Path
 
 from PySide6.QtCore import Qt, QProcess, QTimer
+from PySide6.QtGui import QAction
 from PySide6.QtNetwork import QTcpSocket
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel,
-    QMainWindow, QMessageBox, QPlainTextEdit, QPushButton, QSlider,
-    QVBoxLayout, QWidget,
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMenu,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QSlider,
+    QStyle,
+    QSystemTrayIcon,
+    QVBoxLayout,
+    QWidget,
 )
 
-ROOT = Path(__file__).resolve().parent
-ENGINE = ROOT / "launch_v05.py"
-CONFIG_FILE = ROOT / "galaxytrackpad_settings.json"
-DEFAULTS = {
-    "cursor_sensitivity": 1.0,
-    "scroll_sensitivity": 1.0,
-    "pen_enabled": True,
-    "pen_monitor": "Primary Monitor",
-    "auto_connect": True,
-}
+from windows.paths import CONTROL_PORT, REPO_ROOT
+from windows.settings.store import load_config, save_config
 
 
-def load_config():
-    try:
-        with CONFIG_FILE.open("r", encoding="utf-8") as file:
-            saved = json.load(file)
-        return {**DEFAULTS, **saved} if isinstance(saved, dict) else DEFAULTS.copy()
-    except (FileNotFoundError, OSError, ValueError):
-        return DEFAULTS.copy()
-
-
-class TrackpadWindow(QMainWindow):
+class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.config = load_config()
@@ -53,14 +46,30 @@ class TrackpadWindow(QMainWindow):
         self.close_when_stopped = False
         self.output_bytes = bytearray()
         self.stop_socket = None
+        self._reload_timer = None
+        self._reload_socket = None
 
-        self.setWindowTitle("Galaxy Trackpad")
+        self.quit_requested = False
+        self.tray_notified = False
+        self.tray = None
+
+        self.setWindowTitle("Galaxy Trackpad v0.8")
         self.resize(535, 830)
         self.setMinimumSize(460, 720)
         self.build_ui()
         self.apply_style()
         self.set_status("●  Engine stopped", "Not running", "Not running")
 
+        self._reload_timer = QTimer(self)
+        self._reload_timer.setSingleShot(True)
+        self._reload_timer.timeout.connect(self.apply_changes)
+
+        if QSystemTrayIcon.isSystemTrayAvailable():
+            self.make_tray()
+        else:
+            self.log("System tray unavailable. Normal window behavior will be used.")
+
+    # ---------- UI ----------
     def card(self):
         frame = QFrame()
         frame.setObjectName("card")
@@ -109,7 +118,7 @@ class TrackpadWindow(QMainWindow):
         title = QLabel("Galaxy Trackpad")
         title.setObjectName("title")
         layout.addWidget(title)
-        hint = QLabel("Windows touchpad + S Pen  ·  GUI integration test")
+        hint = QLabel("Windows touchpad + S Pen  ·  USB / ADB")
         hint.setObjectName("muted")
         layout.addWidget(hint)
 
@@ -146,13 +155,13 @@ class TrackpadWindow(QMainWindow):
         self.logs.setFixedHeight(120)
         layout.addWidget(self.logs)
 
-        layout.addWidget(self.section("TOUCHPAD  ·  SETTINGS PREVIEW"))
+        layout.addWidget(self.section("TOUCHPAD  ·  LIVE SETTINGS"))
         frame, inside = self.card()
         inside.addWidget(self.slider("Cursor sensitivity", "cursor_sensitivity"))
         inside.addWidget(self.slider("Scroll sensitivity", "scroll_sensitivity"))
         layout.addWidget(frame)
 
-        layout.addWidget(self.section("S PEN  ·  SETTINGS PREVIEW"))
+        layout.addWidget(self.section("S PEN  ·  RESTART TO APPLY"))
         frame, inside = self.card()
         pen_check = QCheckBox("Enable S Pen")
         pen_check.setChecked(bool(self.config.get("pen_enabled", True)))
@@ -163,7 +172,7 @@ class TrackpadWindow(QMainWindow):
         row.addStretch()
         monitor = QComboBox()
         monitor.addItem("Primary Monitor")
-        monitor.setEnabled(False)  # Actual monitor selection will be added later.
+        monitor.setEnabled(False)
         row.addWidget(monitor)
         inside.addLayout(row)
         layout.addWidget(frame)
@@ -172,7 +181,7 @@ class TrackpadWindow(QMainWindow):
         auto.setChecked(bool(self.config.get("auto_connect", True)))
         auto.toggled.connect(lambda checked: self.change_config("auto_connect", checked))
         layout.addWidget(auto)
-        footer = QLabel("v0.6  ·  Settings are saved but do not affect the engine yet")
+        footer = QLabel("v0.8  ·  Cursor/scroll: live  ·  S Pen: next START")
         footer.setObjectName("muted")
         footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(footer)
@@ -199,16 +208,57 @@ class TrackpadWindow(QMainWindow):
             QCheckBox { spacing: 9px; }
         """)
 
+    # ---------- Settings ----------
     def change_config(self, key, value):
         self.config[key] = value
         self.save_settings()
 
     def save_settings(self):
         try:
-            with CONFIG_FILE.open("w", encoding="utf-8") as file:
-                json.dump(self.config, file, indent=4, ensure_ascii=False)
+            save_config(self.config)
         except OSError as exc:
             self.log(f"Settings save error: {exc}")
+            return
+        if (self._reload_timer is not None and self.control_ready
+                and self.process.state() != QProcess.ProcessState.NotRunning):
+            self._reload_timer.start(250)
+
+    def apply_changes(self):
+        if not self.control_ready or self.stop_pending:
+            return
+        if self._reload_socket is not None:
+            self._reload_socket.abort()
+            self._reload_socket.deleteLater()
+        sock = QTcpSocket(self)
+        self._reload_socket = sock
+        sock.connected.connect(lambda: sock.write(b"RELOAD\n"))
+        sock.readyRead.connect(lambda: self.reload_reply(sock))
+        sock.errorOccurred.connect(lambda error: self.reload_error(sock))
+        sock.connectToHost("127.0.0.1", CONTROL_PORT)
+        QTimer.singleShot(2500, lambda: self.reload_timeout(sock))
+
+    def reload_reply(self, sock):
+        reply = bytes(sock.readAll()).strip()
+        if reply != b"OK":
+            self.log(f"Settings update response: {reply!r}")
+        sock.disconnectFromHost()
+        if sock is self._reload_socket:
+            self._reload_socket = None
+        sock.deleteLater()
+
+    def reload_error(self, sock):
+        if sock is self._reload_socket and self.control_ready:
+            self.log("Settings could not be applied: " + sock.errorString())
+            self._reload_socket = None
+            sock.deleteLater()
+
+    def reload_timeout(self, sock):
+        if sock is self._reload_socket:
+            sock.abort()
+            self._reload_socket = None
+            sock.deleteLater()
+            if self.control_ready:
+                self.log("Settings update timed out; try moving the slider again")
 
     def log(self, message):
         self.logs.appendPlainText(message)
@@ -218,24 +268,24 @@ class TrackpadWindow(QMainWindow):
         self.touch_status.setText("Touchpad     " + touch)
         self.pen_status.setText("S Pen          " + pen)
 
-    # ------------- Engine control -------------
+    # ---------- Engine ----------
     def start_engine(self):
-        if self.process.state() != QProcess.ProcessState.NotRunning:
+        if self.quit_requested:
             return
-        if not ENGINE.is_file():
-            QMessageBox.critical(self, "Missing engine", f"Cannot find:\n{ENGINE}")
+        if self.process.state() != QProcess.ProcessState.NotRunning:
             return
         self.output_bytes.clear()
         self.control_ready = False
         self.stop_pending = False
         self.stop_acknowledged = False
         self.start_button.setEnabled(False)
-        self.stop_button.setEnabled(False)  # Enabled once port 8767 is ready.
+        self.stop_button.setEnabled(False)
         self.set_status("●  Starting...", "Initializing", "Initializing")
-        self.log("---- Starting engine ----")
-        self.process.setWorkingDirectory(str(ROOT))
-        self.process.start(sys.executable, ["-u", str(ENGINE)])
+        self.log("---- Starting v0.8 engine ----")
+        self.process.setWorkingDirectory(str(REPO_ROOT))
+        self.process.start(sys.executable, ["-u", "-m", "windows", "--engine"])
         QTimer.singleShot(20000, self.warn_if_not_ready)
+        self.update_tray()
 
     def on_started(self):
         self.log("Engine process started")
@@ -266,6 +316,9 @@ class TrackpadWindow(QMainWindow):
             self.set_status("●  Tablet connected", "Active", "Available")
         elif "Galaxy Tab disconnected" in line:
             self.set_status("●  Waiting for tablet", "Ready", "Ready")
+        if self.quit_requested and self.control_ready and not self.stop_pending:
+            self.stop_engine()
+        self.update_tray()
 
     def stop_engine(self):
         if self.process.state() == QProcess.ProcessState.NotRunning:
@@ -284,8 +337,9 @@ class TrackpadWindow(QMainWindow):
         sock.connected.connect(lambda: sock.write(b"STOP\n"))
         sock.readyRead.connect(lambda: self.on_stop_reply(sock))
         sock.errorOccurred.connect(lambda err: self.on_stop_error(sock))
-        sock.connectToHost("127.0.0.1", 8767)
+        sock.connectToHost("127.0.0.1", CONTROL_PORT)
         QTimer.singleShot(4000, lambda: self.check_stop_timeout(sock))
+        self.update_tray()
 
     def on_stop_reply(self, sock):
         response = bytes(sock.readAll()).strip()
@@ -304,6 +358,7 @@ class TrackpadWindow(QMainWindow):
         if self.process.state() != QProcess.ProcessState.NotRunning:
             self.stop_button.setEnabled(self.control_ready)
             self.status.setText("●  STOP failed · retry")
+        self.stop_failed_during_quit()
 
     def check_stop_timeout(self, sock):
         if (sock is self.stop_socket
@@ -314,6 +369,7 @@ class TrackpadWindow(QMainWindow):
             self.stop_pending = False
             self.stop_button.setEnabled(self.control_ready)
             self.status.setText("●  STOP timed out · retry")
+            self.stop_failed_during_quit()
 
     def on_process_error(self, error):
         self.log(f"Process error: {self.process.errorString()}")
@@ -321,6 +377,9 @@ class TrackpadWindow(QMainWindow):
             self.start_button.setEnabled(True)
             self.stop_button.setEnabled(False)
             self.set_status("●  Start failed", "Stopped", "Stopped")
+            if self.quit_requested:
+                QApplication.instance().quit()
+        self.update_tray()
 
     def on_finished(self, code, exit_status):
         if self.output_bytes:
@@ -337,32 +396,136 @@ class TrackpadWindow(QMainWindow):
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
         self.set_status("●  Engine stopped", "Not running", "Not running")
+        self.update_tray()
         if self.close_when_stopped:
             self.close_when_stopped = False
             self.close()
+        if self.quit_requested:
+            if self.tray:
+                self.tray.hide()
+            QApplication.instance().quit()
+
+    # ---------- Tray ----------
+    def make_tray(self):
+        self.tray = QSystemTrayIcon(self)
+        self.tray.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
+        )
+        self.tray.setToolTip("Galaxy Trackpad - Stopped")
+        menu = QMenu(self)
+        self.open_action = QAction("Open settings", self)
+        self.start_action = QAction("Start", self)
+        self.stop_action = QAction("Stop", self)
+        self.quit_action = QAction("Quit", self)
+        self.open_action.triggered.connect(self.show_settings)
+        self.start_action.triggered.connect(self.start_engine)
+        self.stop_action.triggered.connect(self.stop_engine)
+        self.quit_action.triggered.connect(self.quit_safely)
+        menu.addAction(self.open_action)
+        menu.addSeparator()
+        menu.addAction(self.start_action)
+        menu.addAction(self.stop_action)
+        menu.addSeparator()
+        menu.addAction(self.quit_action)
+        self.tray.setContextMenu(menu)
+        self.tray.activated.connect(self.tray_clicked)
+        self.tray.show()
+        self.update_tray()
+
+    def tray_clicked(self, reason):
+        if reason in (
+            QSystemTrayIcon.ActivationReason.Trigger,
+            QSystemTrayIcon.ActivationReason.DoubleClick,
+        ):
+            self.show_settings()
+
+    def show_settings(self):
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
+    def update_tray(self):
+        if self.tray is None:
+            return
+        running = self.process.state() != QProcess.ProcessState.NotRunning
+        self.start_action.setEnabled(not running and not self.quit_requested)
+        self.stop_action.setEnabled(self.control_ready and not self.stop_pending)
+        if self.stop_pending:
+            state = "Stopping"
+        elif self.control_ready:
+            state = "Running"
+        elif running:
+            state = "Starting"
+        else:
+            state = "Stopped"
+        self.tray.setToolTip(f"Galaxy Trackpad - {state}")
+
+    def quit_safely(self):
+        if self.process.state() == QProcess.ProcessState.NotRunning:
+            if self.tray:
+                self.tray.hide()
+            QApplication.instance().quit()
+            return
+        self.quit_requested = True
+        self.log("Quit requested. Waiting for safe engine shutdown...")
+        if self.control_ready and not self.stop_pending:
+            self.stop_engine()
+        else:
+            self.log(
+                "Waiting for the engine control port or an existing STOP request..."
+            )
+        self.update_tray()
+
+    def stop_failed_during_quit(self):
+        if not self.quit_requested:
+            return
+        self.quit_requested = False
+        self.show_settings()
+        QMessageBox.warning(
+            self,
+            "Could not quit safely",
+            "The engine is still running. Please retry STOP.",
+        )
+        self.update_tray()
 
     def closeEvent(self, event):
-        if self.process.state() == QProcess.ProcessState.NotRunning:
-            event.accept()
+        if self.tray is None:
+            if self.process.state() == QProcess.ProcessState.NotRunning:
+                event.accept()
+                return
+            answer = QMessageBox.question(
+                self, "Galaxy Trackpad", "Stop the touchpad engine and exit?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel,
+            )
+            if answer == QMessageBox.StandardButton.Yes:
+                self.close_when_stopped = True
+                self.stop_engine()
+            event.ignore()
             return
-        answer = QMessageBox.question(
-            self, "Galaxy Trackpad", "Stop the touchpad engine and exit?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
-            QMessageBox.StandardButton.Cancel,
-        )
-        if answer == QMessageBox.StandardButton.Yes:
-            self.close_when_stopped = True
-            self.stop_engine()
-        event.ignore()  # Wait for the engine to confirm clean shutdown.
+
+        if not self.quit_requested:
+            event.ignore()
+            self.hide()
+            if not self.tray_notified:
+                self.tray.showMessage(
+                    "Galaxy Trackpad remains active",
+                    "Open it from the system tray. Choose Quit to exit.",
+                    QSystemTrayIcon.MessageIcon.Information,
+                    2500,
+                )
+                self.tray_notified = True
+        elif self.process.state() == QProcess.ProcessState.NotRunning:
+            event.accept()
+        else:
+            event.ignore()
 
 
-def main():
+def run_gui() -> int:
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-    window = TrackpadWindow()
+    if QSystemTrayIcon.isSystemTrayAvailable():
+        app.setQuitOnLastWindowClosed(False)
+    window = MainWindow()
     window.show()
     return app.exec()
-
-
-if __name__ == "__main__":
-    sys.exit(main())

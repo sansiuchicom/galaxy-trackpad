@@ -7,19 +7,11 @@ Prefer from repo root:
 from pathlib import Path
 import sys
 
-_PKG = Path(__file__).resolve().parent
-if str(_PKG) not in sys.path:
-    sys.path.insert(0, str(_PKG))
+_REPO = Path(__file__).resolve().parent.parent
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))
 
-import galaxytrackpad_v08 as app
-
-
-def main() -> None:
-    if "--engine" in sys.argv:
-        app.engine_main()
-    else:
-        app.gui_main()
-
+from windows.__main__ import main
 
 if __name__ == "__main__":
     main()
