@@ -1,6 +1,6 @@
 # Galaxy Trackpad — Bluetooth plan (updated)
 
-Status: **planning** (not started in code)  
+Status: **BT-1 in progress** (lab code on branch `dev/bluetooth`)  
 Stable USB release to preserve: **v0.9.1**  
 Development line: **v0.10.0-dev** (branch `dev/bluetooth`)
 
@@ -171,9 +171,11 @@ Optional `bluetooth-helper/` only if Python RFCOMM is insufficient.
 
 ## 7. Immediate next actions (when coding starts)
 
-1. `git checkout -b dev/bluetooth` from current `main`.  
+1. Branch `dev/bluetooth` — **done**.  
 2. Pair Tab + PC; confirm both OS UIs show paired (cable out).  
-3. Implement BT-1 hello/ack only (Android lab + Windows lab).  
+3. BT-1 lab: see **[bluetooth_lab/README.md](../bluetooth_lab/README.md)**  
+   - Windows: `python -m bluetooth_lab.windows_server`  
+   - Tab: **GT BT Lab** icon → connect → HELLO/ACK  
 4. Decide listen role + Python vs helper from real logs.  
 5. Only then touch WebView → engine wiring (BT-2).
 
