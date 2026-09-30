@@ -6,7 +6,16 @@ GALAXYTRACKPAD_DEBUG=1 or set_debug(True) after settings reload.
 from __future__ import annotations
 
 import os
+import sys
 from typing import Any
+
+# The GUI reads engine stdout as UTF-8; a piped Windows stdout defaults to cp949 here,
+# which garbles non-ASCII tablet names. Consoles keep their own encoding.
+if sys.stdout is not None and not sys.stdout.isatty():
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
 
 _DEBUG = os.environ.get("GALAXYTRACKPAD_DEBUG", "").strip().lower() in {
     "1", "true", "yes", "on",
