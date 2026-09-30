@@ -70,8 +70,6 @@ def list_paired_classic_devices() -> list[tuple[str, str]]:
         if "\t" not in line:
             continue
         name, iid = line.split("\t", 1)
-        m = _DEV_RE.search(iid.replace("\\", "\\\\")) if False else None
-        # InstanceId comes with single backslashes: BTHENUM\DEV_AABB...
         m = re.search(r"DEV_([0-9A-Fa-f]{12})", iid)
         if not m:
             continue
@@ -122,51 +120,76 @@ def _try_connect(mac: str, channel: int, timeout: float = 3.0) -> socket.socket 
         return None
 
 
+def _recv_line(sock: socket.socket) -> str:
+    buf = b""
+    while b"\n" not in buf:
+        chunk = sock.recv(256)
+        if not chunk:
+            raise ConnectionError("Socket closed while reading")
+        buf += chunk
+    return buf.split(b"\n", 1)[0].decode("utf-8", errors="replace").strip()
+
+
+def _send(sock: socket.socket, line: str) -> None:
+    sock.sendall((line.strip() + "\n").encode("utf-8"))
+    _log(f"SEND >> {line.strip()}")
+
+
+def _handshake(sock: socket.socket, channel: int) -> bool:
+    """
+    Confirm this RFCOMM channel is our lab (not some other Tab service).
+    Other services often accept then close -> 'Socket closed while reading'.
+    """
+    sock.settimeout(8.0)
+    try:
+        _send(sock, f"{MSG_HELLO} from Windows")
+        line = _recv_line(sock)
+        _log(f"RECV << {line}")
+        if not line.upper().startswith(MSG_ACK):
+            _log(f"  channel {channel}: not our lab (wanted ACK)")
+            return False
+        _send(sock, MSG_PING)
+        line = _recv_line(sock)
+        _log(f"RECV << {line}")
+        if not line.upper().startswith(MSG_PONG):
+            _log(f"  channel {channel}: ACK ok but no PONG")
+            return False
+        return True
+    except (OSError, ConnectionError) as exc:
+        _log(f"  channel {channel}: handshake failed ({exc})")
+        return False
+
+
 def _connect(mac: str) -> tuple[socket.socket, int]:
+    # Prefer fixed lab channel, then probe the rest — verify with HELLO/ACK.
     channels = [RFCOMM_CHANNEL] + [c for c in range(1, 31) if c != RFCOMM_CHANNEL]
-    _log(f"Connecting to {mac} (trying RFCOMM channels)...")
+    _log(f"Connecting to {mac} (RFCOMM channels + HELLO handshake)...")
+    last_err = "no channel answered"
     for ch in channels:
         _log(f"  try channel {ch}...")
         sock = _try_connect(mac, ch)
-        if sock is not None:
-            _log(f"Connected on channel {ch}")
+        if sock is None:
+            continue
+        _log(f"  TCP-like connect ok on channel {ch} — verifying lab handshake...")
+        if _handshake(sock, ch):
+            _log(f"Connected on channel {ch} (lab verified)")
             return sock, ch
+        try:
+            sock.close()
+        except OSError:
+            pass
+        last_err = f"channel {ch} accepted but was not GT BT Lab"
     raise ConnectionError(
-        f"Could not connect to {mac} on channels 1-30.\n"
-        "  - Is GT BT Lab on Listen?\n"
-        "  - Is this the Tab real MAC from the list (not XX:XX or 02:00:00:00:00:00)?\n"
-        "  - Is the Tab paired under Windows -> Bluetooth?"
+        f"Could not reach GT BT Lab on {mac}.\n"
+        f"  Last: {last_err}\n"
+        "  - Reinstall/open latest GT BT Lab -> Listen\n"
+        "  - Log should say 'Listening on FIXED channel 5'\n"
+        "  - Tab MAC from paired list (not XX:XX / 02:00:...)\n"
+        "  - Tab paired under Windows Bluetooth settings"
     )
 
 
-def _session(sock: socket.socket) -> None:
-    sock.settimeout(30.0)
-
-    def send(line: str) -> None:
-        sock.sendall((line.strip() + "\n").encode("utf-8"))
-        _log(f"SEND >> {line.strip()}")
-
-    def recv_line() -> str:
-        buf = b""
-        while b"\n" not in buf:
-            chunk = sock.recv(256)
-            if not chunk:
-                raise ConnectionError("Socket closed while reading")
-            buf += chunk
-        return buf.split(b"\n", 1)[0].decode("utf-8", errors="replace").strip()
-
-    send(f"{MSG_HELLO} from Windows")
-    line = recv_line()
-    _log(f"RECV << {line}")
-    if not line.upper().startswith(MSG_ACK):
-        _log("Unexpected reply (wanted ACK)")
-
-    send(MSG_PING)
-    line = recv_line()
-    _log(f"RECV << {line}")
-    if not line.upper().startswith(MSG_PONG):
-        _log("Unexpected reply (wanted PONG)")
-
+def _hold_open(sock: socket.socket) -> None:
     _log("BT-1 OK - HELLO/ACK and PING/PONG succeeded")
     try:
         while True:
@@ -239,7 +262,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        _session(sock)
+        _hold_open(sock)
     except (OSError, ConnectionError) as exc:
         _log(f"Session failed: {exc}")
         return 1

@@ -46,4 +46,7 @@ python -m bluetooth_lab.windows_client
 ```
 
 4. Pick the Tab from the numbered list (or paste its MAC).  
-5. Success: `BT-1 OK — HELLO/ACK and PING/PONG succeeded`
+5. Tab log should say `Listening on FIXED channel 5` then `Client accepted` / `RECV << HELLO`.  
+6. Success: `BT-1 OK - HELLO/ACK and PING/PONG succeeded`
+
+If PC says `Socket closed` / handshake failed on channel 5: install the **latest** BT Lab APK (fixed-channel listen), Stop → Listen, retry.

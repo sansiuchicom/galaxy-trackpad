@@ -17,7 +17,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import java.io.BufferedReader
 import java.io.InputStreamReader
-import java.io.OutputStreamWriter
 import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -157,16 +156,12 @@ class BtLabActivity : AppCompatActivity() {
             appendLog("Turn Bluetooth on")
             return
         }
-        stopAll("Restart listen")
+        stopAllQuiet()
         setStatus("Listening… start Windows client now")
-        appendLog("listenUsingInsecureRfcommWithServiceRecord($SERVICE_NAME)")
         acceptLoop.set(true)
         io.execute {
             try {
-                val server = bt.listenUsingInsecureRfcommWithServiceRecord(
-                    SERVICE_NAME,
-                    SERVICE_UUID,
-                )
+                val server = openServerSocket(bt)
                 serverSocket = server
                 runOnUiThread {
                     appendLog("Server socket open — waiting for Windows…")
@@ -199,6 +194,32 @@ class BtLabActivity : AppCompatActivity() {
                     appendLog("ERROR: ${e.message}")
                 }
             }
+        }
+    }
+
+    /**
+     * Prefer a fixed RFCOMM channel so Windows can dial without SDP.
+     * UUID-only listen assigns a dynamic channel; Windows often hits the wrong
+     * service on channel 5 and gets "Socket closed while reading".
+     */
+    @SuppressLint("MissingPermission")
+    private fun openServerSocket(bt: BluetoothAdapter): BluetoothServerSocket {
+        try {
+            val method = bt.javaClass.getMethod(
+                "listenUsingInsecureRfcommOnChannel",
+                Int::class.javaPrimitiveType,
+            )
+            val sock = method.invoke(bt, FIXED_CHANNEL) as BluetoothServerSocket
+            runOnUiThread {
+                appendLog("Listening on FIXED channel $FIXED_CHANNEL (Windows dials this)")
+            }
+            return sock
+        } catch (e: Exception) {
+            runOnUiThread {
+                appendLog("Fixed channel $FIXED_CHANNEL failed: ${e.message}")
+                appendLog("Fallback: UUID service record (Windows will probe channels)")
+            }
+            return bt.listenUsingInsecureRfcommWithServiceRecord(SERVICE_NAME, SERVICE_UUID)
         }
     }
 
@@ -248,12 +269,13 @@ class BtLabActivity : AppCompatActivity() {
     }
 
     private fun writeRaw(sock: BluetoothSocket, text: String) {
-        val w = OutputStreamWriter(sock.outputStream, Charsets.UTF_8)
-        w.write(text)
-        w.flush()
+        // Write bytes directly — OutputStreamWriter can delay/hide flushes on BT.
+        sock.outputStream.write(text.toByteArray(Charsets.UTF_8))
+        sock.outputStream.flush()
     }
 
-    private fun stopAll(reason: String) {
+    /** Close sockets without UI noise (used before restarting Listen). */
+    private fun stopAllQuiet() {
         acceptLoop.set(false)
         running.set(false)
         try {
@@ -266,6 +288,10 @@ class BtLabActivity : AppCompatActivity() {
         } catch (_: Exception) {
         }
         serverSocket = null
+    }
+
+    private fun stopAll(reason: String) {
+        stopAllQuiet()
         runOnUiThread {
             appendLog("Stopped ($reason)")
             setStatus("Stopped — tap Listen to wait again")
@@ -283,6 +309,8 @@ class BtLabActivity : AppCompatActivity() {
 
     companion object {
         private const val SERVICE_NAME = "GalaxyTrackpadLab"
+        /** Keep in sync with bluetooth_lab/constants.py RFCOMM_CHANNEL. */
+        private const val FIXED_CHANNEL = 5
         private val SERVICE_UUID: UUID =
             UUID.fromString("a1b2c3d4-e5f6-7890-abcd-ef1234567890")
     }
