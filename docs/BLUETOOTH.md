@@ -98,7 +98,7 @@ Work on branch **`dev/bluetooth`**. Do not ship over v0.9.1 until BT-5 is accept
 
 ### BT-2 — Pipe real pad data (still thin UI)
 
-**Status: in progress on lab path** — framed JSON + WebView pad in GT BT Lab; Windows `windows_pad_client` feeds `InputSession` (same engines as USB). Not yet in production MainActivity / GalaxyTrackpad.exe.
+**Status (dev/bluetooth): DONE (lab)** — GT BT Lab WebView pad → framed RFCOMM → `windows_pad_client` / `InputSession`. USB MainActivity / GalaxyTrackpad.exe integration is BT-3.
 
 1. Reuse WebView contact collection (no new gesture logic).  
 2. Bridge WebView → native (`JavascriptInterface` in lab; production may use `WebMessageListener`).  
