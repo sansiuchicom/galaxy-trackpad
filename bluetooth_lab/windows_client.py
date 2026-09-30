@@ -195,43 +195,103 @@ def _handshake(sock: socket.socket, channel: int) -> bool:
         return False
 
 
+def _sdp_channel(mac: str, uuid: str) -> int | None:
+    """Ask Windows SDP which RFCOMM channel advertises our service UUID."""
+    addr = "".join(c for c in mac if c.isalnum())
+    ps = r"""
+$ErrorActionPreference = 'Stop'
+$addrHex = '%s'
+$uuidText = '%s'
+[Windows.Devices.Bluetooth.BluetoothDevice, Windows.Devices.Bluetooth, ContentType = WindowsRuntime] | Out-Null
+[Windows.Devices.Bluetooth.Rfcomm.RfcommServiceId, Windows.Devices.Bluetooth, ContentType = WindowsRuntime] | Out-Null
+[Windows.Devices.Bluetooth.Rfcomm.RfcommDeviceServicesResult, Windows.Devices.Bluetooth, ContentType = WindowsRuntime] | Out-Null
+[Windows.Devices.Bluetooth.BluetoothCacheMode, Windows.Devices.Bluetooth, ContentType = WindowsRuntime] | Out-Null
+$asTask = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
+  $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1'
+})[0]
+function Await($op, $type) {
+  $m = $asTask.MakeGenericMethod($type)
+  $t = $m.Invoke($null, @($op))
+  $t.Wait(8000) | Out-Null
+  if (-not $t.IsCompleted) { throw 'SDP timeout' }
+  return $t.Result
+}
+$addr = [uint64]::Parse($addrHex, [Globalization.NumberStyles]::AllowHexSpecifier)
+$dev = Await ([Windows.Devices.Bluetooth.BluetoothDevice]::FromBluetoothAddressAsync($addr)) ([Windows.Devices.Bluetooth.BluetoothDevice])
+if ($null -eq $dev) { exit 2 }
+$svc = [Windows.Devices.Bluetooth.Rfcomm.RfcommServiceId]::FromUuid([guid]$uuidText)
+$res = Await ($dev.GetRfcommServicesForIdAsync($svc, [Windows.Devices.Bluetooth.BluetoothCacheMode]::Uncached)) ([Windows.Devices.Bluetooth.Rfcomm.RfcommDeviceServicesResult])
+foreach ($s in $res.Services) {
+  Write-Output $s.ConnectionServiceName
+  exit 0
+}
+exit 3
+""" % (addr, uuid)
+    try:
+        out = subprocess.check_output(
+            ["powershell", "-NoProfile", "-Command", ps],
+            text=True,
+            stderr=subprocess.DEVNULL,
+            timeout=20,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    for line in out.splitlines():
+        line = line.strip()
+        if line.isdigit():
+            ch = int(line)
+            if 1 <= ch <= 30:
+                return ch
+    return None
+
+
 def _connect(
     mac: str,
     prefer: int | None = None,
     should_abort=None,
 ) -> tuple[socket.socket, int]:
-    first = prefer if prefer is not None else RFCOMM_CHANNEL
-    channels: list[int] = [first, first]
-    for c in range(1, 13):
-        if c != first:
-            channels.append(c)
+    """
+    Connect to the Galaxy Trackpad RFCOMM service.
 
-    _log(f"Connecting to {mac} (RFCOMM + HELLO check)...")
-    _log("Tab status must say: Listening on channel N")
-    last_err = "no channel answered"
-    for i, ch in enumerate(channels):
+    Channel 5 is NOT reliable: other Tab profiles accept it and ignore HELLO.
+    SDP (service UUID) is the source of truth for the channel number.
+    """
+    del prefer  # kept for callers; SDP overrides a guessed channel
+    _log(f"Connecting to {mac} via SDP UUID {SERVICE_UUID}")
+    last_err = "service not found"
+    for attempt in range(1, 4):
         if should_abort and should_abort():
             raise ConnectionError("Bluetooth dial aborted (USB active or stop)")
-        retry = " retry" if i == 1 and ch == first else ""
-        _log(f"  try channel {ch}{retry}...")
-        sock = _try_connect(mac, ch)
+        ch = _sdp_channel(mac, SERVICE_UUID)
+        if not ch:
+            last_err = "SDP did not list Galaxy Trackpad (Tab app must be in foreground)"
+            _log(f"  SDP miss {attempt}/3 - {last_err}")
+            time.sleep(1.5)
+            continue
+        _log(f"  SDP channel {ch} (attempt {attempt})")
+        sock = _try_connect(mac, ch, timeout=4.0)
         if sock is None:
+            last_err = f"SDP channel {ch} did not connect"
+            _log(f"  {last_err}")
+            time.sleep(1.0)
             continue
         if should_abort and should_abort():
             _safe_close(sock)
             raise ConnectionError("Bluetooth dial aborted (USB active or stop)")
-        _log(f"  connect ok on channel {ch} - verifying GT BT Lab...")
+        _log(f"  connect ok on channel {ch} - verifying HELLO...")
         if _handshake(sock, ch):
             _log(f"Connected on channel {ch} (lab verified)")
             return sock, ch
         _safe_close(sock)
-        last_err = f"channel {ch} accepted but was not GT BT Lab"
+        last_err = f"channel {ch} did not speak Galaxy Trackpad protocol"
+        time.sleep(1.0)
     raise ConnectionError(
-        f"Could not reach GT BT Lab on {mac}.\n"
+        f"Could not reach Galaxy Trackpad RFCOMM on {mac}.\n"
         f"  Last: {last_err}\n"
-        "  Check Tab: Listening on channel N after Listen.\n"
-        "  If N is not 5: python -m bluetooth_lab.windows_pad_client --channel N\n"
-        "  Or toggle Bluetooth OFF/ON, Listen again, retry."
+        "  Channel 5 guesses are skipped (another Tab service often sits there).\n"
+        "  Open the Galaxy Trackpad app on the Tab so it is listening, then retry."
     )
 
 

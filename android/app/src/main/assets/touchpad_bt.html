@@ -45,6 +45,11 @@ let linked = false;
 function setStatus(t) { statusEl.textContent = t; }
 function setHint(t) { hintEl.textContent = t; }
 
+window.__gtBtLog = function (msg) {
+  if (!msg) return;
+  setHint(String(msg));
+};
+
 // Called from Android when RFCOMM framed mode is on.
 window.__gtBtLinked = function (ok) {
   linked = !!ok;

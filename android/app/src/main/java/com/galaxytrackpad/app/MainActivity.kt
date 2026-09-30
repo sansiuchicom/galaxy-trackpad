@@ -67,7 +67,7 @@ class MainActivity : AppCompatActivity() {
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
             if (result.values.all { it }) {
-                enterBluetoothPad("permission granted")
+                btServer?.start()
             } else {
                 Toast.makeText(this, "Bluetooth permission denied", Toast.LENGTH_SHORT).show()
             }
@@ -107,6 +107,7 @@ class MainActivity : AppCompatActivity() {
         hideSystemBars()
         setupWebView(binding.webView)
         registerUsbReceiver()
+        warmBluetoothListen()
 
         loadTrackpad()
         startWatchdog()
@@ -273,14 +274,24 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun ensureBtServer() {
+    private fun warmBluetoothListen() {
+        // Listen during USB too, so unplug does not race "who owns channel 5".
         if (btServer == null) {
             btServer = RfcommPadServer(
                 this,
+                onLog = { msg ->
+                    runOnUiThread {
+                        val safe = org.json.JSONObject.quote(msg)
+                        binding.webView.evaluateJavascript(
+                            "window.__gtBtLog && window.__gtBtLog($safe)",
+                            null,
+                        )
+                    }
+                },
                 onFramed = { linked ->
                     runOnUiThread {
                         binding.webView.evaluateJavascript(
-                            "window.__gtBtLinked && window.__gtBtLinked(${linked})",
+                            "window.__gtBtLinked && window.__gtBtLinked($linked)",
                             null,
                         )
                     }
@@ -294,9 +305,13 @@ class MainActivity : AppCompatActivity() {
         btServer?.start()
     }
 
+    private fun ensureBtServer() {
+        warmBluetoothListen()
+    }
+
     private fun requestBtPerms() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            enterBluetoothPad("legacy BT")
+            btServer?.start()
             return
         }
         permissionLauncher.launch(
@@ -326,7 +341,7 @@ class MainActivity : AppCompatActivity() {
     private fun leaveBluetoothPad(reason: String) {
         if (!btMode) return
         btMode = false
-        btServer?.stop()
+        // Keep RFCOMM listen alive so the next unplug does not miss SDP.
         unhealthySince = 0L
         mainHandler.removeCallbacks(btUsbProbeRunnable)
     }

@@ -124,11 +124,10 @@ def _run_one_session(
         stop.wait(5)
         return
 
-    prefer = _prefer_channel()
-    info(f"Bluetooth: dialing {mac}" + (f" prefer ch={prefer}" if prefer else ""))
+    info(f"Bluetooth: dialing {mac} (SDP lookup, not a fixed channel)")
     sock: socket.socket | None = None
     try:
-        sock, ch = bt1._connect(mac, prefer=prefer, should_abort=should_abort)
+        sock, ch = bt1._connect(mac, should_abort=should_abort)
         if should_abort():
             raise ConnectionError("Bluetooth dial aborted (USB active or stop)")
         _remember_mac(mac)
