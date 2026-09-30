@@ -197,61 +197,18 @@ def _handshake(sock: socket.socket, channel: int) -> bool:
 
 def _sdp_channel(mac: str, uuid: str) -> int | None:
     """Ask Windows SDP which RFCOMM channel advertises our service UUID."""
-    addr = "".join(c for c in mac if c.isalnum())
-    ps = r"""
-$ErrorActionPreference = 'Stop'
-Add-Type -AssemblyName System.Runtime.WindowsRuntime
-$addrHex = '%s'
-$uuidText = '%s'
-[Windows.Devices.Bluetooth.BluetoothDevice, Windows.Devices.Bluetooth, ContentType = WindowsRuntime] | Out-Null
-[Windows.Devices.Bluetooth.Rfcomm.RfcommServiceId, Windows.Devices.Bluetooth, ContentType = WindowsRuntime] | Out-Null
-[Windows.Devices.Bluetooth.Rfcomm.RfcommDeviceServicesResult, Windows.Devices.Bluetooth, ContentType = WindowsRuntime] | Out-Null
-[Windows.Devices.Bluetooth.BluetoothCacheMode, Windows.Devices.Bluetooth, ContentType = WindowsRuntime] | Out-Null
-$asTask = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
-  $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1'
-})[0]
-function Await($op, $type) {
-  $m = $asTask.MakeGenericMethod($type)
-  $t = $m.Invoke($null, @($op))
-  $t.Wait(8000) | Out-Null
-  if (-not $t.IsCompleted) { throw 'SDP timeout' }
-  return $t.Result
-}
-$addr = [uint64]::Parse($addrHex, [Globalization.NumberStyles]::AllowHexSpecifier)
-$dev = Await ([Windows.Devices.Bluetooth.BluetoothDevice]::FromBluetoothAddressAsync($addr)) ([Windows.Devices.Bluetooth.BluetoothDevice])
-if ($null -eq $dev) { exit 2 }
-$svc = [Windows.Devices.Bluetooth.Rfcomm.RfcommServiceId]::FromUuid([guid]$uuidText)
-$res = Await ($dev.GetRfcommServicesForIdAsync($svc, [Windows.Devices.Bluetooth.BluetoothCacheMode]::Uncached)) ([Windows.Devices.Bluetooth.Rfcomm.RfcommDeviceServicesResult])
-foreach ($s in $res.Services) {
-  Write-Output $s.ConnectionServiceName
-  exit 0
-}
-exit 3
-""" % (addr, uuid)
+    import asyncio
+
+    from bluetooth_lab.sdp_winrt import find_channel
+
     try:
-        out = subprocess.check_output(
-            ["powershell", "-NoProfile", "-Command", ps],
-            text=True,
-            stderr=subprocess.DEVNULL,
-            timeout=20,
-            encoding="utf-8",
-            errors="replace",
-        )
-    except subprocess.CalledProcessError as exc:
-        err = (exc.output or "").strip().splitlines()
-        tail = err[-1] if err else f"exit {exc.returncode}"
-        _log(f"  SDP query failed: {tail}")
-        return None
-    except (OSError, subprocess.SubprocessError) as exc:
+        ch, why = asyncio.run(find_channel(mac, uuid))
+    except Exception as exc:
         _log(f"  SDP query failed: {exc}")
         return None
-    for line in out.splitlines():
-        line = line.strip()
-        if line.isdigit():
-            ch = int(line)
-            if 1 <= ch <= 30:
-                return ch
-    return None
+    if not ch:
+        _log(f"  SDP: {why}")
+    return ch
 
 
 def _connect(
@@ -265,7 +222,23 @@ def _connect(
     Channel 5 is NOT reliable: other Tab profiles accept it and ignore HELLO.
     SDP (service UUID) is the source of truth for the channel number.
     """
-    del prefer  # kept for callers; SDP overrides a guessed channel
+    if prefer and 1 <= prefer <= 30:
+        _log(f"Lab dial: fixed channel {prefer} (SDP skipped)")
+        sock = _try_connect(mac, prefer, timeout=4.0)
+        if sock is None:
+            raise ConnectionError(f"channel {prefer} did not connect")
+        if should_abort and should_abort():
+            _safe_close(sock)
+            raise ConnectionError("Bluetooth dial aborted")
+        _log(f"  connect ok on channel {prefer} - verifying HELLO...")
+        if _handshake(sock, prefer):
+            _log(f"Connected on channel {prefer} (lab verified)")
+            return sock, prefer
+        _safe_close(sock)
+        raise ConnectionError(
+            f"channel {prefer} connected but did not speak GT BT Lab.\n"
+            "  Open GT BT Lab and tap Listen first, then retry."
+        )
     _log(f"Connecting to {mac} via SDP UUID {SERVICE_UUID}")
     last_err = "service not found"
     for attempt in range(1, 4):

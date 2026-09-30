@@ -42,6 +42,7 @@ hiddenimports = [
     "bluetooth_lab.constants",
     "bluetooth_lab.framing",
     "bluetooth_lab.windows_client",
+    "bluetooth_lab.sdp_winrt",
     "windows.settings",
     "windows.settings.store",
     "windows.ui",
