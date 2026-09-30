@@ -18,6 +18,9 @@ from winrt.windows.storage.streams import Buffer, DataWriter, InputStreamOptions
 
 from bluetooth_lab.constants import SERVICE_UUID
 
+# Each WinRT read is an async round trip; pull whatever has arrived in one go.
+_READ_CHUNK = 8192
+
 
 class _LoopThread:
     def __init__(self) -> None:
@@ -57,7 +60,7 @@ class WinRtSocket:
             return out
         # A timed-out read stays in flight; reuse it rather than starting a second one.
         if self._pending is None:
-            self._pending = self._loop.submit(self._read(max(n, 1)))
+            self._pending = self._loop.submit(self._read(_READ_CHUNK))
         try:
             data = self._pending.result(self._timeout)
         except concurrent.futures.TimeoutError:

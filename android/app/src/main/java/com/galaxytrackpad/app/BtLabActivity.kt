@@ -590,9 +590,9 @@ class BtLabActivity : AppCompatActivity() {
 
         private fun writeFrame(output: OutputStream, body: ByteArray) {
             if (body.size > MAX_FRAME) throw IllegalArgumentException("frame too large")
-            val header = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(body.size).array()
-            output.write(header)
-            output.write(body)
+            val frame = ByteBuffer.allocate(4 + body.size).order(ByteOrder.BIG_ENDIAN)
+                .putInt(body.size).put(body).array()
+            output.write(frame)
             output.flush()
         }
     }
