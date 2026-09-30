@@ -1,37 +1,71 @@
 # Galaxy Trackpad
 
-Use a Samsung Galaxy Tab (e.g. Tab S7) as a Windows Precision Touchpad + optional S Pen tablet.
+Turn a Samsung Galaxy Tab (e.g. **Tab S7 / SM-T870**) into a **Windows Precision Touchpad** plus optional **S Pen** tablet.
 
-Current baseline: **v0.8** (USB + ADB reverse + WebSocket, `CreateSyntheticPointerDevice2` / `PT_TOUCHPAD`).
+**Status:** Phase 1–2 complete (packaged Windows app + S Pen profiles + UX + reliability).  
+**Next:** Phase 3 — Android WebView app (no Chrome URL typing).
+
+Connection today: **USB + ADB reverse + WebSocket**.  
+Input: Windows `CreateSyntheticPointerDevice2` / `InjectSyntheticPointerInput` (`PT_TOUCHPAD`, pen). No custom kernel driver.
+
+---
+
+## Features
+
+### Touchpad
+- 1–5 finger contacts
+- Tap, double-tap, drag, two-finger scroll / right-click, pinch zoom
+- Native Windows 3- and 4-finger gestures
+- Independent cursor & scroll sensitivity (does **not** change physical mouse settings)
+
+### S Pen
+- Auto switch: finger → touchpad, S Pen tip → Windows pen (pressure + tilt)
+- **Everyday** — stretch map to the selected monitor (default)
+- **Drawing & Signature** — preserve aspect ratio for art / signatures
+- Per-profile monitor, mapping, and active area (Advanced Settings)
+- Safe reload while the tip is down (applies after lift)
+
+### Windows app
+- PySide6 GUI + system tray
+- START / STOP, auto-start engine, Start with Windows (`--tray`)
+- USB auto reverse / reconnect, quiet logs + optional debug
+- Clear connection states (waiting, authorize USB debugging, connected, error, …)
+
+---
 
 ## Layout
 
 ```
 windows/
-  core/         # synthetic pointer, touchpad, pen, sensitivity, displays, pen_mapping
+  core/         # synthetic pointer, touchpad, pen, sensitivity, displays, mapping
   transport/    # HTTP, ADB/USB, WebSocket, GUI control port
-  settings/     # JSON config (nested Phase 2 schema + v0.8 migration)
-  ui/           # PySide6 window + system tray
-  static/       # touchpad_v04.html served to the tablet
+  settings/     # nested JSON + v0.8 migration
+  ui/           # main window, Advanced, monitor picker
+  static/       # touchpad_v04.html (served to the tablet)
   engine.py     # --engine process
+  applog.py     # info / debug / error / state lines
 android/        # WebView app (Phase 3)
-tests/          # regression checklist
+tests/          # regression checklist + mapping unit tests
 archive/        # frozen prototypes (do not run daily)
-platform-tools/ # local ADB only — not in git
+platform-tools/ # local ADB — not in git
 ```
+
+---
 
 ## Requirements
 
 - Windows 11
-- Conda env `galaxytrackpad` (Python 3.13) **or** pip + `requirements.txt`
-- ADB: unzip [platform-tools](https://developer.android.com/tools/releases/platform-tools) into `platform-tools/` at the repo root
-- Galaxy Tab with USB debugging authorized
+- Conda env `galaxytrackpad` (Python 3.13) **or** `pip install -r requirements.txt`
+- [platform-tools](https://developer.android.com/tools/releases/platform-tools) unzipped to `platform-tools/adb.exe` at the repo root
+- Galaxy Tab with **USB debugging** authorized for this PC
 
 ```powershell
 conda env create -f environment.yml
 conda activate galaxytrackpad
 # or: pip install -r requirements.txt
 ```
+
+---
 
 ## Run
 
@@ -43,26 +77,69 @@ conda activate galaxytrackpad
 python -m windows
 ```
 
-Tray / logon style:
+| Mode | Command |
+|------|---------|
+| GUI | `python -m windows` |
+| Tray only | `python -m windows --tray` |
+| Engine only | `python -m windows --engine` |
+
+With **Auto-start engine** on, the engine starts when the app opens.  
+**Start with Windows** registers an HKCU Run entry that launches `--tray` at logon.
+
+### Tablet page (until Phase 3)
+
+1. Plug in USB and allow debugging if prompted.
+2. Wait until the GUI shows USB ready / connected path.
+3. On the Tab, open: `http://127.0.0.1:8765/touchpad_v04.html`
+
+### Ports (localhost only)
+
+| Port | Role |
+|------|------|
+| 8765 | HTTP (HTML) |
+| 8766 | WebSocket (touch / pen) |
+| 8767 | GUI ↔ engine (`RELOAD` / `STOP`) |
+
+Settings: `windows/galaxytrackpad_settings.json` (example: `windows/settings.example.json`).
+
+---
+
+## Settings (short)
+
+| Area | What |
+|------|------|
+| Touchpad | Cursor / scroll sensitivity (live) |
+| S Pen | Everyday vs Drawing on the main window; monitor / area / mapping in **Advanced** |
+| General | Start with Windows, auto-start engine, show debug logs |
+
+Preserve-aspect mapping keeps **tablet CSS-pixel isotropy** on the target monitor’s pixel grid (not EDID millimetres).
+
+---
+
+## Tests
 
 ```powershell
-python -m windows --tray
+python -m unittest tests.test_pen_mapping -v
 ```
 
-START in the GUI launches `python -m windows --engine`.
-With **Auto-start engine** enabled, the engine starts automatically after the window opens.
-**Start with Windows** writes an HKCU Run entry that launches `--tray` at logon.
+Manual checklist: [tests/REGRESSION.md](tests/REGRESSION.md).
 
-Ports (localhost): HTTP `8765`, WebSocket `8766`, GUI control `8767`.
+---
 
-Settings file: `windows/galaxytrackpad_settings.json` (see `windows/settings.example.json`).
+## Roadmap
 
-## Regression
+| Phase | Status |
+|-------|--------|
+| 1 — Package structure, single entry, preserve v0.8 | Done |
+| 2 — S Pen profiles, UX, autostart, reliability | Done |
+| 3 — Android WebView app | Next |
+| 4 — Windows installer / APK packaging | Later |
+| 5 — Bluetooth transport | Later |
 
-See [tests/REGRESSION.md](tests/REGRESSION.md).
+---
 
 ## Notes
 
-- No custom kernel driver. Windows native touchpad gestures are used.
-- Cursor/scroll gain scales injected coordinates only; physical mouse settings are untouched.
-- Pre-restructure sources live under `archive/`.
+- Native Windows touchpad gestures — not remapped to keyboard shortcuts.
+- Cursor/scroll gain only scales injected coordinates.
+- Old prototypes live under `archive/`.
