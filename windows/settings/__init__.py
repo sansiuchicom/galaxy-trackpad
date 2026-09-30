@@ -1,17 +1,31 @@
 from windows.settings.store import (
     DEFAULTS,
+    PROFILE_DRAWING,
+    PROFILE_STANDARD,
     SETTINGS,
+    active_pen_profile,
+    apply_runtime_settings,
     clamp,
     load_config,
+    migrate_config,
     reload_settings,
     save_config,
+    set_active_profile,
+    update_active_profile_fields,
 )
 
 __all__ = [
     "DEFAULTS",
+    "PROFILE_DRAWING",
+    "PROFILE_STANDARD",
     "SETTINGS",
+    "active_pen_profile",
+    "apply_runtime_settings",
     "clamp",
     "load_config",
+    "migrate_config",
     "reload_settings",
     "save_config",
+    "set_active_profile",
+    "update_active_profile_fields",
 ]

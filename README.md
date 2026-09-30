@@ -8,9 +8,9 @@ Current baseline: **v0.8** (USB + ADB reverse + WebSocket, `CreateSyntheticPoint
 
 ```
 windows/
-  core/         # synthetic pointer, touchpad, pen, sensitivity
+  core/         # synthetic pointer, touchpad, pen, sensitivity, displays, pen_mapping
   transport/    # HTTP, ADB/USB, WebSocket, GUI control port
-  settings/     # JSON config (cursor/scroll gain independent of Windows mouse)
+  settings/     # JSON config (nested Phase 2 schema + v0.8 migration)
   ui/           # PySide6 window + system tray
   static/       # touchpad_v04.html served to the tablet
   engine.py     # --engine process

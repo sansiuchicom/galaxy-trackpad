@@ -10,17 +10,16 @@ from websockets.asyncio.server import serve
 from windows.core.pen import PenBridge
 from windows.core.touchpad import ScaledTouchpad
 from windows.paths import WS_PORT
-from windows.settings.store import SETTINGS
 
 
 async def run_input_server():
     touchpad = ScaledTouchpad()
+    # S Pen is always available when the tip is detected (no ON/OFF toggle).
     pen = None
-    if SETTINGS.get("pen_enabled", True):
-        try:
-            pen = PenBridge()
-        except OSError as exc:
-            print(f"Pen unavailable; touchpad still works: {exc}")
+    try:
+        pen = PenBridge()
+    except OSError as exc:
+        print(f"Pen unavailable; touchpad still works: {exc}")
 
     exclusive = asyncio.Lock()
 

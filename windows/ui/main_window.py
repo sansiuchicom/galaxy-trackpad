@@ -26,13 +26,26 @@ from PySide6.QtWidgets import (
 )
 
 from windows.paths import CONTROL_PORT, REPO_ROOT
-from windows.settings.store import load_config, save_config
+from windows.core.displays import list_monitors
+from windows.settings.store import (
+    PROFILE_DRAWING,
+    PROFILE_STANDARD,
+    load_config,
+    migrate_config,
+    save_config,
+    set_active_profile,
+    update_active_profile_fields,
+)
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.config = load_config()
+        try:
+            save_config(self.config)  # Persist flat→nested migration once.
+        except OSError:
+            pass
         self.process = QProcess(self)
         self.process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
         self.process.started.connect(self.on_started)
@@ -53,9 +66,9 @@ class MainWindow(QMainWindow):
         self.tray_notified = False
         self.tray = None
 
-        self.setWindowTitle("Galaxy Trackpad v0.8")
-        self.resize(535, 830)
-        self.setMinimumSize(460, 720)
+        self.setWindowTitle("Galaxy Trackpad · Phase 2A")
+        self.resize(535, 900)
+        self.setMinimumSize(460, 760)
         self.build_ui()
         self.apply_style()
         self.set_status("●  Engine stopped", "Not running", "Not running")
@@ -84,6 +97,7 @@ class MainWindow(QMainWindow):
         return item
 
     def slider(self, caption, key):
+        """Touchpad sensitivity slider (nested touchpad.*)."""
         outer = QWidget()
         layout = QVBoxLayout(outer)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -95,17 +109,43 @@ class MainWindow(QMainWindow):
         row.addWidget(value_label)
         bar = QSlider(Qt.Orientation.Horizontal)
         bar.setRange(50, 200)
-        bar.setValue(round(float(self.config.get(key, 1.0)) * 100))
+        current = float(self.config["touchpad"].get(key, 1.0))
+        bar.setValue(round(current * 100))
         value_label.setText(f"{bar.value() / 100:.2f}x")
 
         def changed(value):
-            self.config[key] = value / 100.0
+            self.config["touchpad"][key] = value / 100.0
             value_label.setText(f"{value / 100:.2f}x")
             self.save_settings()
 
         bar.valueChanged.connect(changed)
         layout.addLayout(row)
         layout.addWidget(bar)
+        return outer
+
+    def area_slider(self):
+        outer = QWidget()
+        layout = QVBoxLayout(outer)
+        layout.setContentsMargins(0, 0, 0, 0)
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Active area size"))
+        row.addStretch()
+        self.area_value = QLabel()
+        self.area_value.setObjectName("value")
+        row.addWidget(self.area_value)
+        self.area_bar = QSlider(Qt.Orientation.Horizontal)
+        self.area_bar.setRange(50, 100)
+        layout.addLayout(row)
+        layout.addWidget(self.area_bar)
+
+        def changed(value):
+            self.area_value.setText(f"{value}%")
+            self.config = update_active_profile_fields(
+                self.config, area_size=value / 100.0
+            )
+            self.save_settings()
+
+        self.area_bar.valueChanged.connect(changed)
         return outer
 
     def build_ui(self):
@@ -161,30 +201,127 @@ class MainWindow(QMainWindow):
         inside.addWidget(self.slider("Scroll sensitivity", "scroll_sensitivity"))
         layout.addWidget(frame)
 
-        layout.addWidget(self.section("S PEN  ·  RESTART TO APPLY"))
+        layout.addWidget(self.section("S PEN  ·  LIVE PROFILES"))
         frame, inside = self.card()
-        pen_check = QCheckBox("Enable S Pen")
-        pen_check.setChecked(bool(self.config.get("pen_enabled", True)))
-        pen_check.toggled.connect(lambda checked: self.change_config("pen_enabled", checked))
-        inside.addWidget(pen_check)
+
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Active profile"))
+        row.addStretch()
+        self.profile_combo = QComboBox()
+        self.profile_combo.addItem("Standard", PROFILE_STANDARD)
+        self.profile_combo.addItem("Drawing & Signature", PROFILE_DRAWING)
+        self.profile_combo.currentIndexChanged.connect(self.on_profile_changed)
+        row.addWidget(self.profile_combo)
+        inside.addLayout(row)
+
         row = QHBoxLayout()
         row.addWidget(QLabel("Target display"))
         row.addStretch()
-        monitor = QComboBox()
-        monitor.addItem("Primary Monitor")
-        monitor.setEnabled(False)
-        row.addWidget(monitor)
+        self.monitor_combo = QComboBox()
+        self.monitor_combo.currentIndexChanged.connect(self.on_monitor_changed)
+        row.addWidget(self.monitor_combo)
         inside.addLayout(row)
+
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Mapping"))
+        row.addStretch()
+        self.mapping_combo = QComboBox()
+        self.mapping_combo.addItem("Stretch", "stretch")
+        self.mapping_combo.addItem("Preserve aspect ratio", "preserve_aspect_ratio")
+        self.mapping_combo.currentIndexChanged.connect(self.on_mapping_changed)
+        row.addWidget(self.mapping_combo)
+        inside.addLayout(row)
+
+        inside.addWidget(self.area_slider())
+        note = QLabel(
+            "Pen tip always draws when detected · mapping reloads live "
+            "(queued until tip up if pen is down)"
+        )
+        note.setObjectName("muted")
+        note.setWordWrap(True)
+        inside.addWidget(note)
         layout.addWidget(frame)
 
-        auto = QCheckBox("Connect automatically (saved for future version)")
-        auto.setChecked(bool(self.config.get("auto_connect", True)))
-        auto.toggled.connect(lambda checked: self.change_config("auto_connect", checked))
+        auto = QCheckBox("Auto-start engine (Phase 2B wires login start)")
+        auto.setChecked(bool(self.config["general"].get("auto_start_engine", True)))
+        auto.toggled.connect(
+            lambda checked: self.change_general("auto_start_engine", checked)
+        )
         layout.addWidget(auto)
-        footer = QLabel("v0.8  ·  Cursor/scroll: live  ·  S Pen: next START")
+        footer = QLabel("Phase 2A  ·  Touchpad unchanged  ·  Pen mapping via RELOAD")
         footer.setObjectName("muted")
         footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(footer)
+
+        self._pen_ui_ready = False
+        self.refresh_monitor_list()
+        self.sync_pen_controls_from_config()
+        self._pen_ui_ready = True
+
+    def refresh_monitor_list(self):
+        self.monitor_combo.blockSignals(True)
+        self.monitor_combo.clear()
+        self.monitor_combo.addItem("Primary", "primary")
+        try:
+            for mon in list_monitors():
+                self.monitor_combo.addItem(mon.name, mon.id)
+        except OSError as exc:
+            self.log(f"Monitor list error: {exc}")
+        self.monitor_combo.blockSignals(False)
+
+    def sync_pen_controls_from_config(self):
+        self.config = migrate_config(self.config)
+        pen = self.config["pen"]
+        name = pen.get("active_profile", PROFILE_STANDARD)
+        idx = self.profile_combo.findData(name)
+        self.profile_combo.blockSignals(True)
+        self.profile_combo.setCurrentIndex(max(0, idx))
+        self.profile_combo.blockSignals(False)
+
+        profile = pen["profiles"][name]
+        mid = profile.get("monitor_id", "primary")
+        midx = self.monitor_combo.findData(mid)
+        if midx < 0:
+            midx = 0
+        self.monitor_combo.blockSignals(True)
+        self.monitor_combo.setCurrentIndex(midx)
+        self.monitor_combo.blockSignals(False)
+
+        mapping = profile.get("mapping", "stretch")
+        map_idx = self.mapping_combo.findData(mapping)
+        self.mapping_combo.blockSignals(True)
+        self.mapping_combo.setCurrentIndex(max(0, map_idx))
+        self.mapping_combo.blockSignals(False)
+
+        area = int(round(float(profile.get("area_size", 1.0)) * 100))
+        self.area_bar.blockSignals(True)
+        self.area_bar.setValue(area)
+        self.area_value.setText(f"{area}%")
+        self.area_bar.blockSignals(False)
+
+    def on_profile_changed(self, _index):
+        if not getattr(self, "_pen_ui_ready", False):
+            return
+        name = self.profile_combo.currentData()
+        self.config = set_active_profile(self.config, name)
+        self.sync_pen_controls_from_config()
+        self.save_settings()
+
+    def on_monitor_changed(self, _index):
+        if not getattr(self, "_pen_ui_ready", False):
+            return
+        self.config = update_active_profile_fields(
+            self.config, monitor_id=self.monitor_combo.currentData()
+        )
+        self.save_settings()
+
+    def on_mapping_changed(self, _index):
+        if not getattr(self, "_pen_ui_ready", False):
+            return
+        self.config = update_active_profile_fields(
+            self.config, mapping=self.mapping_combo.currentData()
+        )
+        self.save_settings()
 
     def apply_style(self):
         self.setStyleSheet("""
@@ -206,15 +343,22 @@ class MainWindow(QMainWindow):
             QSlider::groove:horizontal { height: 5px; background: #4b5563; }
             QSlider::handle:horizontal { background: #60a5fa; width: 15px; margin: -5px 0; }
             QCheckBox { spacing: 9px; }
+            QComboBox { background: #111827; border: 1px solid #374151; padding: 4px 8px; }
         """)
 
     # ---------- Settings ----------
+    def change_general(self, key, value):
+        self.config = migrate_config(self.config)
+        self.config["general"][key] = value
+        self.save_settings()
+
     def change_config(self, key, value):
         self.config[key] = value
         self.save_settings()
 
     def save_settings(self):
         try:
+            self.config = migrate_config(self.config)
             save_config(self.config)
         except OSError as exc:
             self.log(f"Settings save error: {exc}")
@@ -281,7 +425,7 @@ class MainWindow(QMainWindow):
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(False)
         self.set_status("●  Starting...", "Initializing", "Initializing")
-        self.log("---- Starting v0.8 engine ----")
+        self.log("---- Starting engine ----")
         self.process.setWorkingDirectory(str(REPO_ROOT))
         self.process.start(sys.executable, ["-u", "-m", "windows", "--engine"])
         QTimer.singleShot(20000, self.warn_if_not_ready)

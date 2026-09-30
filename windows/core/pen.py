@@ -1,9 +1,12 @@
-"""Experimental Windows Ink / S Pen injection (verified PenBridge)."""
+"""Experimental Windows Ink / S Pen injection with profile mapping."""
 from __future__ import annotations
 
 import ctypes as c
 import time
+from typing import Any
 
+from windows.core.displays import resolve_monitor
+from windows.core.pen_mapping import PenMapConfig, PixelRect
 from windows.core.synthetic import (
     INPUT,
     PARAMS,
@@ -14,12 +17,14 @@ from windows.core.synthetic import (
     create,
     destroy,
 )
-from windows.settings.store import clamp
+from windows.settings.store import SETTINGS, active_pen_profile, clamp
 
 PEN_DOWN = 0x00010016
 PEN_MOVE = 0x00020016
 PEN_UP = 0x00040000
 PEN_MASK = 0x0000000D
+
+_active_pen: "PenBridge | None" = None
 
 
 class PEN_INFO(c.Structure):
@@ -48,27 +53,87 @@ _user32 = c.WinDLL("user32", use_last_error=True)
 _pen_inject = _user32.InjectSyntheticPointerInput
 _pen_inject.argtypes = [c.c_void_p, c.c_void_p, c.c_uint32]
 _pen_inject.restype = c.c_int
-_user32.GetSystemMetrics.argtypes = [c.c_int]
-_user32.GetSystemMetrics.restype = c.c_int
+
+
+def notify_settings_reloaded() -> None:
+    if _active_pen is not None:
+        _active_pen.reload_config()
+
+
+def build_pen_map_from_settings(pen_block: dict[str, Any] | None = None) -> PenMapConfig:
+    profile = active_pen_profile(pen_block)
+    monitor = resolve_monitor(profile["monitor_id"])
+    return PenMapConfig(
+        mapping=profile["mapping"],
+        area_size=profile["area_size"],
+        monitor=PixelRect(monitor.left, monitor.top, monitor.right, monitor.bottom),
+        tablet_aspect=profile["tablet_aspect"],
+    )
 
 
 class PenBridge:
-    """Tip contact, pressure and tilt. Hover/barrel/eraser need more HTML work."""
+    """Tip contact, pressure and tilt with profile-based monitor mapping."""
 
     def __init__(self):
+        global _active_pen
         params = PARAMS(PT_PEN, 1, 3, None, 0, 0, 0)
         self.handle = create(c.byref(params))
         if not self.handle:
             raise c.WinError(c.get_last_error())
-        self.width = _user32.GetSystemMetrics(0)
-        self.height = _user32.GetSystemMetrics(1)
         self.pressed = False
         self.last_contact = None
         self.ticks = 1
         self.last_clock = time.monotonic()
-        print("Experimental S Pen enabled (primary monitor)")
+        self._pending_config: dict[str, Any] | None = None
+        self.map_config = build_pen_map_from_settings()
+        _active_pen = self
+        active = self.map_config.active_rect()
+        print(
+            "[PEN] Ready profile mapping={} area={:.0f}% "
+            "monitor=({},{} {}x{}) activeUV=({:.3f},{:.3f})-({:.3f},{:.3f})".format(
+                self.map_config.mapping,
+                self.map_config.area_size * 100,
+                self.map_config.monitor.left,
+                self.map_config.monitor.top,
+                self.map_config.monitor.width,
+                self.map_config.monitor.height,
+                active.left,
+                active.top,
+                active.right,
+                active.bottom,
+            ),
+            flush=True,
+        )
 
-    def _send(self, contact, state):
+    def reload_config(self) -> None:
+        """Apply SETTINGS pen block now, or after the tip lifts."""
+        snapshot = {
+            "active_profile": SETTINGS["pen"]["active_profile"],
+            "tablet_aspect": SETTINGS["pen"]["tablet_aspect"],
+            "profiles": SETTINGS["pen"]["profiles"],
+        }
+        if self.pressed:
+            self._pending_config = snapshot
+            print("[PEN] Config queued until pen tip releases", flush=True)
+            return
+        self._apply_config(snapshot)
+
+    def _apply_config(self, pen_block: dict[str, Any]) -> None:
+        self.map_config = build_pen_map_from_settings(pen_block)
+        self._pending_config = None
+        print(
+            "[PEN] Applied mapping={} area={:.0f}% bounds=({},{} {}x{})".format(
+                self.map_config.mapping,
+                self.map_config.area_size * 100,
+                self.map_config.monitor.left,
+                self.map_config.monitor.top,
+                self.map_config.monitor.width,
+                self.map_config.monitor.height,
+            ),
+            flush=True,
+        )
+
+    def _send(self, contact, state, x: int, y: int):
         arr = (PEN_INPUT * 1)()
         arr[0].type = PT_PEN
         info = arr[0].data.penInfo
@@ -76,10 +141,7 @@ class PenBridge:
         p.pointerType = PT_PEN
         p.pointerId = 0
         p.pointerFlags = state
-        p.ptPixelLocation = POINT(
-            round(clamp(float(contact["x"]), 0, 1) * (self.width - 1)),
-            round(clamp(float(contact["y"]), 0, 1) * (self.height - 1)),
-        )
+        p.ptPixelLocation = POINT(x, y)
         info.penMask = PEN_MASK
         info.pressure = round(clamp(float(contact.get("pressure", 0.5)), 0, 1) * 1024)
         info.tiltX = round(clamp(float(contact.get("tiltX", 0)), -90, 90))
@@ -92,25 +154,50 @@ class PenBridge:
             raise c.WinError(c.get_last_error())
 
     def update(self, pens):
-        if pens:
-            contact = pens[0]
-            self._send(contact, PEN_MOVE if self.pressed else PEN_DOWN)
-            self.pressed = True
-            self.last_contact = contact
-        else:
+        if not pens:
             self.release()
+            return
+
+        contact = pens[0]
+        try:
+            u = float(contact["x"])
+            v = float(contact["y"])
+        except (KeyError, TypeError, ValueError):
+            return
+
+        mapped = self.map_config.map_point(u, v)
+        if mapped is None:
+            # Outside active area: end stroke cleanly; do not jump-map.
+            if self.pressed:
+                self.release()
+            return
+
+        x, y = mapped
+        self._send(contact, PEN_MOVE if self.pressed else PEN_DOWN, x, y)
+        self.pressed = True
+        self.last_contact = {**contact, "_pixel": (x, y)}
 
     def release(self):
         if self.pressed:
             try:
-                self._send(self.last_contact, PEN_UP)
+                contact = self.last_contact or {"pressure": 0, "tiltX": 0, "tiltY": 0}
+                x, y = contact.get("_pixel", (
+                    self.map_config.monitor.left,
+                    self.map_config.monitor.top,
+                ))
+                self._send(contact, PEN_UP, x, y)
             finally:
                 self.pressed = False
                 self.last_contact = None
+        if self._pending_config is not None:
+            self._apply_config(self._pending_config)
 
     def close(self):
+        global _active_pen
         try:
             self.release()
         finally:
             destroy(self.handle)
-            print("Pen removed")
+            if _active_pen is self:
+                _active_pen = None
+            print("Pen removed", flush=True)

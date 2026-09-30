@@ -45,8 +45,15 @@ Tablet: open `http://127.0.0.1:8765/touchpad_v04.html` after USB reverse is read
 - [ ] STOP / Quit releases active contacts
 - [ ] System tray hide / reopen / Quit
 
-## Smoke (no device)
+## Phase 2A — S Pen mapping
+
+- [ ] Standard profile → Stretch on Display 1 / Display 2
+- [ ] Drawing profile → Preserve aspect; circle/square look round on target monitor
+- [ ] Active area 50–100%: pen outside area ignored; no stroke jump on re-entry
+- [ ] Change mapping while tip down → applies only after tip up
+- [ ] Profile change does **not** affect finger touchpad / sensitivity
+- [ ] Old flat settings migrate (cursor/scroll preserved)
 
 ```powershell
-python -c "from windows.engine import engine_main; from windows.core import ScaledTouchpad; print('ok')"
+python -m unittest tests.test_pen_mapping -v
 ```
