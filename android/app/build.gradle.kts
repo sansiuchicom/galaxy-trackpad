@@ -20,8 +20,8 @@ android {
         minSdk = 28
         targetSdk = 35
         // 0.9.x = packaged pre-1.0 for daily use (not Play Store).
-        versionCode = 90
-        versionName = "0.9.0"
+        versionCode = 91
+        versionName = "0.9.1"
     }
 
     signingConfigs {

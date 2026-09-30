@@ -19,26 +19,26 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.galaxytrackpad.app.databinding.ActivityMainBinding
-import com.galaxytrackpad.app.BuildConfig
 
 /**
- * Phase 3C WebView shell: keep screen on, survive USB flaps, clear contacts on pause.
- *
- * Still loads the Windows-served HTML over ADB reverse when available.
- * If HTTP is down, shows a local waiting page and retries automatically.
+ * WebView shell: keep screen on, retry Windows HTML when USB/reverse is down.
  */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private val mainHandler = Handler(Looper.getMainLooper())
     private var pageHealthy = false
-    private var reloadPosted = false
     private var destroyed = false
 
-    private val reloadRunnable = Runnable {
-        reloadPosted = false
-        if (destroyed || pageHealthy) return@Runnable
-        loadTrackpad()
+    /** Keeps trying Windows HTTP until the pad page loads (survives WAITING stuck state). */
+    private val watchdogRunnable = object : Runnable {
+        override fun run() {
+            if (destroyed) return
+            if (!pageHealthy) {
+                loadTrackpad()
+                mainHandler.postDelayed(this, RELOAD_DELAY_MS)
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,11 +53,9 @@ class MainActivity : AppCompatActivity() {
         hideSystemBars()
         setupWebView(binding.webView)
 
-        if (savedInstanceState == null) {
-            loadTrackpad()
-        } else {
-            binding.webView.restoreState(savedInstanceState)
-        }
+        // Always fetch fresh pad HTML — do not restore a stale WAITING page.
+        loadTrackpad()
+        startWatchdog()
 
         onBackPressedDispatcher.addCallback(
             this,
@@ -69,19 +67,14 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        binding.webView.saveState(outState)
-    }
-
     override fun onResume() {
         super.onResume()
         hideSystemBars()
         binding.webView.onResume()
         if (!pageHealthy) {
-            scheduleReload(immediate = true)
+            startWatchdog()
+            loadTrackpad()
         } else {
-            // Re-sync after returning from background.
             binding.webView.evaluateJavascript(JS_RESUME_SYNC, null)
         }
     }
@@ -93,14 +86,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
-        // Extra safety if the process is backgrounded mid-gesture.
         binding.webView.evaluateJavascript(JS_RELEASE_ALL, null)
         super.onStop()
     }
 
     override fun onDestroy() {
         destroyed = true
-        mainHandler.removeCallbacks(reloadRunnable)
+        mainHandler.removeCallbacks(watchdogRunnable)
         binding.webView.apply {
             stopLoading()
             loadUrl("about:blank")
@@ -120,10 +112,9 @@ class MainActivity : AppCompatActivity() {
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            // Prefer fresh HTML from Windows after engine updates.
             cacheMode = WebSettings.LOAD_NO_CACHE
             mediaPlaybackRequiresUserGesture = false
-            mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             allowFileAccess = true
             allowContentAccess = true
             setSupportZoom(false)
@@ -136,8 +127,7 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 if (url != null && url.startsWith(TRACKPAD_ORIGIN)) {
-                    pageHealthy = true
-                    cancelReload()
+                    markHealthy()
                     val ver = BuildConfig.VERSION_NAME
                     view?.evaluateJavascript(
                         """
@@ -157,26 +147,26 @@ class MainActivity : AppCompatActivity() {
                 error: WebResourceError?,
             ) {
                 if (request?.isForMainFrame != true) return
-                pageHealthy = false
+                markUnhealthy()
                 showWaitingPage()
-                scheduleReload(immediate = false)
-            }
-
-            @Deprecated("Deprecated in Java")
-            override fun onReceivedError(
-                view: WebView?,
-                errorCode: Int,
-                description: String?,
-                failingUrl: String?,
-            ) {
-                if (failingUrl != null && failingUrl.startsWith(TRACKPAD_ORIGIN)) {
-                    pageHealthy = false
-                    showWaitingPage()
-                    scheduleReload(immediate = false)
-                }
+                startWatchdog()
             }
         }
         webView.webChromeClient = WebChromeClient()
+    }
+
+    private fun markHealthy() {
+        pageHealthy = true
+        mainHandler.removeCallbacks(watchdogRunnable)
+    }
+
+    private fun markUnhealthy() {
+        pageHealthy = false
+    }
+
+    private fun startWatchdog() {
+        mainHandler.removeCallbacks(watchdogRunnable)
+        mainHandler.postDelayed(watchdogRunnable, RELOAD_DELAY_MS)
     }
 
     private fun loadTrackpad() {
@@ -186,20 +176,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun showWaitingPage() {
         if (destroyed) return
+        // Avoid clobbering an in-flight successful load with another waiting navigation.
+        val current = binding.webView.url.orEmpty()
+        if (current.startsWith(TRACKPAD_ORIGIN)) return
+        if (current == WAITING_URL || current.endsWith("waiting.html")) return
         binding.webView.loadUrl(WAITING_URL)
-    }
-
-    private fun scheduleReload(immediate: Boolean) {
-        if (destroyed || pageHealthy) return
-        mainHandler.removeCallbacks(reloadRunnable)
-        reloadPosted = true
-        val delay = if (immediate) 300L else RELOAD_DELAY_MS
-        mainHandler.postDelayed(reloadRunnable, delay)
-    }
-
-    private fun cancelReload() {
-        reloadPosted = false
-        mainHandler.removeCallbacks(reloadRunnable)
     }
 
     private fun hideSystemBars() {
@@ -211,7 +192,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TRACKPAD_ORIGIN = "http://127.0.0.1:8765"
-        const val TRACKPAD_URL = "http://127.0.0.1:8765/touchpad_v04.html?v=090"
+        const val TRACKPAD_URL = "http://127.0.0.1:8765/touchpad_v04.html?v=091"
         private const val WAITING_URL = "file:///android_asset/waiting.html"
         private const val RELOAD_DELAY_MS = 2000L
 
