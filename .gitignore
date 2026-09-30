@@ -2,6 +2,9 @@
 platform-tools/
 platform-tools/**
 
+# Leftover empty dir if Windows locks the old path during restructure
+/test_files/
+
 # Python
 __pycache__/
 *.py[cod]

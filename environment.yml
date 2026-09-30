@@ -1,0 +1,10 @@
+name: galaxytrackpad
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.13
+  - pip
+  - pip:
+      - PySide6==6.11.2
+      - websockets==17.1
