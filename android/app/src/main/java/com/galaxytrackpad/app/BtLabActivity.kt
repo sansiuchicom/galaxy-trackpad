@@ -75,8 +75,10 @@ class BtLabActivity : AppCompatActivity() {
 
         setStatus("Idle — pair PC, then tap Listen")
         appendLog("BT-1: Tab = server, Windows = client")
-        appendLog("Do NOT need GalaxyTrackpad.exe for this test")
-        appendLog("Windows: python -m bluetooth_lab.windows_client <TAB_MAC>")
+        appendLog("Do NOT need GalaxyTrackpad.exe")
+        appendLog("Android hides MAC (02:00:… is fake).")
+        appendLog("On PC: python -m bluetooth_lab.windows_client")
+        appendLog("Pick Tab from the paired list.")
         ensurePerms()
     }
 
@@ -136,9 +138,14 @@ class BtLabActivity : AppCompatActivity() {
         } catch (_: SecurityException) {
             "(permission needed)"
         }
-        appendLog("Tab Bluetooth name=${bt.name}  MAC=$addr")
-        appendLog("Give that MAC to Windows client if asked")
-        setStatus("Ready — MAC $addr — tap Listen")
+        appendLog("Tab Bluetooth name=${bt.name}")
+        if (addr == null || addr.startsWith("02:00:00") || addr == "00:00:00:00:00:00") {
+            appendLog("MAC hidden by Android ($addr) — use Windows paired list")
+            setStatus("Ready — tap Listen (MAC from Windows)")
+        } else {
+            appendLog("MAC=$addr")
+            setStatus("Ready — MAC $addr — tap Listen")
+        }
     }
 
     @SuppressLint("MissingPermission")

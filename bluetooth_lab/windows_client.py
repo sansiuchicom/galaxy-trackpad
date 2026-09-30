@@ -2,18 +2,16 @@
 BT-1 Windows RFCOMM lab CLIENT.
 
 Connects to the Tab's RFCOMM lab server (Tab listens, PC dials).
-Does NOT need GalaxyTrackpad.exe and does NOT touch the USB engine.
+GalaxyTrackpad.exe is NOT required.
 
 Usage:
-  cd C:\\touchpad
-  conda activate galaxytrackpad
   python -m bluetooth_lab.windows_client
-  # or with MAC:
   python -m bluetooth_lab.windows_client AA:BB:CC:DD:EE:FF
 """
 from __future__ import annotations
 
 import argparse
+import re
 import socket
 import subprocess
 import sys
@@ -31,6 +29,9 @@ from bluetooth_lab.constants import (
 AF_BTH = getattr(socket, "AF_BTH", 32)
 BTPROTO_RFCOMM = getattr(socket, "BTPROTO_RFCOMM", 3)
 
+_DEV_RE = re.compile(r"BTHENUM\\\\DEV_([0-9A-F]{12})", re.I)
+_PLACEHOLDER = re.compile(r"^(XX:)+XX$", re.I)
+
 
 def _log(msg: str) -> None:
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
@@ -43,34 +44,68 @@ def _normalize_mac(raw: str) -> str:
     return ":".join(h[i : i + 2] for i in range(0, 12, 2))
 
 
-def _guess_tab_macs() -> list[str]:
-    """Best-effort paired device names/MACs from PowerShell (may be empty)."""
+def list_paired_classic_devices() -> list[tuple[str, str]]:
+    """Return [(friendly_name, mac), ...] for Classic BTHENUM\\DEV_ devices."""
     ps = r"""
-    Get-PnpDevice -Class Bluetooth -Status OK -ErrorAction SilentlyContinue |
-      Where-Object { $_.FriendlyName -match 'Tab|Galaxy|SM-|Tablet' } |
-      Select-Object -ExpandProperty InstanceId
+    Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue |
+      Where-Object { $_.InstanceId -match 'BTHENUM\\DEV_' } |
+      ForEach-Object { "{0}`t{1}" -f $_.FriendlyName, $_.InstanceId }
     """
     try:
         out = subprocess.check_output(
             ["powershell", "-NoProfile", "-Command", ps],
             text=True,
             stderr=subprocess.DEVNULL,
-            timeout=15,
+            timeout=20,
+            encoding="utf-8",
+            errors="replace",
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError) as exc:
+        _log(f"Could not query paired devices: {exc}")
         return []
-    found: list[str] = []
+
+    found: list[tuple[str, str]] = []
+    seen: set[str] = set()
     for line in out.splitlines():
-        # InstanceId often contains BTHENUM\DEV_AABBCCDDEEFF\...
-        if "DEV_" in line.upper():
-            part = line.upper().split("DEV_")[-1].split("\\")[0]
-            part = "".join(c for c in part if c.isalnum())[:12]
-            if len(part) == 12:
-                try:
-                    found.append(_normalize_mac(part))
-                except ValueError:
-                    pass
-    return list(dict.fromkeys(found))
+        if "\t" not in line:
+            continue
+        name, iid = line.split("\t", 1)
+        m = _DEV_RE.search(iid.replace("\\", "\\\\")) if False else None
+        # InstanceId comes with single backslashes: BTHENUM\DEV_AABB...
+        m = re.search(r"DEV_([0-9A-Fa-f]{12})", iid)
+        if not m:
+            continue
+        mac = _normalize_mac(m.group(1))
+        if mac in seen:
+            continue
+        seen.add(mac)
+        found.append((name.strip() or "(no name)", mac))
+    return found
+
+
+def _pick_mac_interactive(devices: list[tuple[str, str]]) -> str | None:
+    if not devices:
+        return None
+    _log("Paired Classic Bluetooth devices on this PC:")
+    for i, (name, mac) in enumerate(devices, 1):
+        mark = " ← likely Tab" if re.search(r"Galaxy|Tab|SM-|T870", name, re.I) else ""
+        _log(f"  [{i}] {name}  {mac}{mark}")
+    _log("Enter number (or full MAC), then Enter:")
+    try:
+        choice = input("> ").strip()
+    except EOFError:
+        return None
+    if not choice:
+        return None
+    if choice.isdigit():
+        idx = int(choice)
+        if 1 <= idx <= len(devices):
+            return devices[idx - 1][1]
+        return None
+    try:
+        return _normalize_mac(choice)
+    except ValueError:
+        return None
 
 
 def _try_connect(mac: str, channel: int, timeout: float = 3.0) -> socket.socket | None:
@@ -88,7 +123,6 @@ def _try_connect(mac: str, channel: int, timeout: float = 3.0) -> socket.socket 
 
 
 def _connect(mac: str) -> tuple[socket.socket, int]:
-    # Prefer lab channel, then scan — Android service-record channel is dynamic.
     channels = [RFCOMM_CHANNEL] + [c for c in range(1, 31) if c != RFCOMM_CHANNEL]
     _log(f"Connecting to {mac} (trying RFCOMM channels)…")
     for ch in channels:
@@ -98,13 +132,16 @@ def _connect(mac: str) -> tuple[socket.socket, int]:
             _log(f"Connected on channel {ch}")
             return sock, ch
     raise ConnectionError(
-        f"Could not connect to {mac} on channels 1–30. "
-        "Is GT BT Lab listening on the Tab? Are devices paired?"
+        f"Could not connect to {mac} on channels 1–30.\n"
+        "  • Is GT BT Lab on Listen?\n"
+        "  • Is this the Tab’s real MAC from the list above (not XX:XX or 02:00:00:00:00:00)?\n"
+        "  • Is the Tab paired under Windows → Bluetooth?"
     )
 
 
 def _session(sock: socket.socket) -> None:
     sock.settimeout(30.0)
+
     def send(line: str) -> None:
         sock.sendall((line.strip() + "\n").encode("utf-8"))
         _log(f"SEND >> {line.strip()}")
@@ -131,7 +168,6 @@ def _session(sock: socket.socket) -> None:
         _log("Unexpected reply (wanted PONG)")
 
     _log("BT-1 OK — HELLO/ACK and PING/PONG succeeded")
-    _log("You can Ctrl+C or just close this window.")
     try:
         while True:
             time.sleep(1)
@@ -145,43 +181,56 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     parser = argparse.ArgumentParser(description="BT-1 Windows → Tab RFCOMM client")
-    parser.add_argument(
-        "mac",
-        nargs="?",
-        help="Tab Bluetooth MAC, e.g. AA:BB:CC:DD:EE:FF (shown in GT BT Lab)",
-    )
+    parser.add_argument("mac", nargs="?", help="Tab Bluetooth MAC (from paired list)")
     args = parser.parse_args(argv)
 
     _log("Galaxy Trackpad BT-1 lab — Windows CLIENT")
-    _log("GalaxyTrackpad.exe is NOT required for this test.")
-    _log("1) Pair Tab ↔ PC")
-    _log("2) On Tab open GT BT Lab → tap Listen")
-    _log("3) Run this client with the Tab MAC shown on screen")
-    _log(f"Service UUID (for reference): {SERVICE_UUID}")
+    _log("GalaxyTrackpad.exe is NOT required.")
+    _log(f"Service UUID: {SERVICE_UUID}")
     _log("-" * 60)
 
-    mac = args.mac
-    if not mac:
-        guessed = _guess_tab_macs()
-        if len(guessed) == 1:
-            mac = guessed[0]
-            _log(f"Using guessed Tab MAC: {mac}")
-        elif guessed:
-            _log("Possible Tab MACs:")
-            for g in guessed:
-                _log(f"  {g}")
-            _log("Re-run: python -m bluetooth_lab.windows_client AA:BB:CC:DD:EE:FF")
-            return 2
-        else:
-            _log("Pass the Tab MAC from GT BT Lab status line, e.g.")
-            _log("  python -m bluetooth_lab.windows_client AA:BB:CC:DD:EE:FF")
-            return 2
-
-    try:
-        mac = _normalize_mac(mac)
-    except ValueError as exc:
-        _log(str(exc))
+    devices = list_paired_classic_devices()
+    if not devices:
+        _log("No Classic Bluetooth devices paired on this PC.")
+        _log("Windows Settings → Bluetooth → add '석태의 Galaxy Tab S7' (or your Tab name).")
+        _log("Android Settings → Bluetooth must show this PC as paired too.")
+        _log("Then run GT BT Lab → Listen, and run this client again.")
         return 2
+
+    _log("Paired Classic devices:")
+    for i, (name, mac) in enumerate(devices, 1):
+        mark = " ← likely Tab" if re.search(r"Galaxy|Tab|SM-|T870", name, re.I) else ""
+        _log(f"  [{i}] {name}  {mac}{mark}")
+
+    tab_like = [d for d in devices if re.search(r"Galaxy|Tab|SM-|T870", d[0], re.I)]
+    if not tab_like:
+        _log("")
+        _log("*** Galaxy Tab is NOT in this list yet — pair it in Windows Settings first. ***")
+        _log("Buds / speakers alone are not enough.")
+
+    mac = args.mac
+    if mac and _PLACEHOLDER.match(mac.replace(" ", "")):
+        _log("You passed a placeholder MAC (XX:XX:…). That was only an example.")
+        mac = None
+    if mac:
+        try:
+            mac = _normalize_mac(mac)
+            if mac in ("02:00:00:00:00:00", "00:00:00:00:00:00"):
+                _log("That MAC is Android’s hidden/fake address — unusable.")
+                mac = None
+        except ValueError as exc:
+            _log(str(exc))
+            mac = None
+
+    if not mac:
+        if len(tab_like) == 1:
+            mac = tab_like[0][1]
+            _log(f"Auto-selected Tab: {tab_like[0][0]}  {mac}")
+        else:
+            mac = _pick_mac_interactive(devices)
+            if not mac:
+                _log("No MAC selected.")
+                return 2
 
     try:
         sock, _ch = _connect(mac)
