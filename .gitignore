@@ -32,6 +32,10 @@ android/*.iml
 *.apk
 *.aab
 
+# Local release zips (publish via GitHub Releases, not the git tree)
+releases/
+*.zip
+
 # IDE / OS
 .idea/
 .vscode/
