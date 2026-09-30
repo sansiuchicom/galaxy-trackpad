@@ -17,6 +17,10 @@ build/
 venv/
 .env
 
+# PyInstaller
+*.manifest
+*.spec.bak
+
 # Local runtime settings (keep example in repo)
 **/galaxytrackpad_settings.json
 

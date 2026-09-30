@@ -31,6 +31,7 @@ from windows.autostart import is_enabled as autostart_is_enabled
 from windows.autostart import set_enabled as autostart_set_enabled
 from windows.autostart import sync_from_config as autostart_sync
 from windows.paths import CONTROL_PORT, REPO_ROOT, SETTINGS_PATH
+from windows.runtime import engine_command
 from windows.settings.store import (
     PROFILE_DRAWING,
     PROFILE_STANDARD,
@@ -558,7 +559,8 @@ class MainWindow(QMainWindow):
         self.refresh_connection_status()
         self.log("---- Starting engine ----")
         self.process.setWorkingDirectory(str(REPO_ROOT))
-        self.process.start(sys.executable, ["-u", "-m", "windows", "--engine"])
+        program, args = engine_command()
+        self.process.start(program, args)
         QTimer.singleShot(20000, self.warn_if_not_ready)
         self.update_tray()
 

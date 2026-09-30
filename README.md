@@ -2,8 +2,8 @@
 
 Turn a Samsung Galaxy Tab (e.g. **Tab S7 / SM-T870**) into a **Windows Precision Touchpad** plus optional **S Pen** tablet.
 
-**Status:** Phases **1–3 complete**. Phase **4A** (Android `0.9.0` APK packaging) is set up — build the release APK in Android Studio.  
-**Next:** Install that APK for daily use, then Windows `.exe` (4B). v**1.0.0** only after longer real-world use.
+**Status:** Phases **1–3** complete. Phase **4A** Android APK + **4B** Windows `.exe` packaging are in the repo.  
+**Next:** Daily-drive `0.9.x`, then optional installer polish / Bluetooth. **v1.0.0** after longer real-world use.
 
 Connection today: **USB + ADB reverse + WebSocket**.  
 Input: Windows `CreateSyntheticPointerDevice2` / `InjectSyntheticPointerInput` (`PT_TOUCHPAD`, pen). No custom kernel driver.
@@ -82,7 +82,18 @@ conda activate galaxytrackpad
 
 ### Windows
 
-From the **repo root**:
+**Packaged (Phase 4B):** build once, then double-click:
+
+```powershell
+cd C:\touchpad
+conda activate galaxytrackpad
+powershell -ExecutionPolicy Bypass -File packaging\build_windows.ps1
+# then run: dist\GalaxyTrackpad\GalaxyTrackpad.exe
+```
+
+Details: [packaging/README.md](packaging/README.md).
+
+**From source (dev):**
 
 ```powershell
 cd C:\touchpad
@@ -95,9 +106,11 @@ python -m windows
 | GUI | `python -m windows` |
 | Tray only | `python -m windows --tray` |
 | Engine only | `python -m windows --engine` |
+| Packaged GUI | `dist\GalaxyTrackpad\GalaxyTrackpad.exe` |
+| Packaged tray | `GalaxyTrackpad.exe --tray` |
 
 With **Auto-start engine** on, the engine starts when the app opens.  
-**Start with Windows** registers an HKCU Run entry that launches `--tray` at logon.
+**Start with Windows** registers an HKCU Run entry (`python … --tray` in dev, or the **exe --tray** when packaged).
 
 ### Android tablet
 
@@ -154,8 +167,8 @@ Manual checklists: [tests/REGRESSION.md](tests/REGRESSION.md), [android/README.m
 | 1 — Package structure, single entry, preserve v0.8 | Done |
 | 2 — S Pen profiles, UX, autostart, reliability | Done |
 | 3 — Android WebView app (menu, sync, stability) | Done |
-| 4A — Signed shareable APK (`0.9.0`) | Ready to build in Studio |
-| 4B — Windows `.exe` / installer | Next after 4A |
+| 4A — Signed shareable APK (`0.9.x`) | Done |
+| 4B — Windows `.exe` (PyInstaller onedir) | Done |
 | 5 — Bluetooth transport (keep USB path) | Later |
 
 ---

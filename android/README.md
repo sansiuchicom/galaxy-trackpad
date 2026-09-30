@@ -10,8 +10,8 @@ Windows still owns the input engine, ADB reverse, and settings.
 | Slice | Goal | Status |
 |-------|------|--------|
 | **3A–3C** | WebView app, menu, sync, stability | Done |
-| **4A** | Signed shareable APK (`0.9.0`) | **Do this next (Studio)** |
-| **4B** | Windows `.exe` / installer | Later |
+| **4A** | Signed shareable APK (`0.9.x`) | Done |
+| **4B** | Windows `.exe` / onedir package | Done — see [packaging/README.md](../packaging/README.md) |
 
 ---
 

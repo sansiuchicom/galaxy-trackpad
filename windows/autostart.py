@@ -1,11 +1,9 @@
 """Register / unregister Galaxy Trackpad in the current user's Startup (HKCU Run)."""
 from __future__ import annotations
 
-import sys
 import winreg
-from pathlib import Path
 
-from windows.paths import REPO_ROOT
+from windows.runtime import tray_autostart_command
 
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 VALUE_NAME = "GalaxyTrackpad"
@@ -13,8 +11,7 @@ VALUE_NAME = "GalaxyTrackpad"
 
 def launch_command() -> str:
     """Command line used at Windows logon (no admin required)."""
-    script = Path(__file__).resolve().parent / "main.py"
-    return f'"{sys.executable}" -u "{script}" --tray'
+    return tray_autostart_command()
 
 
 def is_enabled() -> bool:
