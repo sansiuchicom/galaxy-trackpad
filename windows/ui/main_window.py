@@ -8,6 +8,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtNetwork import QTcpSocket
 from PySide6.QtWidgets import (
     QApplication,
+    QButtonGroup,
     QCheckBox,
     QComboBox,
     QFrame,
@@ -18,6 +19,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QRadioButton,
     QScrollArea,
     QSizePolicy,
     QStyle,
@@ -37,7 +39,6 @@ from windows.settings.store import (
     migrate_config,
     save_config,
     set_active_profile,
-    update_active_profile_fields,
 )
 from windows.ui.advanced_dialog import AdvancedSettingsDialog
 from windows.ui.widgets import JumpSlider
@@ -148,34 +149,6 @@ class MainWindow(QMainWindow):
         layout.addWidget(bar)
         return outer
 
-    def pen_area_slider(self):
-        outer = QWidget()
-        outer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        layout = QVBoxLayout(outer)
-        layout.setContentsMargins(0, 0, 0, 0)
-        row = QHBoxLayout()
-        row.addWidget(QLabel("Active area size"))
-        row.addStretch()
-        self.area_value = QLabel()
-        self.area_value.setObjectName("value")
-        row.addWidget(self.area_value)
-        self.area_bar = JumpSlider(Qt.Orientation.Horizontal)
-        self.area_bar.setRange(50, 100)
-        layout.addLayout(row)
-        layout.addWidget(self.area_bar)
-
-        def changed(value):
-            self.area_value.setText(f"{value}%")
-            if not getattr(self, "_pen_ui_ready", False):
-                return
-            self.config = update_active_profile_fields(
-                self.config, area_size=value / 100.0
-            )
-            self.save_settings()
-
-        self.area_bar.valueChanged.connect(changed)
-        return outer
-
     def build_ui(self):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -243,38 +216,26 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(self.section("S PEN"))
         frame, inside = self.card()
-        row = QHBoxLayout()
-        row.addWidget(QLabel("Active profile"))
-        row.addStretch()
-        self.profile_combo = QComboBox()
-        self.profile_combo.setMinimumWidth(190)
-        self.profile_combo.setMinimumHeight(32)
-        self.profile_combo.addItem("Standard", PROFILE_STANDARD)
-        self.profile_combo.addItem("Drawing & Signature", PROFILE_DRAWING)
-        self.profile_combo.currentIndexChanged.connect(self.on_profile_changed)
-        row.addWidget(self.profile_combo)
-        inside.addLayout(row)
 
-        row = QHBoxLayout()
-        row.addWidget(QLabel("Mapping"))
-        row.addStretch()
-        self.mapping_combo = QComboBox()
-        self.mapping_combo.setMinimumWidth(190)
-        self.mapping_combo.setMinimumHeight(32)
-        self.mapping_combo.addItem("Stretch", "stretch")
-        self.mapping_combo.addItem("Preserve aspect ratio", "preserve_aspect_ratio")
-        self.mapping_combo.currentIndexChanged.connect(self.on_mapping_changed)
-        row.addWidget(self.mapping_combo)
-        inside.addLayout(row)
+        mode_row = QHBoxLayout()
+        mode_row.setSpacing(10)
+        self.profile_group = QButtonGroup(self)
+        self.radio_everyday = QRadioButton("Everyday")
+        self.radio_drawing = QRadioButton("Drawing & Signature")
+        self.radio_everyday.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.radio_drawing.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.profile_group.addButton(self.radio_everyday, 0)
+        self.profile_group.addButton(self.radio_drawing, 1)
+        self.profile_group.idToggled.connect(self.on_profile_radio)
+        mode_row.addWidget(self.radio_everyday)
+        mode_row.addWidget(self.radio_drawing)
+        mode_row.addStretch()
+        inside.addLayout(mode_row)
 
-        inside.addWidget(self.pen_area_slider())
-        note = QLabel(
-            "Monitor target and Identify Displays are in Advanced Settings. "
-            "Finger touchpad stays independent of pen profile."
-        )
-        note.setObjectName("muted")
-        note.setWordWrap(True)
-        inside.addWidget(note)
+        self.pen_hint = QLabel()
+        self.pen_hint.setObjectName("muted")
+        self.pen_hint.setWordWrap(True)
+        inside.addWidget(self.pen_hint)
         layout.addWidget(frame)
 
         layout.addWidget(self.section("GENERAL"))
@@ -296,6 +257,9 @@ class MainWindow(QMainWindow):
         self.advanced_button = self.action_button("Advanced Settings…")
         self.advanced_button.clicked.connect(self.open_advanced)
         inside.addWidget(self.advanced_button)
+        hint = QLabel("Monitor target, pen area, and connection details")
+        hint.setObjectName("muted")
+        inside.addWidget(hint)
         layout.addWidget(frame)
 
         layout.addStretch(1)
@@ -306,39 +270,35 @@ class MainWindow(QMainWindow):
 
     def sync_pen_controls_from_config(self):
         self.config = migrate_config(self.config)
-        pen = self.config["pen"]
-        name = pen.get("active_profile", PROFILE_STANDARD)
-        idx = self.profile_combo.findData(name)
-        self.profile_combo.blockSignals(True)
-        self.profile_combo.setCurrentIndex(max(0, idx))
-        self.profile_combo.blockSignals(False)
+        name = self.config["pen"].get("active_profile", PROFILE_STANDARD)
+        self.radio_everyday.blockSignals(True)
+        self.radio_drawing.blockSignals(True)
+        if name == PROFILE_DRAWING:
+            self.radio_drawing.setChecked(True)
+        else:
+            self.radio_everyday.setChecked(True)
+        self.radio_everyday.blockSignals(False)
+        self.radio_drawing.blockSignals(False)
+        self.update_pen_hint()
 
-        profile = pen["profiles"][name]
-        mapping = profile.get("mapping", "stretch")
-        map_idx = self.mapping_combo.findData(mapping)
-        self.mapping_combo.blockSignals(True)
-        self.mapping_combo.setCurrentIndex(max(0, map_idx))
-        self.mapping_combo.blockSignals(False)
+    def update_pen_hint(self):
+        if self.radio_drawing.isChecked():
+            self.pen_hint.setText(
+                "Keeps drawn proportions on the selected monitor — "
+                "better for art and signatures. Change monitor/area in Advanced."
+            )
+        else:
+            self.pen_hint.setText(
+                "Default: pen follows the tablet like a normal absolute stylus "
+                "on your monitor (stretch). Touchpad fingers stay relative and unchanged."
+            )
 
-        area = int(round(float(profile.get("area_size", 1.0)) * 100))
-        self.area_bar.blockSignals(True)
-        self.area_bar.setValue(area)
-        self.area_value.setText(f"{area}%")
-        self.area_bar.blockSignals(False)
-
-    def on_profile_changed(self, _index):
-        if not getattr(self, "_pen_ui_ready", False):
+    def on_profile_radio(self, button_id: int, checked: bool):
+        if not checked or not getattr(self, "_pen_ui_ready", False):
             return
-        self.config = set_active_profile(self.config, self.profile_combo.currentData())
-        self.sync_pen_controls_from_config()
-        self.save_settings()
-
-    def on_mapping_changed(self, _index):
-        if not getattr(self, "_pen_ui_ready", False):
-            return
-        self.config = update_active_profile_fields(
-            self.config, mapping=self.mapping_combo.currentData()
-        )
+        name = PROFILE_DRAWING if button_id == 1 else PROFILE_STANDARD
+        self.config = set_active_profile(self.config, name)
+        self.update_pen_hint()
         self.save_settings()
 
     def on_start_with_windows(self, checked: bool):
@@ -412,6 +372,13 @@ class MainWindow(QMainWindow):
                 background: #3b82f6; border-radius: 5px;
             }
             QCheckBox { spacing: 9px; }
+            QRadioButton {
+                spacing: 8px; font-weight: 600; color: #e5e7eb;
+                padding: 6px 4px;
+            }
+            QRadioButton::indicator {
+                width: 16px; height: 16px;
+            }
             QComboBox {
                 background: #0b1220; color: #e5e7eb;
                 border: 1px solid #4b5563; border-radius: 6px;
