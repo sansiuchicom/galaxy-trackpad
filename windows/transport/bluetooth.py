@@ -116,7 +116,7 @@ def _handle_packet(shared: SharedInput, sock: socket.socket, packet: Any) -> Non
 def _run_one_session(shared: SharedInput, stop: threading.Event) -> None:
     mac = _pick_mac()
     if not mac:
-        info("Bluetooth: no paired Galaxy Tab MAC — pair in Windows Settings")
+        info("Bluetooth: no paired Galaxy Tab MAC - pair in Windows Settings")
         stop.wait(5)
         return
 
@@ -180,19 +180,19 @@ def run_bluetooth_worker(shared: SharedInput, stop: threading.Event) -> None:
         try:
             _run_one_session(shared, stop)
             fail_streak = 0
-        except (OSError, ConnectionError, ValueError) as exc:
+        except (OSError, ConnectionError) as exc:
             fail_streak += 1
             debug(f"Bluetooth session ended: {exc}")
             if mode == "auto" and not shared.usb_seen:
                 # Sparse probes when Tab was never on USB this engine run.
                 delay = min(120.0, 30.0 * fail_streak)
             else:
-                # Recent USB session — reconnect sooner.
+                # Recent USB session - reconnect sooner.
                 delay = min(60.0, 5.0 * (2 ** min(fail_streak - 1, 3)))
             info(f"Bluetooth: retry in {delay:.0f}s ({exc})")
             stop.wait(delay)
             continue
-        except Exception as exc:  # noqa: BLE001 — keep worker alive
+        except Exception as exc:  # noqa: BLE001 - keep worker alive
             fail_streak += 1
             info(f"Bluetooth: unexpected error {exc}")
             stop.wait(min(120.0, 10.0 * fail_streak))

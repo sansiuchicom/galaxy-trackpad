@@ -22,20 +22,27 @@ def is_debug() -> bool:
     return _DEBUG
 
 
+def _safe_print(line: str) -> None:
+    try:
+        print(line, flush=True)
+    except UnicodeEncodeError:
+        print(line.encode("ascii", "replace").decode("ascii"), flush=True)
+
+
 def info(message: str) -> None:
-    print(f"[INFO] {message}", flush=True)
+    _safe_print(f"[INFO] {message}")
 
 
 def debug(message: str) -> None:
     if _DEBUG:
-        print(f"[DEBUG] {message}", flush=True)
+        _safe_print(f"[DEBUG] {message}")
 
 
 def error(message: str) -> None:
-    print(f"[ERROR] {message}", flush=True)
+    _safe_print(f"[ERROR] {message}")
 
 
 def state(**fields: Any) -> None:
     """Machine-readable status for the GUI, e.g. engine=running usb=ready."""
     parts = [f"{key}={fields[key]}" for key in fields]
-    print("[STATE] " + " ".join(parts), flush=True)
+    _safe_print("[STATE] " + " ".join(parts))

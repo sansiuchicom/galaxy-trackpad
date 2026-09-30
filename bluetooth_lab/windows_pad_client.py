@@ -50,7 +50,7 @@ def _run_pad_session(sock: socket.socket) -> None:
     sock.settimeout(60.0)
     session = InputSession()
     info("BT-2 pad session: move a finger on the Tab pad")
-    _log("Engine ready — touch the Tab pad (USB not needed)")
+    _log("Engine ready - touch the Tab pad (USB not needed)")
     try:
         write_frame(sock, build_client_state())
         _log("SEND frame type=state")
@@ -87,7 +87,7 @@ def _run_pad_session(sock: socket.socket) -> None:
                 _log(f"input event={event} n={len(contacts)} tools={tools}")
     finally:
         session.close()
-        _log("Pad session ended — contacts released")
+        _log("Pad session ended - contacts released")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -149,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         sock, ch = bt1._connect(mac, prefer=prefer)
         # _connect already completed HELLO/ACK/PING/PONG verification.
-        _log(f"Lab channel {ch} verified — upgrading to framed pad mode")
+        _log(f"Lab channel {ch} verified - upgrading to framed pad mode")
         _upgrade_frame(sock)
         _run_pad_session(sock)
     except (OSError, ConnectionError, ValueError) as exc:

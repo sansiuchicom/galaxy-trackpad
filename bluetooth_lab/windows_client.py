@@ -35,7 +35,11 @@ _PLACEHOLDER = re.compile(r"^(XX:)+XX$", re.I)
 
 
 def _log(msg: str) -> None:
-    print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
+    line = f"[{time.strftime('%H:%M:%S')}] {msg}"
+    try:
+        print(line, flush=True)
+    except UnicodeEncodeError:
+        print(line.encode("ascii", "replace").decode("ascii"), flush=True)
 
 
 def _normalize_mac(raw: str) -> str:
@@ -207,7 +211,7 @@ def _connect(mac: str, prefer: int | None = None) -> tuple[socket.socket, int]:
         sock = _try_connect(mac, ch)
         if sock is None:
             continue
-        _log(f"  connect ok on channel {ch} — verifying GT BT Lab...")
+        _log(f"  connect ok on channel {ch} - verifying GT BT Lab...")
         if _handshake(sock, ch):
             _log(f"Connected on channel {ch} (lab verified)")
             return sock, ch
