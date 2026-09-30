@@ -16,6 +16,7 @@ import argparse
 import re
 import socket
 import sys
+import threading
 import time
 
 from bluetooth_lab import windows_client as bt1
@@ -46,8 +47,21 @@ def _upgrade_frame(sock: socket.socket) -> None:
         raise ConnectionError("Unexpected leftover bytes after MODE FRAME")
 
 
+def _run_pad_session_interruptible(sock: socket.socket) -> None:
+    """Windows cannot interrupt a blocking AF_BTH recv, so read on a worker thread."""
+    worker = threading.Thread(target=_run_pad_session, args=(sock,), daemon=True)
+    worker.start()
+    try:
+        while worker.is_alive():
+            worker.join(0.3)
+    except KeyboardInterrupt:
+        _log("Ctrl+C - stopping")
+        bt1._safe_close(sock)
+        worker.join(2.0)
+
+
 def _run_pad_session(sock: socket.socket) -> None:
-    sock.settimeout(60.0)
+    sock.settimeout(None)
     session = InputSession()
     info("BT-2 pad session: move a finger on the Tab pad")
     _log("Engine ready - touch the Tab pad (USB not needed)")
@@ -57,8 +71,9 @@ def _run_pad_session(sock: socket.socket) -> None:
         while True:
             try:
                 packet = read_frame(sock)
-            except socket.timeout:
-                continue
+            except (OSError, ConnectionError, ValueError) as exc:
+                _log(f"Link closed ({exc})")
+                return
             if not isinstance(packet, dict):
                 continue
             msg_type = packet.get("type")
@@ -151,7 +166,7 @@ def main(argv: list[str] | None = None) -> int:
         # _connect already completed HELLO/ACK/PING/PONG verification.
         _log(f"Lab channel {ch} verified - upgrading to framed pad mode")
         _upgrade_frame(sock)
-        _run_pad_session(sock)
+        _run_pad_session_interruptible(sock)
     except (OSError, ConnectionError, ValueError) as exc:
         _log(f"Failed: {exc}")
         return 1
@@ -162,4 +177,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except KeyboardInterrupt:
+        _log("Stopped")
+        raise SystemExit(130)
