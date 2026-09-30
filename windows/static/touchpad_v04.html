@@ -303,9 +303,9 @@ html, body {
         <h2>Settings</h2>
         <div class="row" id="settingsConn">Connection: —</div>
         <div class="row" id="settingsVersion">App version: —</div>
-        <div class="row">Pad page: from Windows over USB</div>
+        <div class="row" id="settingsTransport">Connected over: USB</div>
         <div class="row">Cursor, scroll, monitors: Windows app</div>
-        <p>If stuck on Waiting: start Windows Galaxy Trackpad, allow USB debugging, keep cable connected. Close Chrome on the tablet so it does not hold the WebSocket.</p>
+        <p id="settingsHelp">If stuck on Waiting: start Windows Galaxy Trackpad, allow USB debugging, keep cable connected. Close Chrome on the tablet so it does not hold the WebSocket.</p>
         <button type="button" class="menu-btn" id="settingsClose">Close</button>
     </div>
 </div>
@@ -327,11 +327,17 @@ const WS_URL = "ws://127.0.0.1:8766";
 const RECONNECT_BASE_MS = 1500;
 const RECONNECT_MAX_MS = 5000;
 
+// Same page for both transports: served by Windows over USB (WebSocket), or bundled
+// in the Android app and talking through the native Bluetooth bridge.
+const BT = !!(window.GalaxyBT && window.GalaxyBT.sendPacket);
+const TRANSPORT = BT ? "Bluetooth" : "USB";
+
 const pointers = new Map();
 let socket = null;
 let connected = false;
 let reconnectTimer = null;
 let reconnectAttempt = 0;
+let movePending = false;
 let activeProfile = "standard";
 let activeRect = { left: 0, top: 0, right: 1, bottom: 1 };
 let profilePending = null;
@@ -346,32 +352,82 @@ function setConnectionUi(kind, title, sub) {
     // Fullscreen: colored dot + short transport label (no CONNECTED word).
     const fsText = fsStatus.querySelector(".fsText");
     if (fsText) {
-        if (kind === "ready") fsText.textContent = sub || "USB";
+        if (kind === "ready") fsText.textContent = sub || TRANSPORT;
         else if (kind === "recon") fsText.textContent = sub || "Reconnecting…";
         else if (kind === "error") fsText.textContent = sub || "Error";
-        else fsText.textContent = sub || "Connect USB";
+        else fsText.textContent = sub || "Connect " + TRANSPORT;
     }
     const sc = document.getElementById("settingsConn");
     if (sc) sc.textContent = "Connection: " + title + (sub ? " / " + sub : "");
 }
 
+function isOpen() {
+    if (BT) return connected;
+    return connected && socket !== null && socket.readyState === WebSocket.OPEN;
+}
+
+function sendRaw(obj) {
+    if (!isOpen()) return;
+    const text = JSON.stringify(obj);
+    try {
+        if (BT) window.GalaxyBT.sendPacket(text);
+        else socket.send(text);
+    } catch (e) {}
+}
+
 function releaseAllContacts() {
     if (pointers.size === 0) {
-        // Still notify Windows with empty contacts if a socket is up.
-        if (connected && socket && socket.readyState === WebSocket.OPEN) {
-            try {
-                socket.send(JSON.stringify({
-                    event: "up",
-                    timestamp: performance.now(),
-                    contacts: []
-                }));
-            } catch (e) {}
-        }
+        // Still notify Windows with empty contacts if the link is up.
+        sendRaw({ event: "up", timestamp: Math.round(performance.now()), contacts: [] });
         return;
     }
     pointers.clear();
     send("up");
 }
+
+function onLinkOpen() {
+    connected = true;
+    pointers.clear();
+    // Not CONNECTED until we have state (or at least an open link briefly).
+    setConnectionUi("recon", "SYNCING", "Waiting for Windows…");
+    sendRaw({ type: "hello" });
+}
+
+function onLinkMessage(msg) {
+    if (!msg || typeof msg !== "object") return;
+    if (msg.type === "state") {
+        applyServerState(msg);
+        reconnectAttempt = 0;
+        setConnectionUi("ready", "CONNECTED", btPeer ? TRANSPORT + " · " + btPeer : TRANSPORT);
+        return;
+    }
+    if (msg.type === "ack" && msg.action === "set_profile") {
+        profilePending = null;
+        if (!msg.ok) paintProfileButtons(activeProfile);
+    }
+}
+
+function onLinkClosed() {
+    connected = false;
+    pointers.clear();
+    setConnectionUi("recon", "DISCONNECTED", BT ? "Bluetooth link lost" : "Reconnecting…");
+}
+
+// Bluetooth: the Android app owns the link and calls these.
+let btPeer = "";
+window.__gtBtLinked = function (ok, peer) {
+    if (peer) btPeer = String(peer);
+    if (ok) onLinkOpen();
+    else onLinkClosed();
+};
+window.__gtBtMessage = function (text) {
+    let msg;
+    try { msg = JSON.parse(text); } catch (e) { return; }
+    onLinkMessage(msg);
+};
+window.__gtBtLog = function (text) {
+    if (!connected && text) setConnectionUi("wait", "WAITING", String(text));
+};
 
 function scheduleReconnect() {
     if (reconnectTimer !== null) return;
@@ -387,6 +443,11 @@ function scheduleReconnect() {
 }
 
 function connect() {
+    if (BT) {
+        // The app dials the PC; it reports progress through __gtBtLog / __gtBtLinked.
+        if (!connected) setConnectionUi("wait", "WAITING", "Connecting over Bluetooth…");
+        return;
+    }
     if (socket !== null) {
         if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
             return;
@@ -396,54 +457,16 @@ function connect() {
     setConnectionUi("wait", "WAITING", "Connect USB");
     socket = new WebSocket(WS_URL);
 
-    socket.onopen = () => {
-        connected = true;
-        pointers.clear();
-        // Not CONNECTED until we have state (or at least an open socket briefly).
-        setConnectionUi("recon", "SYNCING", "Waiting for Windows…");
-        try {
-            socket.send(JSON.stringify({ type: "hello" }));
-        } catch (e) {}
-        try {
-            if (window.GalaxyShell && GalaxyShell.onUsbRestored) GalaxyShell.onUsbRestored();
-        } catch (e) {}
-    };
-
+    socket.onopen = onLinkOpen;
     socket.onmessage = (ev) => {
         let msg;
         try { msg = JSON.parse(ev.data); } catch (e) { return; }
-        if (!msg || typeof msg !== "object") return;
-
-        if (msg.type === "state") {
-            applyServerState(msg);
-            reconnectAttempt = 0;
-            setConnectionUi("ready", "CONNECTED", "USB");
-            try {
-                if (window.GalaxyShell && GalaxyShell.onUsbRestored) GalaxyShell.onUsbRestored();
-            } catch (e) {}
-            return;
-        }
-        if (msg.type === "ack" && msg.action === "set_profile") {
-            if (msg.ok) {
-                profilePending = null;
-            } else {
-                profilePending = null;
-                paintProfileButtons(activeProfile);
-            }
-        }
+        onLinkMessage(msg);
     };
-
     socket.onclose = () => {
-        connected = false;
-        pointers.clear();
-        setConnectionUi("recon", "DISCONNECTED", "Reconnecting…");
+        onLinkClosed();
         scheduleReconnect();
-        // Event-driven: Android may fall back to Bluetooth (no HTTP polling).
-        try {
-            if (window.GalaxyShell && GalaxyShell.onUsbLost) GalaxyShell.onUsbLost();
-        } catch (e) {}
     };
-
     socket.onerror = () => {
         try { socket.close(); } catch (e) {}
     };
@@ -494,34 +517,63 @@ function updatePenOverlay() {
 }
 
 function requestProfile(name) {
-    if (!connected || !socket || socket.readyState !== WebSocket.OPEN) return;
+    if (!isOpen()) return;
     profilePending = name;
     paintProfileButtons(name);
-    socket.send(JSON.stringify({ type: "set_profile", profile: name }));
+    sendRaw({ type: "set_profile", profile: name });
+}
+
+function round(v, digits) {
+    const k = Math.pow(10, digits);
+    return Math.round(v * k) / k;
 }
 
 function getContact(event) {
     const rect = pad.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / rect.width;
-    const y = (event.clientY - rect.top) / rect.height;
-    return {
-        id: event.pointerId,
-        tool: event.pointerType,
-        x: Math.max(0, Math.min(1, x)),
-        y: Math.max(0, Math.min(1, y)),
-        pressure: event.pressure,
-        tiltX: event.tiltX,
-        tiltY: event.tiltY
-    };
+    const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+    if (!BT) {
+        return {
+            id: event.pointerId,
+            tool: event.pointerType,
+            x,
+            y,
+            pressure: event.pressure,
+            tiltX: event.tiltX,
+            tiltY: event.tiltY
+        };
+    }
+    // Bluetooth has little headroom: short numbers, pen-only fields only for the pen.
+    const c = { id: event.pointerId, tool: event.pointerType, x: round(x, 5), y: round(y, 5) };
+    if (event.pointerType === "pen") {
+        c.pressure = round(event.pressure, 3);
+        c.tiltX = event.tiltX;
+        c.tiltY = event.tiltY;
+    }
+    return c;
 }
 
 function send(eventName) {
-    if (!connected || socket === null || socket.readyState !== WebSocket.OPEN) return;
-    socket.send(JSON.stringify({
+    sendRaw({
         event: eventName,
-        timestamp: performance.now(),
+        timestamp: BT ? Math.round(performance.now()) : performance.now(),
         contacts: Array.from(pointers.values())
-    }));
+    });
+}
+
+// Bluetooth cannot keep up with one packet per finger per touch sample;
+// send at most one move per display frame with every finger in it.
+function sendMove() {
+    if (!BT) {
+        send("move");
+        return;
+    }
+    if (movePending) return;
+    movePending = true;
+    requestAnimationFrame(() => {
+        movePending = false;
+        if (pointers.size) send("move");
+    });
 }
 
 function setFullscreen(on) {
@@ -579,7 +631,7 @@ pad.addEventListener("pointermove", (event) => {
     if (!pointers.has(event.pointerId)) return;
     event.preventDefault();
     pointers.set(event.pointerId, getContact(event));
-    send("move");
+    sendMove();
 });
 
 function release(event) {
@@ -604,8 +656,8 @@ document.addEventListener("visibilitychange", () => {
         return;
     }
     // Foreground again: refresh state / reconnect if needed.
-    if (socket && socket.readyState === WebSocket.OPEN) {
-        try { socket.send(JSON.stringify({ type: "hello" })); } catch (e) {}
+    if (isOpen()) {
+        sendRaw({ type: "hello" });
     } else {
         connect();
     }
@@ -615,6 +667,12 @@ window.addEventListener("pagehide", () => {
     releaseAllContacts();
 });
 
+if (BT) {
+    document.getElementById("settingsTransport").textContent = "Connected over: Bluetooth";
+    document.getElementById("settingsHelp").textContent =
+        "If stuck on Waiting: start Galaxy Trackpad on the PC, keep Bluetooth on, and pick that PC. " +
+        "To use USB instead, close this app and choose USB when it opens.";
+}
 connect();
 </script>
 </body>

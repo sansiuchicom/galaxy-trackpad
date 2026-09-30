@@ -68,6 +68,9 @@ android {
         viewBinding = true
         buildConfig = true
     }
+
+    // The Bluetooth pad is the same page Windows serves over USB.
+    sourceSets["main"].assets.srcDir("../../windows/static")
 }
 
 dependencies {

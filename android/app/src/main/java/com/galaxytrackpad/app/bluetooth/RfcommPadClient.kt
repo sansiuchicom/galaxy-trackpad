@@ -23,6 +23,7 @@ class RfcommPadClient(
     private val adapter: BluetoothAdapter,
     private val tabletName: String,
     private val onLinked: () -> Unit,
+    private val onMessage: (json: String) -> Unit,
     private val onClosed: (reason: String) -> Unit,
 ) {
     private val io = Executors.newSingleThreadExecutor()
@@ -115,8 +116,7 @@ class RfcommPadClient(
                 else -> writeLine(output, "ACK echo:$line")
             }
         }
-        // PC → Tab frames (state, acks) are not used by the Bluetooth pad yet.
-        while (frameMode.get()) readFrame(input)
+        while (frameMode.get()) onMessage(readFrame(input).toString(Charsets.UTF_8))
     }
 
     private fun writeLine(output: OutputStream, text: String) {

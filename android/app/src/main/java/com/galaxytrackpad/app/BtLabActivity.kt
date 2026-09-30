@@ -171,7 +171,7 @@ class BtLabActivity : AppCompatActivity() {
         padWeb.visibility = if (show) View.VISIBLE else View.GONE
         logScroll.visibility = if (show) View.GONE else View.VISIBLE
         if (show) {
-            padWeb.loadUrl("file:///android_asset/touchpad_bt.html")
+            padWeb.loadUrl("file:///android_asset/touchpad_v04.html")
             setStatus("PAD MODE — touch the pad")
         }
     }

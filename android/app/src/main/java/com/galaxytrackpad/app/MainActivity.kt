@@ -182,13 +182,9 @@ class MainActivity : AppCompatActivity() {
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
-                if (mode == MODE_BT && btClient?.isLinked() == true) {
-                    view?.evaluateJavascript("window.__gtBtLinked && window.__gtBtLinked(true)", null)
-                }
-                if (mode != MODE_USB) return
-                if (url != null && url.startsWith(TRACKPAD_ORIGIN)) {
-                    pageHealthy = true
-                    mainHandler.removeCallbacks(watchdogRunnable)
+                val isPad = url != null &&
+                    (url.startsWith(TRACKPAD_ORIGIN) || url.startsWith(BT_PAD_URL))
+                if (isPad) {
                     val ver = BuildConfig.VERSION_NAME
                     view?.evaluateJavascript(
                         """
@@ -199,6 +195,14 @@ class MainActivity : AppCompatActivity() {
                         """.trimIndent(),
                         null,
                     )
+                }
+                if (mode == MODE_BT && btClient?.isLinked() == true) {
+                    signalLinked(true)
+                }
+                if (mode != MODE_USB) return
+                if (url != null && url.startsWith(TRACKPAD_ORIGIN)) {
+                    pageHealthy = true
+                    mainHandler.removeCallbacks(watchdogRunnable)
                 }
             }
 
@@ -273,19 +277,25 @@ class MainActivity : AppCompatActivity() {
         btClient = RfcommPadClient(
             adapter,
             tabletName = adapter.name ?: Build.MODEL,
-            onLinked = {
+            onLinked = { runOnUiThread { signalLinked(true) } },
+            onMessage = { json ->
+                val safe = org.json.JSONObject.quote(json)
                 runOnUiThread {
-                    binding.webView.evaluateJavascript("window.__gtBtLinked && window.__gtBtLinked(true)", null)
-                    padLog("Connected to $pcName")
+                    binding.webView.evaluateJavascript("window.__gtBtMessage && window.__gtBtMessage($safe)", null)
                 }
             },
             onClosed = { reason -> runOnUiThread { onBtClosed(pcName, reason) } },
         ).also { it.connect(device) }
     }
 
+    private fun signalLinked(linked: Boolean) {
+        val name = org.json.JSONObject.quote(btDevice?.name ?: btDevice?.address ?: "")
+        binding.webView.evaluateJavascript("window.__gtBtLinked && window.__gtBtLinked($linked, $name)", null)
+    }
+
     private fun onBtClosed(pcName: String, reason: String) {
         if (destroyed) return
-        binding.webView.evaluateJavascript("window.__gtBtLinked && window.__gtBtLinked(false)", null)
+        signalLinked(false)
         padLog("Not connected to $pcName")
         AlertDialog.Builder(this)
             .setTitle("Not connected to $pcName")
@@ -333,7 +343,7 @@ class MainActivity : AppCompatActivity() {
         private const val TRACKPAD_ORIGIN = "http://127.0.0.1:8765"
         const val TRACKPAD_URL = "http://127.0.0.1:8765/touchpad_v04.html?v=094"
         private const val WAITING_URL = "file:///android_asset/waiting.html"
-        private const val BT_PAD_URL = "file:///android_asset/touchpad_bt.html"
+        private const val BT_PAD_URL = "file:///android_asset/touchpad_v04.html"
         private const val RELOAD_DELAY_MS = 2000L
         private const val PREF_LAST_PC = "bt_last_pc"
 
