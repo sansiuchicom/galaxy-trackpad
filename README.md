@@ -2,9 +2,8 @@
 
 Turn a Samsung Galaxy Tab (e.g. **Tab S7 / SM-T870**) into a **Windows Precision Touchpad** plus optional **S Pen** tablet.
 
-**Status:** Phase 1–2 complete. Phase **3A** Android WebView shell is in the repo
-(`android/`) — still loads the Windows-served HTML over ADB reverse.  
-**Next:** Verify 3A on Tab S7, then 3B UI + profile sync.
+**Status:** Phases **1–3 complete** — Windows app + Android WebView client on USB.  
+**Next:** packaging (installer / signed APK), then optional Bluetooth.
 
 Connection today: **USB + ADB reverse + WebSocket**.  
 Input: Windows `CreateSyntheticPointerDevice2` / `InjectSyntheticPointerInput` (`PT_TOUCHPAD`, pen). No custom kernel driver.
@@ -24,6 +23,8 @@ Input: Windows `CreateSyntheticPointerDevice2` / `InjectSyntheticPointerInput` (
 - **Everyday** — stretch map to the selected monitor (default)
 - **Drawing & Signature** — preserve aspect ratio for art / signatures
 - Per-profile monitor, mapping, and active area (Advanced Settings)
+- Profiles sync both ways (Windows GUI ↔ Android menu)
+- On-pad **S Pen Area** frame from Windows mapping
 - Safe reload while the tip is down (applies after lift)
 
 ### Windows app
@@ -32,6 +33,14 @@ Input: Windows `CreateSyntheticPointerDevice2` / `InjectSyntheticPointerInput` (
 - USB auto reverse / reconnect, quiet logs + optional debug
 - Clear connection states (waiting, authorize USB debugging, connected, error, …)
 
+### Android app
+- Kotlin WebView shell (no Chrome URL typing)
+- Landscape trackpad UI: side menu, connection status, fullscreen mode
+- Loads pad HTML from Windows over ADB reverse (`8765` / `8766`)
+- Offline **WAITING** page + auto-retry when USB / Windows is down
+- Screen stays on while the app is foreground
+- Build/install: open `android/` in Android Studio → Run (see [android/README.md](android/README.md))
+
 ---
 
 ## Layout
@@ -39,13 +48,13 @@ Input: Windows `CreateSyntheticPointerDevice2` / `InjectSyntheticPointerInput` (
 ```
 windows/
   core/         # synthetic pointer, touchpad, pen, sensitivity, displays, mapping
-  transport/    # HTTP, ADB/USB, WebSocket, GUI control port
+  transport/    # HTTP, ADB/USB, WebSocket (+ state sync), GUI control port
   settings/     # nested JSON + v0.8 migration
   ui/           # main window, Advanced, monitor picker
-  static/       # touchpad_v04.html (served to the tablet)
+  static/       # touchpad HTML (served to the tablet / WebView)
   engine.py     # --engine process
   applog.py     # info / debug / error / state lines
-android/        # WebView app (Phase 3A shell — see android/README.md)
+android/        # Galaxy Trackpad APK (WebView) — see android/README.md
 tests/          # regression checklist + mapping unit tests
 archive/        # frozen prototypes (do not run daily)
 platform-tools/ # local ADB — not in git
@@ -59,6 +68,7 @@ platform-tools/ # local ADB — not in git
 - Conda env `galaxytrackpad` (Python 3.13) **or** `pip install -r requirements.txt`
 - [platform-tools](https://developer.android.com/tools/releases/platform-tools) unzipped to `platform-tools/adb.exe` at the repo root
 - Galaxy Tab with **USB debugging** authorized for this PC
+- Android Studio (to build/install the tablet app)
 
 ```powershell
 conda env create -f environment.yml
@@ -69,6 +79,8 @@ conda activate galaxytrackpad
 ---
 
 ## Run
+
+### Windows
 
 From the **repo root**:
 
@@ -87,25 +99,25 @@ python -m windows
 With **Auto-start engine** on, the engine starts when the app opens.  
 **Start with Windows** registers an HKCU Run entry that launches `--tray` at logon.
 
-### Tablet
-
-**Preferred (Phase 3A):** install the Android app from `android/` (Android Studio →
-Open → Run). It loads the same page over reverse without typing a URL.
-Details / test checklist: [android/README.md](android/README.md).
-
-**Fallback (Chrome):**
+### Android tablet
 
 1. Plug in USB and allow debugging if prompted.
-2. Wait until the GUI shows USB ready / connected path.
-3. On the Tab, open: `http://127.0.0.1:8765/touchpad_v04.html`
+2. Start the Windows app and wait until reverse / engine is ready.
+3. Android Studio → **Open** `C:\touchpad\android` → **Run** on the Tab.
+4. Launch **Galaxy Trackpad** on the tablet (no URL typing).
+
+Daily use: Windows app + tablet app icon only. Android Studio is only needed to rebuild.
+
+**Fallback (Chrome):** `http://127.0.0.1:8765/touchpad_v04.html`  
+Close Chrome when using the app (one WebSocket client at a time; newest wins).
 
 ### Ports (localhost only)
 
 | Port | Role |
 |------|------|
 | 8765 | HTTP (HTML) |
-| 8766 | WebSocket (touch / pen) |
-| 8767 | GUI ↔ engine (`RELOAD` / `STOP`) |
+| 8766 | WebSocket (touch / pen + state / profile) |
+| 8767 | GUI ↔ engine (`RELOAD` / `STOP`) — not used by Android |
 
 Settings: `windows/galaxytrackpad_settings.json` (example: `windows/settings.example.json`).
 
@@ -113,11 +125,13 @@ Settings: `windows/galaxytrackpad_settings.json` (example: `windows/settings.exa
 
 ## Settings (short)
 
-| Area | What |
-|------|------|
-| Touchpad | Cursor / scroll sensitivity (live) |
-| S Pen | Everyday vs Drawing on the main window; monitor / area / mapping in **Advanced** |
-| General | Start with Windows, auto-start engine, show debug logs |
+| Area | Where |
+|------|--------|
+| Cursor / scroll sensitivity | Windows app |
+| Everyday vs Drawing profile | Windows **or** Android menu (Windows stores) |
+| Monitor / area / mapping | Windows **Advanced** |
+| Start with Windows, auto-start, debug logs | Windows app |
+| Fullscreen / connection UI | Android app |
 
 Preserve-aspect mapping keeps **tablet CSS-pixel isotropy** on the target monitor’s pixel grid (not EDID millimetres).
 
@@ -129,7 +143,7 @@ Preserve-aspect mapping keeps **tablet CSS-pixel isotropy** on the target monito
 python -m unittest tests.test_pen_mapping -v
 ```
 
-Manual checklist: [tests/REGRESSION.md](tests/REGRESSION.md).
+Manual checklists: [tests/REGRESSION.md](tests/REGRESSION.md), [android/README.md](android/README.md).
 
 ---
 
@@ -139,11 +153,9 @@ Manual checklist: [tests/REGRESSION.md](tests/REGRESSION.md).
 |-------|--------|
 | 1 — Package structure, single entry, preserve v0.8 | Done |
 | 2 — S Pen profiles, UX, autostart, reliability | Done |
-| 3A — Android WebView shell (HTTP URL) | Done |
-| 3B — Menu / status / pen sync UI | Done |
-| 3C — Stability + release APK | In progress — device verify |
-| 4 — Windows installer / APK packaging | Later |
-| 5 — Bluetooth transport | Later |
+| 3 — Android WebView app (menu, sync, stability) | Done |
+| 4 — Windows installer + signed / shareable APK | Next |
+| 5 — Bluetooth transport (keep USB path) | Later |
 
 ---
 
@@ -151,4 +163,5 @@ Manual checklist: [tests/REGRESSION.md](tests/REGRESSION.md).
 
 - Native Windows touchpad gestures — not remapped to keyboard shortcuts.
 - Cursor/scroll gain only scales injected coordinates.
+- Android does not interpret gestures; it streams contacts to Windows.
 - Old prototypes live under `archive/`.

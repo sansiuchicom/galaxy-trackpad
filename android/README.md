@@ -9,7 +9,7 @@ Windows still owns the input engine, ADB reverse, and settings.
 |-------|------|--------|
 | **3A** | App icon → WebView → same WS input as Chrome | Done |
 | **3B** | Side menu, connection UI, pen profile sync, Drawing area | Done |
-| **3C** | Long-run stability, reconnect polish, release APK | **In progress — reinstall app** |
+| **3C** | Long-run stability, reconnect polish, waiting page | Done |
 
 ### 3A design choice
 
