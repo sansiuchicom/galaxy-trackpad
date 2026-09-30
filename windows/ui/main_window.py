@@ -214,8 +214,12 @@ class MainWindow(QMainWindow):
         self.stop_button = self.action_button("■  STOP", "stop")
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop_engine)
+        self.quit_button = self.action_button("✕  QUIT")
+        self.quit_button.setToolTip("Stop the engine and close Galaxy Trackpad")
+        self.quit_button.clicked.connect(self.quit_safely)
         row.addWidget(self.start_button)
         row.addWidget(self.stop_button)
+        row.addWidget(self.quit_button)
         layout.addLayout(row)
 
         self.logs = QPlainTextEdit()
