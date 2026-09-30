@@ -1,174 +1,181 @@
 # Galaxy Trackpad
 
-Turn a Samsung Galaxy Tab (e.g. **Tab S7 / SM-T870**) into a **Windows Precision Touchpad** plus optional **S Pen** tablet.
+**Turn your Android tablet into a native Windows Precision Touchpad.**
 
-**Current release: [v0.10.0](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.10.0)** (pre-1.0 daily driver)  
-**v1.0.0** comes after longer real-world use. Not on Play Store / Microsoft Store.
+Use an idle Galaxy Tab (or similar Android tablet) as a Windows trackpad — and optionally as an S Pen tablet — without a custom kernel driver and without the Play Store.
 
-Connection: **USB** (ADB reverse + WebSocket) or **Bluetooth** (RFCOMM, after pairing) — chosen on the tablet at launch.  
-Input: Windows synthetic Precision Touchpad + pen. No custom kernel driver.
+**Latest release: [v0.10.0](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.10.0)** · pre-1.0 daily driver · not on any app store
 
----
-
-## Quick start (recommended)
-
-### 1. Download
-
-From the [**v0.10.0 release**](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.10.0):
-
-| File | What |
-|------|------|
-| `GalaxyTrackpad-windows-v0.10.0.zip` | Windows app + bundled `platform-tools` (ADB) |
-| `GalaxyTrackpad-android-v0.10.0.zip` | Contains `GalaxyTrackpad-v0.10.0.apk` |
-
-### 2. Windows PC
-
-1. Unzip `GalaxyTrackpad-windows-v0.10.0.zip` anywhere (keep the folder together — do not delete `_internal` or `platform-tools`).
-2. Run **`GalaxyTrackpad.exe`**.
-3. Allow firewall prompts if Windows asks (localhost only is used).
-4. Leave **Auto-start engine** on (default). Status should move toward USB ready / waiting for tablet.
-
-Optional: enable **Start with Windows** in the GUI so it opens in the tray at logon.
-
-### 3. Galaxy Tab
-
-1. Enable **Developer options** → **USB debugging**.
-2. Plug USB into the PC; accept the debugging RSA prompt on the tablet if shown.
-3. Install the APK:
-   - Copy `GalaxyTrackpad-v0.10.0.apk` to the Tab and open it (allow “install unknown apps” for your file manager), **or**
-   - From the PC (with the Tab connected):  
-     `adb install -r GalaxyTrackpad-v0.10.0.apk`
-4. Open the **Galaxy Trackpad** app (landscape) and choose **USB**. You should see **CONNECTED · USB** when the Windows engine is ready.
-
-**Bluetooth instead of USB:** pair the Tab with the PC once in Bluetooth settings. Then open the app, choose **Bluetooth**, and pick the PC. USB debugging and the cable are only needed to install the APK. Details: [docs/BLUETOOTH.md](docs/BLUETOOTH.md).
-
-**Upgrading from a debug build** (Android Studio / `assembleDebug`): uninstall it first — the release APK has a different signature.
-
-No Chrome. No typing `http://127.0.0.1…`.
-
-### 4. Use it
-
-- **Fingers** on the dark pad → Windows touchpad (move, tap, scroll, pinch, 3/4-finger gestures).
-- **S Pen** → Windows pen (pressure / tilt). Profiles: **Everyday** / **Drawing & Signature** (Android menu or Windows window; Windows stores the setting).
-- **Fullscreen** on Android hides the side menu; **Menu** brings it back.
-- Sensitivity / monitor / pen mapping details → Windows app (**Advanced**).
-
-When done: **QUIT** in the Windows app (or tray → Quit). The tablet app can stay installed.
+[Download v0.10.0](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.10.0) · [Install guide](docs/INSTALL.md) · [Bluetooth notes](docs/BLUETOOTH.md)
 
 ---
 
-## Daily loop
+## Demo
 
-1. USB cable in  
-2. `GalaxyTrackpad.exe` on PC  
-3. Galaxy Trackpad icon on Tab  
-4. Wait for **CONNECTED**
+_Demo GIF or short video coming soon._
 
-If the Tab shows **WAITING**: start/restart the Windows exe, check USB debugging, unplug/replug once. Close Chrome on the Tab if it was open (only one WebSocket client; newest wins).
+<!-- After adding a file under docs/media/, replace the line above, for example:
+
+![Galaxy Trackpad demo](docs/media/demo.gif)
+
+See docs/media/README.md for naming suggestions.
+-->
 
 ---
 
 ## Features
 
-### Touchpad
-- 1–5 finger contacts  
-- Tap, double-tap, drag, two-finger scroll / right-click, pinch zoom  
-- Native Windows 3- and 4-finger gestures  
-- Independent cursor & scroll sensitivity (does **not** change physical mouse settings)
+- **Native Windows Precision Touchpad** — 1–5 fingers; tap, scroll, pinch; system 3- and 4-finger gestures
+- **S Pen → Windows pen** — pressure and tilt when the tablet supports it; Everyday / Drawing profiles
+- **USB or Bluetooth** — choose on the tablet at launch (one transport per session)
+- **No browser UI** — tablet app + Windows app; no typing `http://127.0.0.1…`
+- **Windows tray app** — auto engine start, USB reverse ports, Bluetooth advertising while running, optional start with Windows
 
-### S Pen
-- Auto: finger → touchpad, tip → pen  
-- **Everyday** — stretch to the selected monitor  
-- **Drawing & Signature** — preserve aspect ratio  
-- Profile sync Windows ↔ Android  
-- On-pad **S Pen Area** frame from Windows mapping  
+---
 
-### Apps
-- Windows: GUI + system tray, USB auto reverse / reconnect, Bluetooth always ready, Start with Windows  
-- Android: USB or Bluetooth at launch, paired-PC picker, connection status, fullscreen, keep-screen-on, offline waiting retry  
+## Download
+
+From **[v0.10.0 on GitHub Releases](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.10.0)**:
+
+| File | Purpose |
+|------|---------|
+| [**GalaxyTrackpad-windows-v0.10.0.zip**](https://github.com/sansiuchicom/galaxy-trackpad/releases/download/v0.10.0/GalaxyTrackpad-windows-v0.10.0.zip) | Windows app + bundled `platform-tools` (ADB) |
+| [**GalaxyTrackpad-v0.10.0.apk**](https://github.com/sansiuchicom/galaxy-trackpad/releases/download/v0.10.0/GalaxyTrackpad-v0.10.0.apk) | Android app |
+| [GalaxyTrackpad-android-v0.10.0.zip](https://github.com/sansiuchicom/galaxy-trackpad/releases/download/v0.10.0/GalaxyTrackpad-android-v0.10.0.zip) | Same APK, packaged as a zip |
+
+Keep the Windows folder intact after unzip (`GalaxyTrackpad.exe`, `_internal`, `platform-tools`).
+
+---
+
+## Quick install
+
+Full step-by-step: **[docs/INSTALL.md](docs/INSTALL.md)**.
+
+```text
+1. Unzip and run GalaxyTrackpad.exe on Windows
+2. Install the APK on the tablet
+3. Open the tablet app → choose USB or Bluetooth
+4. Wait for CONNECTED → use the pad
+```
+
+| Path | What you do |
+|------|-------------|
+| **USB** | Enable USB debugging, plug in a data cable, choose **USB** on the tablet |
+| **Bluetooth** | Pair tablet ↔ PC in system Bluetooth settings once, start the Windows app, choose **Bluetooth** and pick the PC |
+
+The Windows engine stays ready for **both** USB and Bluetooth while it is running. You pick the transport on the tablet; there is no PC-side mode switch.
+
+---
+
+## Compatibility
+
+| | Status |
+|---|--------|
+| **Verified** | Windows **11**; Samsung **Galaxy Tab S7 (SM-T870)** |
+| **Android app** | `minSdk` 28 (Android 9+) |
+| **Other Android tablets** | Likely to work for basic touch if USB debugging / Bluetooth Classic work; **not verified** |
+| **S Pen / stylus** | Verified on Tab S7 S Pen; other styli untested |
+| **Windows 10** | Not verified |
+| **macOS / Linux PC** | Not supported (Windows input injection) |
+
+Honest limits:
+
+- **Bluetooth** adds a small smoothing delay (on the order of tens of milliseconds). Prefer **USB** for drawing if you notice lag.
+- One tablet session at a time; one transport per app launch (no mid-session USB ↔ Bluetooth switch).
+- USB needs **ADB reverse** (the Windows package bundles `platform-tools` and sets this up for you).
+- Bluetooth needs a normal OS **pairing** first; the tablet then dials the PC by service UUID (RFCOMM). Details: [docs/BLUETOOTH.md](docs/BLUETOOTH.md).
 
 ---
 
 ## Requirements
 
-- Windows 11 PC  
-- Samsung Galaxy Tab with **USB debugging** (verified: Tab S7 / SM-T870)  
-- USB cable (data-capable), or Bluetooth on both devices (paired)  
-- Release zips from GitHub (recommended) **or** build from source (below)
+- Windows PC (tested on Windows 11)
+- Android tablet (tested on Galaxy Tab S7)
+- For install: way to get the APK onto the tablet
+- For USB use: USB debugging + data-capable cable
+- For Bluetooth use: Bluetooth on both devices, paired in system settings
+
+---
+
+## Settings (where things live)
+
+| What | Where |
+|------|--------|
+| Cursor / scroll sensitivity | Windows app |
+| Everyday / Drawing pen profile | Windows or Android (saved on Windows) |
+| Monitor / pen area / mapping | Windows **Advanced** |
+| Start with Windows, auto-start engine | Windows app |
+| Fullscreen pad UI | Android app |
+
+Packaged app settings file: `galaxytrackpad_settings.json` next to `GalaxyTrackpad.exe` (created on first run).
 
 ---
 
 ## Build from source (developers)
 
 ```powershell
-cd C:\touchpad
+# From a clone of this repo
 conda env create -f environment.yml   # once
 conda activate galaxytrackpad
-python -m windows                     # or build the exe:
+python -m windows
+# or package the exe:
 powershell -ExecutionPolicy Bypass -File packaging\build_windows.ps1
 ```
 
-Android:
+Android (JDK 17):
 
 ```powershell
-cd C:\touchpad\android
-$env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-17.0.20.101-hotspot"  # JDK 17
+cd android
 .\gradlew.bat assembleRelease
 # APK: app\build\outputs\apk\release\app-release.apk
 ```
 
 More: [packaging/README.md](packaging/README.md), [android/README.md](android/README.md).
 
-### Ports (localhost)
+### Localhost ports
 
 | Port | Role |
 |------|------|
-| 8765 | HTTP (pad HTML) |
-| 8766 | WebSocket (input + state) |
-| 8767 | Windows GUI ↔ engine only |
+| 8765 | HTTP (pad HTML, USB) |
+| 8766 | WebSocket (input + state, USB) |
+| 8767 | Windows GUI ↔ engine |
 
----
-
-## Settings
-
-| What | Where |
-|------|--------|
-| Cursor / scroll sensitivity | Windows app |
-| Everyday / Drawing profile | Windows **or** Android (saved on Windows) |
-| Monitor / area / mapping | Windows **Advanced** |
-| Start with Windows, auto-start, debug | Windows app |
-| Fullscreen / connection UI | Android app |
-
-Packaged Windows settings file: next to `GalaxyTrackpad.exe` (`galaxytrackpad_settings.json`).  
-Dev (`python -m windows`): `windows/galaxytrackpad_settings.json`.
-
----
-
-## Tests
+### Tests
 
 ```powershell
 python -m unittest tests.test_pen_mapping -v
 ```
 
-Manual: [tests/REGRESSION.md](tests/REGRESSION.md).
+Manual checklist: [tests/REGRESSION.md](tests/REGRESSION.md).
 
 ---
 
-## Roadmap
+## Project status
 
-| Phase | Status |
-|-------|--------|
-| 1–3 — Windows engine + Android WebView | Done |
-| 4A/4B — APK + Windows exe packaging | Done (`v0.9.1`) |
-| 5 — Bluetooth (RFCOMM transport) | Done (`v0.10.0`) — see [docs/BLUETOOTH.md](docs/BLUETOOTH.md) |
+| Area | Status |
+|------|--------|
+| Windows engine + Android WebView | Done |
+| Packaged Windows exe + signed APK | Done (`v0.9.1`+) |
+| Bluetooth RFCOMM transport | Done (`v0.10.0`) |
 | Longer soak / polish | In progress |
 | **1.0.0** | After real-world soak |
+
+Lab tools used while building Bluetooth: [bluetooth_lab/README.md](bluetooth_lab/README.md). Older prototypes: `archive/`.
+
+---
+
+## License
+
+[MIT](LICENSE) — free to use, modify, and share, including commercially.
+
+Third-party components keep their own terms (for example **PySide6** is LGPL;
+**AndroidX** is Apache-2.0). Redistributing the Windows binary must still
+satisfy those dependency licenses.
 
 ---
 
 ## Notes
 
-- Gestures are handled by Windows, not remapped to keys on Android.  
-- Release binaries are attached to GitHub Releases — not stored in git (`dist/`, `*.apk` ignored).  
-- Personal signing keystore for Android stays local (never commit).  
-- Old prototypes: `archive/`.
+- Gestures are handled by Windows, not remapped to keys on Android.
+- Release binaries live on **GitHub Releases** only (`dist/`, `releases/`, `*.apk` are gitignored).
+- The Android signing keystore stays on the maintainer’s machine (never commit `*.jks` or `keystore.properties`).

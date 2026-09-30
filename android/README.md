@@ -3,7 +3,7 @@
 WebView shell around the existing touchpad HTML.
 Windows still owns the input engine, ADB reverse, and settings.
 
-**App version:** `0.9.0` (pre-1.0 daily build — not a store release)
+**App version:** `0.10.0` (pre-1.0 daily build — not a store release)
 
 ## Status
 
@@ -48,7 +48,7 @@ C:\touchpad\android\app\build\outputs\apk\release\app-release.apk
      ```
    - Or copy `app-release.apk` to the Tab and open it (may need “install unknown apps”).
 
-7. On the Tab, open **Galaxy Trackpad** — Settings sheet / About should reflect **0.9.0** after we show version there (or check app info in Android settings).
+7. On the Tab, open **Galaxy Trackpad** — Settings sheet / About should reflect **0.10.0** (or check app info in Android settings).
 
 After that you can **close Android Studio**. Rebuild only when we change the Android app.
 
