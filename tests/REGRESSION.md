@@ -103,6 +103,14 @@ Requires **Windows engine restart** (state protocol + last-client-wins WS).
 - [ ] Side menu + grid pad; menu clicks do not move cursor
 - [ ] CONNECTED after Windows `state` message
 - [ ] Profile sync both directions (tablet ↔ Windows Everyday/Drawing)
-- [ ] Drawing shows S Pen Area; fingers still full pad
+- [ ] S Pen Area frame for Everyday and Drawing; fingers still full pad
 - [ ] Fullscreen / Menu chrome excluded from input
 - [ ] Settings sheet is informational only (no duplicate sensitivity controls)
+
+## Phase 3C — Stability
+
+- [ ] Offline WAITING page when Windows HTTP unreachable; auto-retry
+- [ ] USB unplug/replug and Windows STOP/START recover without app reinstall
+- [ ] Pause/resume clears contacts; no stuck inputs
+- [ ] Screen stays on in foreground
+- [ ] Debug APK builds from Android Studio (`app/build/outputs/apk/debug/`)

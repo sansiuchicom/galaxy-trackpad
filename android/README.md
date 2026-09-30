@@ -7,9 +7,9 @@ Windows still owns the input engine, ADB reverse, and settings.
 
 | Slice | Goal | Status |
 |-------|------|--------|
-| **3A** | App icon → WebView → same WS input as Chrome | Done (device) |
-| **3B** | Side menu, connection UI, pen profile sync, Drawing area | **In progress — restart Windows engine** |
-| **3C** | Long-run stability, reconnect polish, release APK | Later |
+| **3A** | App icon → WebView → same WS input as Chrome | Done |
+| **3B** | Side menu, connection UI, pen profile sync, Drawing area | Done |
+| **3C** | Long-run stability, reconnect polish, release APK | **In progress — reinstall app** |
 
 ### 3A design choice
 
@@ -127,23 +127,26 @@ Rebuild/reinstall Android app **or** force-stop the app and reopen (URL cache-bu
 - [ ] CONNECTED only after link is ready (not forever Waiting with cable only)
 - [ ] Everyday / Drawing on tablet → Windows radios follow within ~1s
 - [ ] Everyday / Drawing on Windows → tablet buttons follow
-- [ ] Drawing shows thin **S Pen Area** frame; Everyday hides it
+- [ ] Drawing / Everyday both show S Pen Area frame from Windows rect
 - [ ] Finger touchpad still works over the whole pad (including outside pen frame)
 - [ ] Fullscreen hides menu; **Menu** button restores it; chrome does not inject touches
 - [ ] Settings sheet opens/closes without sending pad input
 
 ---
 
-### 3C — Daily driver (after we implement it)
+### 3C — Daily driver
 
-You will check:
+**Prep:** Android Studio ▶ Run (version `0.3.0-3c`). Windows engine running.
 
-- [ ] Leave app open 1–2 hours; still responsive  
-- [ ] Unplug/replug USB 10+ times  
-- [ ] Windows STOP/START and full quit/relaunch  
-- [ ] App kill + relaunch  
-- [ ] No stuck contacts after pause/resume  
-- [ ] Debug APK installable without Android Studio on a second PC (optional)
+- [ ] Cold start with USB **unplugged** → local WAITING page (not a Chrome error)
+- [ ] Plug USB → page loads → CONNECTED without force-stopping the app
+- [ ] Unplug / replug USB 5–10 times → recovers; no stuck Windows contacts
+- [ ] Home button then return → no stuck fingers; hello/state refreshes
+- [ ] Power button off/on → usable after unlock
+- [ ] Windows STOP/START → tablet reconnects
+- [ ] Leave foreground 30+ minutes → still works when you come back
+- [ ] Screen stays on while app is foreground
+- [ ] Optional: Build → Build APK(s); APK under `android/app/build/outputs/apk/debug/`
 
 ---
 
@@ -151,7 +154,7 @@ You will check:
 
 | Port | Role | Android? |
 |------|------|----------|
-| 8765 | HTTP HTML | 3A loads page |
+| 8765 | HTTP HTML | loads page |
 | 8766 | WebSocket input | Yes |
 | 8767 | GUI ↔ engine | **No** — do not expose |
 
@@ -163,5 +166,6 @@ You will check:
 |---------|--------|
 | Stuck on Connecting… / Disconnected Reconnecting… | Windows engine running? Close **Chrome** on the Tab (old WS held the only slot). STOP/START engine, then reopen the app. |
 | White/blank WebView | Cleartext / network security; confirm `http://127.0.0.1:8765/...` in Chrome still works |
+| Local WAITING forever | Windows not running or ADB reverse missing for 8765 |
 | Gestures missing | Confirm Chrome still OK — if Chrome OK and app not, report as WebView issue |
-| Screen turns off | Confirm app is foreground; `FLAG_KEEP_SCREEN_ON` is set in 3A |
+| Screen turns off | Confirm app is foreground; `FLAG_KEEP_SCREEN_ON` is set |

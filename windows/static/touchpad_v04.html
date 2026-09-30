@@ -323,12 +323,14 @@ const btnEveryday = document.getElementById("btnEveryday");
 const btnDrawing = document.getElementById("btnDrawing");
 
 const WS_URL = "ws://127.0.0.1:8766";
-const RECONNECT_DELAY = 1500;
+const RECONNECT_BASE_MS = 1500;
+const RECONNECT_MAX_MS = 5000;
 
 const pointers = new Map();
 let socket = null;
 let connected = false;
 let reconnectTimer = null;
+let reconnectAttempt = 0;
 let activeProfile = "standard";
 let activeRect = { left: 0, top: 0, right: 1, bottom: 1 };
 let profilePending = null;
@@ -353,17 +355,34 @@ function setConnectionUi(kind, title, sub) {
 }
 
 function releaseAllContacts() {
-    if (pointers.size === 0) return;
+    if (pointers.size === 0) {
+        // Still notify Windows with empty contacts if a socket is up.
+        if (connected && socket && socket.readyState === WebSocket.OPEN) {
+            try {
+                socket.send(JSON.stringify({
+                    event: "up",
+                    timestamp: performance.now(),
+                    contacts: []
+                }));
+            } catch (e) {}
+        }
+        return;
+    }
     pointers.clear();
     send("up");
 }
 
 function scheduleReconnect() {
     if (reconnectTimer !== null) return;
+    const delay = Math.min(
+        RECONNECT_MAX_MS,
+        RECONNECT_BASE_MS + reconnectAttempt * 500
+    );
+    reconnectAttempt += 1;
     reconnectTimer = setTimeout(() => {
         reconnectTimer = null;
         connect();
-    }, RECONNECT_DELAY);
+    }, delay);
 }
 
 function connect() {
@@ -393,6 +412,7 @@ function connect() {
 
         if (msg.type === "state") {
             applyServerState(msg);
+            reconnectAttempt = 0;
             setConnectionUi("ready", "CONNECTED", "USB");
             return;
         }
@@ -565,6 +585,23 @@ menu.addEventListener("contextmenu", (e) => e.preventDefault());
 
 window.addEventListener("resize", () => {
     updatePenOverlay();
+});
+
+document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+        releaseAllContacts();
+        return;
+    }
+    // Foreground again: refresh state / reconnect if needed.
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        try { socket.send(JSON.stringify({ type: "hello" })); } catch (e) {}
+    } else {
+        connect();
+    }
+});
+
+window.addEventListener("pagehide", () => {
+    releaseAllContacts();
 });
 
 connect();

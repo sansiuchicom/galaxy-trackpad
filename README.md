@@ -139,9 +139,9 @@ Manual checklist: [tests/REGRESSION.md](tests/REGRESSION.md).
 |-------|--------|
 | 1 — Package structure, single entry, preserve v0.8 | Done |
 | 2 — S Pen profiles, UX, autostart, reliability | Done |
-| 3A — Android WebView shell (HTTP URL) | Done (device verified) |
-| 3B — Menu / status / pen sync UI | In progress — restart engine to test |
-| 3C — Stability + release APK | Later |
+| 3A — Android WebView shell (HTTP URL) | Done |
+| 3B — Menu / status / pen sync UI | Done |
+| 3C — Stability + release APK | In progress — device verify |
 | 4 — Windows installer / APK packaging | Later |
 | 5 — Bluetooth transport | Later |
 
