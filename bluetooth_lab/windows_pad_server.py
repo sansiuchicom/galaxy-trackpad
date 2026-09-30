@@ -29,6 +29,9 @@ def main() -> int:
         return 1
     from bluetooth_lab.winrt_rfcomm import RfcommServer
 
+    if "--no-pacing" in sys.argv:
+        pad.PACING = False
+
     _log("Galaxy Trackpad BT lab - Windows PAD SERVER (Tab dials PC)")
     _log(f"Service UUID: {SERVICE_UUID}")
     try:

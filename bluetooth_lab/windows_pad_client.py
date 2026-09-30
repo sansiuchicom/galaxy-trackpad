@@ -24,9 +24,12 @@ from bluetooth_lab.constants import SERVICE_UUID
 from bluetooth_lab.framing import read_frame, write_frame
 from windows.applog import info
 from windows.transport.input_dispatch import InputSession
+from windows.transport.pacing import PacedInput
 from windows.transport.state_sync import build_client_state
 
 _PLACEHOLDER = re.compile(r"^(XX:)+XX$", re.I)
+
+PACING = True
 
 
 def _log(msg: str) -> None:
@@ -62,7 +65,8 @@ def _run_pad_session_interruptible(sock: socket.socket) -> None:
 
 def _run_pad_session(sock: socket.socket) -> None:
     sock.settimeout(None)
-    session = InputSession()
+    session = PacedInput() if PACING else InputSession()
+    _log("Input pacing ON (replay at Tab cadence)" if PACING else "Input pacing OFF (inject on arrival)")
     info("BT-2 pad session: move a finger on the Tab pad")
     _log("Engine ready - touch the Tab pad (USB not needed)")
     try:
@@ -102,7 +106,8 @@ def _run_pad_session(sock: socket.socket) -> None:
                 moves += 1
                 now = time.monotonic()
                 if now - window_start >= 1.0:
-                    _log(f"rate: {moves / (now - window_start):.0f} moves/s")
+                    buf = f", buffer {session.delay_s * 1000:.0f} ms" if PACING else ""
+                    _log(f"rate: {moves / (now - window_start):.0f} moves/s{buf}")
                     moves, window_start = 0, now
             if event in ("down", "up") or not contacts:
                 tools = ",".join(sorted({str(c.get("tool")) for c in contacts})) if contacts else "-"
