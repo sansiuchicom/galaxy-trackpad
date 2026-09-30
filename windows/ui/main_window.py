@@ -41,6 +41,7 @@ from windows.settings.store import (
     set_active_profile,
 )
 from windows.ui.advanced_dialog import AdvancedSettingsDialog
+from windows.ui.icons import app_icon
 from windows.ui.widgets import JumpSlider
 
 
@@ -718,9 +719,10 @@ class MainWindow(QMainWindow):
     # ---------- Tray ----------
     def make_tray(self):
         self.tray = QSystemTrayIcon(self)
-        self.tray.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
-        )
+        icon = app_icon()
+        if icon.isNull():
+            icon = self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
+        self.tray.setIcon(icon)
         self.tray.setToolTip("Galaxy Trackpad - Stopped")
         menu = QMenu(self)
         self.open_action = QAction("Open settings", self)
@@ -834,9 +836,16 @@ class MainWindow(QMainWindow):
 def run_gui(start_hidden: bool = False) -> int:
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+    app.setApplicationName("Galaxy Trackpad")
+    app.setOrganizationName("GalaxyTrackpad")
+    icon = app_icon()
+    if not icon.isNull():
+        app.setWindowIcon(icon)
     if QSystemTrayIcon.isSystemTrayAvailable():
         app.setQuitOnLastWindowClosed(False)
     window = MainWindow(start_hidden=start_hidden)
+    if not icon.isNull():
+        window.setWindowIcon(icon)
     if start_hidden and QSystemTrayIcon.isSystemTrayAvailable():
         window.hide()
         window.log("Started in tray mode")

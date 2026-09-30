@@ -35,3 +35,14 @@ dist\GalaxyTrackpad\
 - “Start with Windows” registers the **exe** with `--tray`.
 - Rebuild after Windows code changes; Android APK is separate (Phase 4A).
 - `dist/` is gitignored — share the folder as a zip if you want.
+
+## Icons
+
+Brand assets live in `branding/` and `windows/assets/`.
+
+```powershell
+conda activate galaxytrackpad
+python packaging\generate_icons.py
+```
+
+Then rebuild the exe so the `.ico` is embedded in `GalaxyTrackpad.exe`.

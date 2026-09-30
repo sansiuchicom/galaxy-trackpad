@@ -7,7 +7,10 @@ from PyInstaller.utils.hooks import collect_all
 
 ROOT = Path(SPECPATH).resolve().parent
 
-datas = [(str(ROOT / "windows" / "static"), "windows/static")]
+datas = [
+    (str(ROOT / "windows" / "static"), "windows/static"),
+    (str(ROOT / "windows" / "assets"), "windows/assets"),
+]
 binaries = []
 hiddenimports = [
     "windows",
@@ -78,6 +81,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=str(ROOT / "branding" / "galaxy_trackpad.ico"),
 )
 
 coll = COLLECT(
