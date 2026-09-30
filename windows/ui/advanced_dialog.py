@@ -152,8 +152,10 @@ class AdvancedSettingsDialog(QDialog):
         if not any(r.isChecked() for r in self._mode_radios.values()):
             self._mode_radios["auto"].setChecked(True)
         tip = QLabel(
-            "Automatic never switches mid-gesture. Pair the Tab in Windows Bluetooth "
-            "settings once. Restart the engine after changing mode."
+            "Automatic: prefer USB while the cable works; after you unplug, Windows "
+            "dials Bluetooth (with quiet backoff if the Tab is not listening). "
+            "Pure wireless cold start → choose Bluetooth only. "
+            "Restart the engine after changing mode."
         )
         tip.setWordWrap(True)
         tip.setObjectName("muted")

@@ -158,23 +158,46 @@ def _run_one_session(shared: SharedInput, stop: threading.Event) -> None:
 
 
 def run_bluetooth_worker(shared: SharedInput, stop: threading.Event) -> None:
-    """Background loop: dial Tab when connection_mode is auto/bluetooth."""
+    """
+    Dial Tab when connection_mode allows it.
+
+    Auto policy (idle-friendly):
+    - While USB WebSocket is up → do not dial.
+    - After USB was seen then lost → dial with short backoff (user unplugged).
+    - Never saw USB this run → long backoff (tablet not in a USB session;
+      use Connection mode "Bluetooth only" for pure wireless cold start).
+    """
     info("Bluetooth worker started")
+    fail_streak = 0
     while not stop.is_set():
         mode = _mode()
         if mode == "usb":
-            stop.wait(2.0)
+            fail_streak = 0
+            stop.wait(3.0)
             continue
         if mode == "auto" and shared.usb_connected:
+            fail_streak = 0
             stop.wait(1.0)
+            continue
+        if mode == "auto" and not shared.usb_seen:
+            # Cold start / tablet unused over USB — don't hammer RFCOMM.
+            stop.wait(60.0)
             continue
         try:
             _run_one_session(shared, stop)
+            fail_streak = 0
         except (OSError, ConnectionError, ValueError) as exc:
+            fail_streak += 1
             debug(f"Bluetooth session ended: {exc}")
-            info(f"Bluetooth: retry soon ({exc})")
+            # 5s, 10s, 20s, 40s … cap 120s
+            delay = min(120.0, 5.0 * (2 ** min(fail_streak - 1, 4)))
+            info(f"Bluetooth: retry in {delay:.0f}s ({exc})")
+            stop.wait(delay)
+            continue
         except Exception as exc:  # noqa: BLE001 — keep worker alive
+            fail_streak += 1
             info(f"Bluetooth: unexpected error {exc}")
-        # Backoff before redial
-        stop.wait(3.0)
+            stop.wait(min(120.0, 10.0 * fail_streak))
+            continue
+        stop.wait(2.0)
     info("Bluetooth worker stopped")

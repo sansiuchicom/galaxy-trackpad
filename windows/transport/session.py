@@ -16,10 +16,14 @@ class SharedInput:
         self._lock = threading.RLock()
         self.owner: str | None = None
         self.usb_connected = False
+        # True after at least one USB WebSocket session this engine run.
+        self.usb_seen = False
 
     def set_usb_connected(self, connected: bool) -> None:
         with self._lock:
             self.usb_connected = connected
+            if connected:
+                self.usb_seen = True
 
     def claim(self, owner: str) -> None:
         with self._lock:
