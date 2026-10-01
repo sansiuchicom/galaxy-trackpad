@@ -14,4 +14,5 @@ Source: cropped / resized from `tmp/` capture dumps (not committed).
 | `windows-pen-region.jpg` | Windows | Active Drawing region outline |
 | `windows-advanced-pen.jpg` | Windows | Advanced → S Pen monitor map |
 
-Keep JPEGs under ~100 KB each when possible. Do not commit raw `tmp/` dumps or large videos.
+Keep JPEGs small (about 720px wide, under ~30 KB when possible).  
+README embeds them with HTML `width=` so GitHub shows compact previews.

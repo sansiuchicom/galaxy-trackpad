@@ -12,26 +12,45 @@ Use an idle Galaxy Tab (or similar Android tablet) as a Windows trackpad — and
 
 ## Demo
 
-Tablet on the left-hand shots, Windows on the right — same pad over **USB or Bluetooth**.
+Compact previews (click through on GitHub for full size).
 
-### Tablet
+<table>
+<tr>
+<td width="50%" valign="top">
 
-| Preview | What it shows |
-|---------|----------------|
-| ![Choose USB or Bluetooth](docs/media/tablet-transport.jpg) | Pick **USB** or **Bluetooth** at launch |
-| ![Bluetooth PC picker](docs/media/tablet-bluetooth-pick.jpg) | Bluetooth: choose this PC |
-| ![Connected pad](docs/media/tablet-connected.jpg) | Pad + Everyday / Drawing profiles |
-| ![Keypad overlay](docs/media/tablet-keypad.jpg) | Pop-up **Keypad** (symbols + Win-style numpad) |
-| ![Fullscreen chrome](docs/media/tablet-fullscreen.jpg) | Fullscreen icon rail + connection status |
+**Tablet**
 
-### Windows
+<img src="docs/media/tablet-transport.jpg" width="360" alt="USB or Bluetooth picker" />
 
-| Preview | What it shows |
-|---------|----------------|
-| ![Windows app](docs/media/windows-app.jpg) | Engine, sensitivities, S Pen profiles |
-| ![Pen region picker](docs/media/windows-region-picker.jpg) | Drawing: drag a pen region on the monitor |
-| ![Pen region outline](docs/media/windows-pen-region.jpg) | Thin outline while Drawing is active |
-| ![Advanced S Pen](docs/media/windows-advanced-pen.jpg) | Advanced: monitor map, stretch / preserve aspect |
+<img src="docs/media/tablet-connected.jpg" width="360" alt="Connected pad with Drawing profile" />
+
+<img src="docs/media/tablet-keypad.jpg" width="360" alt="Keypad overlay" />
+
+<img src="docs/media/tablet-fullscreen.jpg" width="360" alt="Fullscreen icon rail" />
+
+</td>
+<td width="50%" valign="top">
+
+**Windows**
+
+<img src="docs/media/windows-app.jpg" width="280" alt="Windows Galaxy Trackpad app" />
+
+<img src="docs/media/windows-pen-region.jpg" width="360" alt="Drawing pen region outline" />
+
+<img src="docs/media/windows-region-picker.jpg" width="360" alt="Pen region picker" />
+
+<img src="docs/media/windows-advanced-pen.jpg" width="280" alt="Advanced S Pen settings" />
+
+</td>
+</tr>
+</table>
+
+<details>
+<summary>More — Bluetooth PC picker</summary>
+
+<img src="docs/media/tablet-bluetooth-pick.jpg" width="420" alt="Bluetooth PC picker" />
+
+</details>
 
 
 ---
