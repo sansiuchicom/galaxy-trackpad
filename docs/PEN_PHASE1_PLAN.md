@@ -65,16 +65,12 @@ Agreed Drawing goal is **preserve**: whole **display**, only matching **pad** ba
 Defaults in JSON **already match** that agreement (`standard`/`stretch`, `drawing`/`preserve`).  
 Much of the pain may be **unclear UX** (dead bands look “broken”) rather than wrong defaults.
 
-### C2 — Wrong `tablet_aspect` vs real `#pad` aspect (**strong technical suspect for Drawing**)
+### C2 — Wrong `tablet_aspect` vs real `#pad` aspect (**fixed**)
 
-Preserve math uses `SETTINGS.pen.tablet_aspect` (default **2560/1600 = 1.6**, full Tab S7 landscape).
+Tablet now sends `pad_aspect` (= `#pad` CSS width/height) on `hello` (and resize /
+fullscreen). Session override drives Drawing letterbox; settings `tablet_aspect`
+remains fallback only.
 
-But UV `(x,y)` is normalized to the **`#pad` DOM box only**, which:
-
-- shares the row with the **side menu** (narrower / different aspect than the full tablet), and  
-- **changes again** in fullscreen (menu hidden).
-
-So Drawing letterboxing is computed with **full-tablet aspect**, while input uses **pad-div aspect** → active frame and “feel” can be wrong (wrong band size/orientation). Everyday (`stretch`) ignores `tablet_aspect`, so it can still cover the monitor while Drawing feels off.
 
 ### C3 — Weak / confusing pad feedback
 

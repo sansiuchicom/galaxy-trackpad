@@ -191,12 +191,15 @@ def active_pen_profile(config: dict[str, Any] | None = None) -> dict[str, Any]:
         name = PROFILE_STANDARD
     profiles = pen.get("profiles") or {}
     profile = profiles.get(name) or DEFAULTS["pen"]["profiles"][name]
+    from windows.settings.pad_aspect import effective_tablet_aspect
+
+    stored = float(pen.get("tablet_aspect", DEFAULTS["pen"]["tablet_aspect"]))
     return {
         "name": name,
         "monitor_id": profile.get("monitor_id", "primary"),
         "mapping": _mapping(profile.get("mapping")),
         "area_size": _area(profile.get("area_size", 1.0)),
-        "tablet_aspect": float(pen.get("tablet_aspect", DEFAULTS["pen"]["tablet_aspect"])),
+        "tablet_aspect": effective_tablet_aspect(stored),
     }
 
 

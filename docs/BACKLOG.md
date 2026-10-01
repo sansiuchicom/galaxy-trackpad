@@ -14,22 +14,13 @@ Real-use priority (signatures first):
 | # | Item | Why this order |
 |---|------|----------------|
 | **1a** | ~~Pen DPI / whole-display Everyday~~ | **Done** (`8074402`, verified) |
-| **1b** | Drawing pad-aspect (letterbox matches real `#pad`) | Phase 1 remainder — [PEN_PHASE1_PLAN.md](PEN_PHASE1_PLAN.md) C2 |
+| **1b** | ~~Drawing pad-aspect~~ | **Done** — tablet sends `#pad` aspect on hello |
 | **2** | **S Pen capture-style region** (drag when you want) | After (1b); bigger UX |
 | **3** | **Pop-up keypad + custom symbols** | After pen is comfortable for signatures |
 
 ---
 
 ## Open
-
-### investigate — Drawing pad-aspect vs fixed tablet_aspect
-
-**Plan:** [PEN_PHASE1_PLAN.md](PEN_PHASE1_PLAN.md) C2  
-
-Drawing letterbox still uses `tablet_aspect` 1.6 (full Tab) while UV is the `#pad` box
-(menu / fullscreen change the real aspect). Everyday whole-display stretch is OK after DPI fix.
-
----
 
 ### idea — S Pen region: drag like screen capture (phase 2)
 
@@ -59,6 +50,11 @@ _(empty)_
 ---
 
 ## Done
+
+### done — Drawing letterbox uses live #pad aspect
+
+**Fixed:** session `pad_aspect` from tablet hello (menu / fullscreen resize).  
+Fallback remains settings `tablet_aspect` (1.6) until the first hello.
 
 ### done — Pen only reached ~80% of the screen (DPI)
 

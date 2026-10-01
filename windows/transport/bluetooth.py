@@ -70,6 +70,9 @@ def _handshake(sock) -> str:
 def _handle_control(sock, packet: dict[str, Any]) -> bool:
     msg_type = packet.get("type")
     if msg_type in ("hello", "get_state"):
+        from windows.settings.pad_aspect import apply_pad_aspect_from_message
+
+        apply_pad_aspect_from_message(packet)
         write_frame(sock, build_client_state())
         return True
     if msg_type == "set_profile":

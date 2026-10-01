@@ -386,12 +386,26 @@ function releaseAllContacts() {
     send("up");
 }
 
+function padAspect() {
+    const r = pad.getBoundingClientRect();
+    if (!r.height || r.height < 1) return null;
+    const a = r.width / r.height;
+    return (isFinite(a) && a > 0.05 && a < 20) ? Math.round(a * 1e6) / 1e6 : null;
+}
+
+function sendHello() {
+    const msg = { type: "hello" };
+    const a = padAspect();
+    if (a !== null) msg.pad_aspect = a;
+    sendRaw(msg);
+}
+
 function onLinkOpen() {
     connected = true;
     pointers.clear();
     // Not CONNECTED until we have state (or at least an open link briefly).
     setConnectionUi("recon", "SYNCING", "Waiting for Windows…");
-    sendRaw({ type: "hello" });
+    sendHello();
 }
 
 function onLinkMessage(msg) {
@@ -580,7 +594,10 @@ function sendMove() {
 function setFullscreen(on) {
     releaseAllContacts();
     app.classList.toggle("fullscreen", on);
-    // Layout change: drop contacts already done; pad rect updates on next pointer.
+    // Pad box aspect changes when the side menu hides/shows.
+    requestAnimationFrame(() => {
+        if (isOpen()) sendHello();
+    });
 }
 
 btnEveryday.addEventListener("click", (e) => {
@@ -649,6 +666,7 @@ menu.addEventListener("contextmenu", (e) => e.preventDefault());
 
 window.addEventListener("resize", () => {
     updatePenOverlay();
+    if (isOpen()) sendHello();
 });
 
 document.addEventListener("visibilitychange", () => {
@@ -658,7 +676,7 @@ document.addEventListener("visibilitychange", () => {
     }
     // Foreground again: refresh state / reconnect if needed.
     if (isOpen()) {
-        sendRaw({ type: "hello" });
+        sendHello();
     } else {
         connect();
     }

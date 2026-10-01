@@ -131,5 +131,44 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual(cfg["pen"]["profiles"]["drawing"]["area_size"], 0.7)
 
 
+class SessionPadAspectTests(unittest.TestCase):
+    def tearDown(self):
+        from windows.settings.pad_aspect import set_session_pad_aspect
+
+        set_session_pad_aspect(None)
+
+    def test_session_overrides_stored_aspect(self):
+        from windows.settings.pad_aspect import set_session_pad_aspect
+        from windows.settings.store import active_pen_profile
+
+        set_session_pad_aspect(1.25)
+        profile = active_pen_profile()
+        self.assertAlmostEqual(profile["tablet_aspect"], 1.25)
+
+    def test_preserve_uses_narrower_pad_aspect(self):
+        """Menu-on pad is taller than full-tablet 1.6 → different letterbox than 1.6."""
+        mon = PixelRect(0, 0, 3840, 2160)
+        cfg_pad = PenMapConfig(
+            "preserve_aspect_ratio",
+            1.0,
+            mon,
+            tablet_aspect=1.25,
+        )
+        cfg_tab = PenMapConfig(
+            "preserve_aspect_ratio",
+            1.0,
+            mon,
+            tablet_aspect=1.6,
+        )
+        self.assertNotEqual(cfg_pad.active_rect(), cfg_tab.active_rect())
+        # Active corners still cover the full monitor.
+        self.assertEqual(
+            cfg_pad.map_point(cfg_pad.active_rect().left, cfg_pad.active_rect().top),
+            (0, 0),
+        )
+        br = cfg_pad.map_point(cfg_pad.active_rect().right, cfg_pad.active_rect().bottom)
+        self.assertEqual(br, (3839, 2159))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from windows.settings.store import SETTINGS, active_pen_profile
+from windows.settings.store import active_pen_profile
 
 PROTOCOL_VERSION = 1
 
@@ -34,8 +34,6 @@ def build_client_state() -> dict[str, Any]:
             "mapping": profile["mapping"],
             "area_size": profile["area_size"],
             "active_rect": active_rect,
-            "tablet_aspect": float(
-                SETTINGS.get("pen", {}).get("tablet_aspect", 2560 / 1600)
-            ),
+            "tablet_aspect": float(profile.get("tablet_aspect", 2560 / 1600)),
         },
     }

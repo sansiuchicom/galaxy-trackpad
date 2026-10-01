@@ -105,6 +105,9 @@ async def run_input_server(shared: SharedInput | None = None):
                 msg_type = packet.get("type")
 
                 if msg_type in ("hello", "get_state"):
+                    from windows.settings.pad_aspect import apply_pad_aspect_from_message
+
+                    apply_pad_aspect_from_message(packet)
                     await _send_state(websocket)
                     continue
 
