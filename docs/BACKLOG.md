@@ -16,7 +16,7 @@ Real-use priority (signatures first):
 | **1a** | ~~Pen DPI / whole-display Everyday~~ | **Done** (`8074402`, verified) |
 | **1b** | ~~Drawing pad-aspect~~ | **Done** (`ffee08b`, verified USB) |
 | **2** | ~~S Pen capture-style region~~ | **Done** (verified USB) — [PEN_PHASE2_PLAN.md](PEN_PHASE2_PLAN.md) |
-| **3** | **Pop-up keypad + custom symbols** | Next big feature when you want it |
+| **3** | **Pop-up keypad + custom symbols** | Plan: **[KEYPAD_PLAN.md](KEYPAD_PLAN.md)** (layout first) |
 
 ---
 
@@ -24,14 +24,9 @@ Real-use priority (signatures first):
 
 ### idea — Trackpad + pop-up keypad (digits + custom symbols)
 
-**Reported:** 2026-10-01 (extended same day)
+**Plan:** [KEYPAD_PLAN.md](KEYPAD_PLAN.md) — layout under discussion (two-column overlay recommended).
 
-Pad stays the main surface. A **small menu / button** opens a panel (pop-in).
-
-1. **Number pad** → Windows key events  
-2. **Custom symbol palette** — user favorites (emoji / special chars)  
-   Refs: [특수문자 정리](https://sharedfolder.tistory.com/35), [Code emojis](https://emojidb.org/code-emojis)
-
+Pad stays the main surface. Translucent panel; Windows-like numpad + starter favorites.
 ---
 
 ## Parking lot
