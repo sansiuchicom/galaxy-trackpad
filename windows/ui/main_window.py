@@ -225,15 +225,6 @@ class MainWindow(QMainWindow):
         row.addWidget(self.quit_button)
         layout.addLayout(row)
 
-        self.logs = QPlainTextEdit()
-        self.logs.setReadOnly(True)
-        self.logs.setPlaceholderText("Engine messages appear here")
-        self.logs.document().setMaximumBlockCount(120)
-        self.logs.setMinimumHeight(96)
-        self.logs.setMaximumHeight(160)
-        self.logs.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        layout.addWidget(self.logs)
-
         layout.addWidget(self.section("TOUCHPAD"))
         frame, inside = self.card()
         inside.addWidget(self.slider("Cursor sensitivity", "cursor_sensitivity"))
@@ -317,6 +308,16 @@ class MainWindow(QMainWindow):
         layout.addWidget(frame)
 
         layout.addStretch(1)
+
+        # Engine log last — useful for debugging, not day-to-day controls.
+        self.logs = QPlainTextEdit()
+        self.logs.setReadOnly(True)
+        self.logs.setPlaceholderText("Engine messages appear here")
+        self.logs.document().setMaximumBlockCount(120)
+        self.logs.setMinimumHeight(96)
+        self.logs.setMaximumHeight(160)
+        self.logs.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        layout.addWidget(self.logs)
 
         self._pen_ui_ready = False
         self.sync_pen_controls_from_config()
