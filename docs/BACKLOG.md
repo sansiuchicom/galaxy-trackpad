@@ -15,7 +15,7 @@ Real-use priority (signatures first):
 |---|------|----------------|
 | **1a** | ~~Pen DPI / whole-display Everyday~~ | **Done** (`8074402`, verified) |
 | **1b** | ~~Drawing pad-aspect~~ | **Done** (`ffee08b`, verified USB) |
-| **2** | **S Pen capture-style region** | Plan: **[PEN_PHASE2_PLAN.md](PEN_PHASE2_PLAN.md)** |
+| **2** | **S Pen capture-style region** | [PEN_PHASE2_PLAN.md](PEN_PHASE2_PLAN.md): **2a** mapping → **2b** picker+outline → **2c** buttons → **2d** verify |
 | **3** | **Pop-up keypad + custom symbols** | After pen is comfortable for signatures |
 
 ---
@@ -24,10 +24,14 @@ Real-use priority (signatures first):
 
 ### idea — S Pen region: drag like screen capture (phase 2)
 
-**Plan:** [PEN_PHASE2_PLAN.md](PEN_PHASE2_PLAN.md) · phase 1 verified on USB  
+**Plan:** [PEN_PHASE2_PLAN.md](PEN_PHASE2_PLAN.md)
 
-When you want: drag a rectangle on the PC (like Win capture) and map the **full pad**
-onto that rectangle — mini LCD tablet.
+| Slice | One-liner |
+|-------|-----------|
+| **2a** | Settings `region` + pen maps full pad → that box (tests; no UI) |
+| **2b** | Drag picker + always-on thin outline on the monitor |
+| **2c** | Select / Clear buttons, status text, save & reload |
+| **2d** | Docs + USB verify |
 
 ---
 
