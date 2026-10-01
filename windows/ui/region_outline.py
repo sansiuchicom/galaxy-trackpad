@@ -1,17 +1,15 @@
-"""Always-on thin border for the active Drawing pen region."""
+"""Always-on thin border for the active Drawing pen region (Qt coords)."""
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QWidget
-
-from windows.core.pen_mapping import PixelRect
 
 _outline: "RegionOutlineWindow | None" = None
 
 
 class RegionOutlineWindow(QWidget):
-    """Click-through rectangle border on the virtual desktop."""
+    """Click-through rectangle border on the desktop (Qt geometry)."""
 
     def __init__(self) -> None:
         super().__init__(None)
@@ -29,7 +27,6 @@ class RegionOutlineWindow(QWidget):
     def paintEvent(self, _event) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
-        # Outer bright edge + inner dim edge so it reads on light and dark UIs.
         pen = QPen(QColor(64, 180, 255, 210))
         pen.setWidth(2)
         painter.setPen(pen)
@@ -41,15 +38,15 @@ class RegionOutlineWindow(QWidget):
         painter.drawRect(0, 0, self.width() - 1, self.height() - 1)
 
 
-def show_region_outline(rect: PixelRect) -> None:
-    """Show or move the outline to cover ``rect`` (virtual-screen pixels)."""
+def show_region_outline(rect: QRect) -> None:
+    """Show or move the outline using a Qt desktop rectangle."""
     global _outline
-    if rect.width < 2 or rect.height < 2:
+    if rect.width() < 2 or rect.height() < 2:
         hide_region_outline()
         return
     if _outline is None:
         _outline = RegionOutlineWindow()
-    _outline.setGeometry(rect.left, rect.top, rect.width, rect.height)
+    _outline.setGeometry(rect)
     _outline.show()
     _outline.raise_()
 

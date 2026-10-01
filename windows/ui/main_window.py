@@ -44,7 +44,7 @@ from windows.settings.store import (
 from windows.ui.advanced_dialog import AdvancedSettingsDialog
 from windows.ui.icons import app_icon
 from windows.ui.region_outline import hide_region_outline, show_region_outline
-from windows.ui.region_picker import pick_region_on_monitor, pixel_rect_for_region
+from windows.ui.region_picker import pick_region_on_monitor, qt_rect_for_region
 from windows.ui.widgets import JumpSlider
 
 
@@ -387,14 +387,14 @@ class MainWindow(QMainWindow):
             return
         try:
             mon = self._drawing_monitor()
-            pix = pixel_rect_for_region(mon, region)
+            qt_rect = qt_rect_for_region(mon, region)
         except OSError:
             hide_region_outline()
             return
-        if pix is None:
+        if qt_rect is None:
             hide_region_outline()
             return
-        show_region_outline(pix)
+        show_region_outline(qt_rect)
 
     def send_engine_command(self, command: bytes, timeout_ms: int = 1500) -> bool:
         """Fire-and-forget control line (PEN_PAUSE / PEN_RESUME / …)."""
