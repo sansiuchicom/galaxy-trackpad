@@ -14,8 +14,8 @@ Real-use priority (signatures first):
 | # | Item | Why this order |
 |---|------|----------------|
 | **1a** | ~~Pen DPI / whole-display Everyday~~ | **Done** (`8074402`, verified) |
-| **1b** | ~~Drawing pad-aspect~~ | **Done** — tablet sends `#pad` aspect on hello |
-| **2** | **S Pen capture-style region** (drag when you want) | After (1b); bigger UX |
+| **1b** | ~~Drawing pad-aspect~~ | **Done** (`ffee08b`, verified USB) |
+| **2** | **S Pen capture-style region** | Plan: **[PEN_PHASE2_PLAN.md](PEN_PHASE2_PLAN.md)** |
 | **3** | **Pop-up keypad + custom symbols** | After pen is comfortable for signatures |
 
 ---
@@ -24,10 +24,10 @@ Real-use priority (signatures first):
 
 ### idea — S Pen region: drag like screen capture (phase 2)
 
-**Reported:** 2026-10-01 · **Blocked on:** phase 1b  
+**Plan:** [PEN_PHASE2_PLAN.md](PEN_PHASE2_PLAN.md) · phase 1 verified on USB  
 
 When you want: drag a rectangle on the PC (like Win capture) and map the **full pad**
-onto that rectangle — mini LCD tablet. Harder; discuss before coding.
+onto that rectangle — mini LCD tablet.
 
 ---
 
@@ -53,8 +53,8 @@ _(empty)_
 
 ### done — Drawing letterbox uses live #pad aspect
 
-**Fixed:** session `pad_aspect` from tablet hello (menu / fullscreen resize).  
-Fallback remains settings `tablet_aspect` (1.6) until the first hello.
+**Fixed:** `ffee08b` — session `pad_aspect` from tablet hello.  
+**Verified:** 2026-10-01 over USB.
 
 ### done — Pen only reached ~80% of the screen (DPI)
 
