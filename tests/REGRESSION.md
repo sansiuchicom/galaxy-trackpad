@@ -106,6 +106,7 @@ Requires **Windows engine restart** (state protocol + last-client-wins WS).
 - [ ] S Pen Area frame for Everyday and Drawing; fingers still full pad
 - [ ] Fullscreen / Menu chrome excluded from input
 - [ ] Settings sheet is informational only (no duplicate sensitivity controls)
+- [ ] **Keypad:** menu / fullscreen open; Notepad digits + symbols; NumLock off still types digits; close via ✕ / backdrop (see [docs/KEYPAD_PLAN.md](../docs/KEYPAD_PLAN.md))
 
 ## Phase 3C — Stability
 

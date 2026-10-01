@@ -1,132 +1,140 @@
-# Keypad / symbols panel — v1 plan (layout first)
+# Keypad / symbols panel
 
-**Status:** planning (layout discussion → then implement)  
-**Not started:** code.
+**Status:** shipped in **v0.11.0**  
+**Page:** `windows/static/touchpad_v04.html` (USB live-serve + Android `assets` via `sourceSets`)  
+**PC inject:** `windows/core/keyboard.py`  
+**Transport:** USB WebSocket + Bluetooth both accept `type: "key"`
 
-Goal: occasional typing of digits and a few favorite marks without leaving the pad.
-USB and Bluetooth share the same page (`touchpad_v04.html` + bridge / WebSocket).
-
----
-
-## 1. Product (v1)
-
-| | Choice |
-|--|--------|
-| Open | Small button in the side menu (or chrome) → panel pops in |
-| Background | **Mostly transparent** — pad / fingers still visible underneath |
-| Close | Same button, tap outside chrome, or ✕ |
-| Tabs vs one screen | Prefer **one screen, two columns** (see §2) — not tab-switching for v1 |
-| Digits | Windows-style numpad block |
-| Symbols | Small starter favorites (①②… ✓ ←→ etc.); **edit UI later** |
-| Transport | Same send path as today (packet or new `type: "keys"` / Unicode inject on PC) |
-
-Out of scope v1: full emoji browser, custom editor, importing huge lists, holding trackpad+keypad as separate permanent panes.
+Occasional digits and a few marks without leaving the pad. Not a full keyboard.
 
 ---
 
-## 2. Layout options (decide before coding)
+## How to use
 
-Pad stays full-bleed. Panel is an overlay floating on top with a translucent scrim only behind the **keys**, not a solid card that hides the whole pad.
+1. Connect tablet (USB or Bluetooth) so the pad shows **CONNECTED**.
+2. Tap **Keypad** in the side menu, or **Keypad** in fullscreen chrome.
+3. Focus a Windows text field (Notepad, browser, Excel cell, …).
+4. Tap keys on the translucent overlay.
+5. Close with **✕**, tap empty overlay, toggle **Keypad** again, open Settings, or disconnect.
 
-### Option A — Two columns, one glance (recommended)
+---
+
+## Layout (locked)
+
+One screen, **4 + 4 columns × 5 rows**, same key cell size both sides.  
+Panel centered in the **pad/content column** (`position: fixed; left: var(--menu-w)`): with the side menu open that is the menu-mode middle; in fullscreen `--menu-w` is 0 so it centers on the full screen. Overlay background transparent; only keys have light fill.
 
 ```text
-┌──────────────────────────────────────────────┐
-│  pad (visible through transparent overlay)     │
-│                                                │
-│   ┌─────────────┐    ┌───────────────────┐   │
-│   │  SYMBOLS    │    │   NUMBERS         │   │
-│   │  (left)     │    │   (right)         │   │
-│   │             │    │                   │   │
-│   │  ① ② ③ ④   │    │   7  8  9         │   │
-│   │  ⑤ ⑥ ⑦ ⑧   │    │   4  5  6         │   │
-│   │  ✓  ←  →   │    │   1  2  3         │   │
-│   │  …  ·  ※   │    │   0     .   ⌫    │   │
-│   └─────────────┘    └───────────────────┘   │
-│                                        [ ✕ ]   │
-└──────────────────────────────────────────────┘
+   symbols 4×5              Win-style numpad 4×5
+  ,  …  ⋮  ·               ⌫   /   *   −
+  ✓  ✔  ☐  ☑               7   8   9   +
+  ←  →  ↑  ↓               4   5   6   +
+  ⇒  ⇔  ※  ★               1   2   3   ↵
+  ○  ●  ▲  ▼               0       .   ↵
 ```
 
-- **Right:** classic Win numpad feel — `789 / 456 / 123 / 0 . ⌫`  
-- **Left:** favorites grid, same key size language, fewer columns so it doesn’t fight the numbers  
-- One open action → both visible; no tab tap to switch  
-- Fits “숫자랑 자주 쓰는 것들이 한눈에”
+| Side | Content |
+|------|---------|
+| **Left** | Non-Shift marks (arrows, ellipses, checks, shapes) + **`,`** only punctuation exception |
+| **Right** | Windows numpad geometry: wide `0`, tall `+` / `Enter`; `⌫` instead of NumLock |
 
-### Option B — Tabs (숫자 | 기호)
+**Not on left:** `@ # $ %` and other Shift-easy ASCII — use a real keyboard.  
+**Not in v1:** circled digits / page-2 layer — see § Future.
 
-```text
-        [ 숫자 ]  [ 기호 ]
-        ┌─────────────────┐
-        │   7 8 9         │
-        │   4 5 6         │
-        │   1 2 3         │
-        │   0   .  ⌫      │
-        └─────────────────┘
+---
+
+## Wire protocol
+
+Tablet → PC (USB JSON or BT framed JSON), one tap one message:
+
+```json
+{ "type": "key", "vk": "num7" }
+{ "type": "key", "text": "✓" }
 ```
 
-Simpler on narrow pads; worse for “한 화면에”. Secondary choice if A feels cramped on Tab S7 landscape.
+| Field | Meaning |
+|-------|---------|
+| `vk` | Named virtual key — see table below |
+| `text` | One Unicode glyph (max 8 chars enforced on PC); `,` special-cased to a real comma key |
 
-### Option C — Numbers only centered; symbols in a thin strip above
+Handlers: `windows/transport/websocket.py`, `windows/transport/bluetooth.py` (`_handle_control`).
 
-Less “two panes”; easier to build; weaker for favorites. Fallback if A is too busy.
+### `vk` names → Windows keys
 
-**Recommendation:** **Option A** on landscape Tab; if height is tight, shrink symbol rows first, keep numpad 4×3 intact.
+| Name | Injected as | Notes |
+|------|-------------|--------|
+| `num0`…`num9` | Main row `0`–`9` (`VK 0x30`–`0x39`) | **Not** `VK_NUMPAD*` — works with NumLock **off** |
+| `decimal` | `VK_OEM_PERIOD` | Same NumLock-safe reason |
+| `divide` `multiply` `subtract` `add` | Numpad ops | Not NumLock-sensitive |
+| `backspace` | `VK_BACK` | |
+| `enter` | `VK_RETURN` | |
+| `comma` | `VK_OEM_COMMA` | Used when `text` is `,` |
 
----
+**NumLock decision:** no NumLock key on the panel. Digits always type digits. Real numpad scan codes are not required for v1 target apps (Notepad, Office, browsers).
 
-## 3. Numpad key set (v1)
-
-Fixed, Windows-like:
-
-```text
-7 8 9
-4 5 6
-1 2 3
-0   .  ⌫
-```
-
-Optional later (not v1): `+` `−` `Enter`, NumLock.
-
-PC side: send as keyboard digits / OEM period / Backspace (not clipboard), so focused apps get real key events.
+Left symbols (except `,`) use `KEYEVENTF_UNICODE` via `SendInput`.
 
 ---
 
-## 4. Starter symbols (v1, hard-coded list)
+## Code map
 
-Small set only — editable later:
-
-- Circled digits: `①②③④⑤⑥⑦⑧⑨⑩` (or ①–⑨)  
-- Marks: `✓` `✗` `※` `·` `…`  
-- Arrows: `←` `→` `↑` `↓`  
-
-Tap → insert Unicode into the focused Windows app (clipboard paste or Unicode inject — choose at implement time; prefer inject if reliable).
-
----
-
-## 5. Visual rules
-
-- Overlay root: transparent; only key cells have slight fill (`rgba` ~20–35% opacity) so pad texture shows through  
-- Keys: large enough for finger (~48–56 CSS px), clear labels  
-- Don’t dim the whole pad to black (lesson from region picker)  
-- Panel anchored bottom or center-bottom so the top of the pad stays usable if we allow “half open” later; v1 can be center overlay with ✕  
-
----
-
-## 6. Work slices (after layout lock)
-
-| Slice | What |
+| Piece | Role |
 |-------|------|
-| **K1** | HTML/CSS overlay + Option A layout (no PC inject yet; log taps) |
-| **K2** | PC: digit / backspace / `.` key injection |
-| **K3** | PC: Unicode for starter symbols |
-| **K4** | Wire open button; USB + BT smoke; docs |
+| `touchpad_v04.html` | Overlay UI, **Keypad** buttons, `sendKey` → `sendRaw` |
+| `windows/core/keyboard.py` | `apply_key_packet` / `tap_vk` / `tap_text` |
+| `websocket.py` / `bluetooth.py` | Route `type:"key"` before contact packets |
+| `tests/test_keyboard.py` | Struct size + name map (no live typing) |
+
+Android APK picks up HTML from `windows/static` (`android/app/build.gradle.kts` assets `srcDir`). **Rebuild APK** after HTML changes for Bluetooth; USB serves the file live after engine restart / refresh.
 
 ---
 
-## 7. Open decision (this chat)
+## Behaviour notes
 
-1. **Layout:** A (two columns) vs B (tabs)? → leaning **A**  
-2. **0 key:** wide `0` spanning two cells (true numpad) vs single cell + `.` + `⌫`?  
-3. **Panel position:** center vs bottom dock?
+- Opening keypad **releases** active touch/pen contacts.
+- Overlay sits above the pad (`z-index` 15); Settings sheet is higher (20) and closes the keypad when opened.
+- Disconnect closes the keypad.
+- Taps while disconnected are ignored (`isOpen()`).
+- Inject goes to the **focused** Windows window — focus Notepad (etc.) first.
+- Some elevated / DirectInput-only apps may ignore synthetic keys (OS limitation).
 
-Once those three are answered, implement K1.
+---
+
+## Tests / smoke
+
+```powershell
+python -m unittest tests.test_keyboard -v
+```
+
+Manual (after engine start + CONNECTED):
+
+- [ ] Menu **Keypad** opens overlay; pad grid visible underneath
+- [ ] Fullscreen **Keypad** works
+- [ ] Notepad: `123` `0` `.` `⌫` `↵` and `/ * − +`
+- [ ] Notepad: `,` `…` `✓` `←` etc.
+- [ ] NumLock **off** on PC — digits still type digits
+- [ ] ✕ / backdrop / Settings / disconnect close overlay
+- [ ] USB path; rebuild APK and spot-check Bluetooth if needed
+
+---
+
+## Future
+
+| Item | Intent |
+|------|--------|
+| **Page 2 — circled digits** | Layer button flips right `0–9` faces to `⓪①…⑨` (ops row unchanged) |
+| Symbol edit UI | Replace hard-coded left 20 |
+| **Keypad size slider** | Persist scale; v1 is fixed larger for Tab S7 |
+| Optional real-numpad mode | Only if an app truly needs `VK_NUMPAD*` |
+
+---
+
+## Decision log (v1)
+
+1. One screen, 4+4 × 5; same key size  
+2. `,` on left only  
+3. Panel centered on **`#stage`** (menu-mode pad middle / fullscreen full); translucent keys  
+4. Win numpad geometry; no NumLock key — digits via main-row VKs  
+5. Left: non-Shift marks only (+ `,`)  
+6. Circled digits deferred to page 2  
+7. Key size: fixed large for Tab S7; user scale control later (BACKLOG)

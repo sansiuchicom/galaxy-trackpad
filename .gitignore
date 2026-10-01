@@ -1,3 +1,7 @@
+# Scratch captures (not for git)
+tmp/
+tmp/**
+
 # Local ADB (download separately; see README)
 platform-tools/
 platform-tools/**

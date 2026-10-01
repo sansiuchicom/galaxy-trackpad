@@ -141,6 +141,15 @@ async def run_input_server(shared: SharedInput | None = None):
                     await _send_state(websocket)
                     continue
 
+                if msg_type == "key":
+                    try:
+                        from windows.core.keyboard import apply_key_packet
+
+                        apply_key_packet(packet)
+                    except (OSError, ValueError) as exc:
+                        debug(f"key inject failed: {exc}")
+                    continue
+
                 if msg_type not in (None, "input") and "contacts" not in packet:
                     debug(f"Ignored message type={msg_type!r}")
                     continue

@@ -1,18 +1,23 @@
-# Media assets for the README
+# Screenshots for the README
 
-Put demo images or short GIFs here so the main README can link them without restructuring.
+Source: cropped / resized from `tmp/` capture dumps (not committed).
 
-Suggested filenames:
+| File | Side | Content |
+|------|------|---------|
+| `tablet-transport.jpg` | Tablet | USB / Bluetooth launch picker |
+| `tablet-bluetooth-pick.jpg` | Tablet | Bluetooth PC chooser |
+| `tablet-connected.jpg` | Tablet | Connected pad (Drawing profile) |
+| `tablet-keypad.jpg` | Tablet | Keypad overlay |
+| `tablet-fullscreen.jpg` | Tablet | Fullscreen icon rail |
+| `windows-app.jpg` | Windows | Main Galaxy Trackpad window |
+| `windows-region-picker.jpg` | Windows | Drag pen region |
+| `windows-pen-region.jpg` | Windows | Active Drawing region outline |
+| `windows-advanced-pen.jpg` | Windows | Advanced → S Pen monitor map |
 
-| File | Use |
-|------|-----|
-| `demo.gif` | Short loop: tablet pad → Windows cursor |
-| `hero.png` | Optional still frame / social-preview source |
+**Highlights** (always visible): connected pad · keypad · Windows app.
 
-After you add a file, edit the **Demo** section in the root `README.md` and replace the placeholder with, for example:
+**More screenshots** (collapsed): two story rows (no HTML tables — GitHub always draws table borders).
+1. Connect — transport → Bluetooth pick → fullscreen chrome
+2. S Pen region — drag region → outline → advanced map
 
-```markdown
-![Galaxy Trackpad demo](docs/media/demo.gif)
-```
-
-Do not commit large raw video files into git. Prefer a short GIF (or link to a hosted video) and keep `releases/` binaries out of the tree.
+Captions sit in one centered line under each image row. Keep JPEGs small (~720px wide).

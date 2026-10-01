@@ -91,6 +91,14 @@ def _handle_control(sock, packet: dict[str, Any]) -> bool:
         except OSError as exc:
             write_frame(sock, {"type": "ack", "action": "set_profile", "ok": False, "error": str(exc)})
         return True
+    if msg_type == "key":
+        try:
+            from windows.core.keyboard import apply_key_packet
+
+            apply_key_packet(packet)
+        except (OSError, ValueError) as exc:
+            debug(f"key inject failed: {exc}")
+        return True
     return msg_type not in (None, "input") and "contacts" not in packet
 
 
