@@ -16,8 +16,8 @@ Source: cropped / resized from `tmp/` capture dumps (not committed).
 
 **Highlights** (always visible): connected pad · keypad · Windows app.
 
-**More screenshots** (collapsed): two story rows —
+**More screenshots** (collapsed): two story rows (no HTML tables — GitHub always draws table borders).
 1. Connect — transport → Bluetooth pick → fullscreen chrome
 2. S Pen region — drag region → outline → advanced map
 
-Each cell has a short caption under the image. Keep JPEGs small (~720px wide).
+Captions sit in one centered line under each image row. Keep JPEGs small (~720px wide).

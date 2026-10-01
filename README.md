@@ -33,43 +33,33 @@ Three highlights — same pad on tablet and Windows (USB or Bluetooth).
 
 Launch on the tablet, choose **USB or Bluetooth**, then (on Bluetooth) pick the PC.
 
-<table>
-  <tr>
-    <td align="center" width="33%">
-      <img src="docs/media/tablet-transport.jpg" width="240" alt="USB or Bluetooth picker" /><br />
-      <sub>1 · USB or Bluetooth</sub>
-    </td>
-    <td align="center" width="33%">
-      <img src="docs/media/tablet-bluetooth-pick.jpg" width="240" alt="Bluetooth PC picker" /><br />
-      <sub>2 · Pick this PC</sub>
-    </td>
-    <td align="center" width="33%">
-      <img src="docs/media/tablet-fullscreen.jpg" width="240" alt="Fullscreen icon rail" /><br />
-      <sub>3 · Fullscreen icon rail</sub>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/media/tablet-transport.jpg" width="240" alt="USB or Bluetooth picker" />
+  &nbsp;
+  <img src="docs/media/tablet-bluetooth-pick.jpg" width="240" alt="Bluetooth PC picker" />
+  &nbsp;
+  <img src="docs/media/tablet-fullscreen.jpg" width="240" alt="Fullscreen icon rail" />
+</p>
+
+<p align="center">
+  <sub>1 · USB or Bluetooth &nbsp;&nbsp;·&nbsp;&nbsp; 2 · Pick this PC &nbsp;&nbsp;·&nbsp;&nbsp; 3 · Fullscreen icon rail</sub>
+</p>
 
 #### S Pen region — draw only where you want
 
 On Windows, drag a capture-style region, see the outline while Drawing, and map the pen to a monitor.
 
-<table>
-  <tr>
-    <td align="center" width="33%">
-      <img src="docs/media/windows-region-picker.jpg" width="240" alt="Pen region picker" /><br />
-      <sub>1 · Drag a region</sub>
-    </td>
-    <td align="center" width="33%">
-      <img src="docs/media/windows-pen-region.jpg" width="240" alt="Pen region outline" /><br />
-      <sub>2 · Outline while Drawing</sub>
-    </td>
-    <td align="center" width="33%">
-      <img src="docs/media/windows-advanced-pen.jpg" width="110" alt="Advanced S Pen settings" /><br />
-      <sub>3 · Map to a monitor</sub>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/media/windows-region-picker.jpg" width="240" alt="Pen region picker" />
+  &nbsp;
+  <img src="docs/media/windows-pen-region.jpg" width="240" alt="Pen region outline" />
+  &nbsp;
+  <img src="docs/media/windows-advanced-pen.jpg" width="110" alt="Advanced S Pen settings" />
+</p>
+
+<p align="center">
+  <sub>1 · Drag a region &nbsp;&nbsp;·&nbsp;&nbsp; 2 · Outline while Drawing &nbsp;&nbsp;·&nbsp;&nbsp; 3 · Map to a monitor</sub>
+</p>
 
 </details>
 
@@ -136,6 +126,19 @@ Honest limits:
 - One tablet session at a time; one transport per app launch (no mid-session USB ↔ Bluetooth switch).
 - USB needs **ADB reverse** (the Windows package bundles `platform-tools` and sets this up for you).
 - Bluetooth needs a normal OS **pairing** first; the tablet then dials the PC by service UUID (RFCOMM). Details: [docs/BLUETOOTH.md](docs/BLUETOOTH.md).
+
+---
+
+## FAQ
+
+**Do I need root or the Play Store?**  
+No. Install the APK (sideload) and run the Windows zip. No custom kernel, no store listing.
+
+**USB: the tablet does not connect. What should I check?**  
+USB debugging on, a data-capable cable, accept the PC authorization prompt, and keep `GalaxyTrackpad.exe` running. On the tablet choose **USB**, then wait for CONNECTED. Full steps: [docs/INSTALL.md](docs/INSTALL.md).
+
+**USB or Bluetooth — which should I use?**  
+Prefer **USB** when you care about latency (drawing). Use **Bluetooth** when you want wireless after a normal OS pairing. The Windows app advertises both while it runs; you pick the transport on the tablet (one per launch). Bluetooth notes: [docs/BLUETOOTH.md](docs/BLUETOOTH.md).
 
 ---
 
