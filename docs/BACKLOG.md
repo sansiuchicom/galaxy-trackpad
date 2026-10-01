@@ -31,17 +31,35 @@ On the current Everyday / Drawing setup, S Pen input feels mapped to only a **le
 
 ---
 
-### idea — Trackpad + number pad on one screen
+### idea — Trackpad + pop-up keypad (digits + custom symbols)
 
-**Reported:** 2026-10-01
+**Reported:** 2026-10-01 (extended same day)
 
-Show a **trackpad surface** and a **numeric keypad** together on the tablet UI.
+Pad stays the main surface. A **small menu / button** opens a panel (pop-in), not a permanent second layout unless the user wants that.
 
-- Both visible at once when wanted.
-- Each panel can be **turned on/off** independently (trackpad only, numpad only, or both).
-- Numpad should send normal digit / numpad key events to Windows (exact key codes TBD when implementing).
+**Panel contents (tabs or pages — TBD):**
 
-**Rough UI sketch:** split layout (pad + keypad), with toggles in the side menu or settings sheet.
+1. **Number pad** — digits and usual numpad keys → Windows key events.
+2. **Custom symbol palette** — user-configured **emoji / emoticons / special characters** (not only 0–9). Examples people already bookmark elsewhere:
+   - Circled / enclosed numbers and letters (`①②③…`, similar sets)
+   - Common marks, arrows, shapes, check marks
+   - Coding / “code” style emoji and symbols  
+   Inspiration (reference only, not to copy wholesale):  
+   [특수문자·이모티콘 정리](https://sharedfolder.tistory.com/35),  
+   [Code emojis](https://emojidb.org/code-emojis)
+
+**Behavior sketch:**
+
+- Toggle: hide trackpad / hide keypad panel independently if useful; default = trackpad always, keypad on demand (“뿅”).
+- Tapping a glyph **types/pastes that character into the focused Windows app** (Unicode via keyboard/IME injection or clipboard paste — choose when implementing).
+- User can **edit the palette** (add/remove/reorder favorites); persist on Windows settings (same place as other prefs).
+- Ship a small **starter set** (digits + a few circled numbers / checks); full lists stay optional imports.
+
+**Open design questions (later):**
+
+- Inject as Unicode text vs clipboard paste (app compatibility).
+- How big the starter set is; whether “import from file” is needed.
+- Same panel over Bluetooth (bandwidth irrelevant for rare key taps).
 
 ---
 
