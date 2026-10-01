@@ -12,43 +12,38 @@ Use an idle Galaxy Tab (or similar Android tablet) as a Windows trackpad — and
 
 ## Demo
 
-Compact previews (click through on GitHub for full size).
+Three highlights — same pad on tablet and Windows (USB or Bluetooth).
 
-<table>
-<tr>
-<td width="50%" valign="top">
+<p align="center">
+  <img src="docs/media/tablet-connected.jpg" width="280" alt="Tablet pad connected" />
+  &nbsp;
+  <img src="docs/media/tablet-keypad.jpg" width="280" alt="Keypad overlay" />
+  &nbsp;
+  <img src="docs/media/windows-app.jpg" width="200" alt="Windows Galaxy Trackpad app" />
+</p>
+
+<p align="center">
+  <sub>Connected pad · Keypad · Windows app</sub>
+</p>
+
+<details>
+<summary>More screenshots</summary>
 
 **Tablet**
 
-<img src="docs/media/tablet-transport.jpg" width="360" alt="USB or Bluetooth picker" />
-
-<img src="docs/media/tablet-connected.jpg" width="360" alt="Connected pad with Drawing profile" />
-
-<img src="docs/media/tablet-keypad.jpg" width="360" alt="Keypad overlay" />
-
-<img src="docs/media/tablet-fullscreen.jpg" width="360" alt="Fullscreen icon rail" />
-
-</td>
-<td width="50%" valign="top">
+<p>
+  <img src="docs/media/tablet-transport.jpg" width="240" alt="USB or Bluetooth picker" />
+  <img src="docs/media/tablet-bluetooth-pick.jpg" width="240" alt="Bluetooth PC picker" />
+  <img src="docs/media/tablet-fullscreen.jpg" width="240" alt="Fullscreen icon rail" />
+</p>
 
 **Windows**
 
-<img src="docs/media/windows-app.jpg" width="280" alt="Windows Galaxy Trackpad app" />
-
-<img src="docs/media/windows-pen-region.jpg" width="360" alt="Drawing pen region outline" />
-
-<img src="docs/media/windows-region-picker.jpg" width="360" alt="Pen region picker" />
-
-<img src="docs/media/windows-advanced-pen.jpg" width="280" alt="Advanced S Pen settings" />
-
-</td>
-</tr>
-</table>
-
-<details>
-<summary>More — Bluetooth PC picker</summary>
-
-<img src="docs/media/tablet-bluetooth-pick.jpg" width="420" alt="Bluetooth PC picker" />
+<p>
+  <img src="docs/media/windows-region-picker.jpg" width="240" alt="Pen region picker" />
+  <img src="docs/media/windows-pen-region.jpg" width="240" alt="Pen region outline" />
+  <img src="docs/media/windows-advanced-pen.jpg" width="200" alt="Advanced S Pen settings" />
+</p>
 
 </details>
 
