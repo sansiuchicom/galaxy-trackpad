@@ -14,7 +14,10 @@ Source: cropped / resized from `tmp/` capture dumps (not committed).
 | `windows-pen-region.jpg` | Windows | Active Drawing region outline |
 | `windows-advanced-pen.jpg` | Windows | Advanced → S Pen monitor map |
 
-README shows **three highlights** (connected pad, keypad, Windows app).  
-The rest sit under a collapsed “More screenshots” section.
+**Highlights** (always visible): connected pad · keypad · Windows app.
 
-Keep JPEGs small (about 720px wide). Embed with HTML `width=` for compact previews.
+**More screenshots** (collapsed): two story rows —
+1. Connect — transport → Bluetooth pick → fullscreen chrome
+2. S Pen region — drag region → outline → advanced map
+
+Each cell has a short caption under the image. Keep JPEGs small (~720px wide).

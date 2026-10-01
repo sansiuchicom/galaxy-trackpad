@@ -29,26 +29,50 @@ Three highlights — same pad on tablet and Windows (USB or Bluetooth).
 <details>
 <summary>More screenshots</summary>
 
-**Tablet**
+#### Connect — tablet picks the path
 
-<p align="center">
-  <img src="docs/media/tablet-transport.jpg" width="240" alt="USB or Bluetooth picker" />
-  <img src="docs/media/tablet-bluetooth-pick.jpg" width="240" alt="Bluetooth PC picker" />
-  <img src="docs/media/tablet-fullscreen.jpg" width="240" alt="Fullscreen icon rail" />
-</p>
+Launch on the tablet, choose **USB or Bluetooth**, then (on Bluetooth) pick the PC.
 
-**Windows**
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <img src="docs/media/tablet-transport.jpg" width="240" alt="USB or Bluetooth picker" /><br />
+      <sub>1 · USB or Bluetooth</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/media/tablet-bluetooth-pick.jpg" width="240" alt="Bluetooth PC picker" /><br />
+      <sub>2 · Pick this PC</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/media/tablet-fullscreen.jpg" width="240" alt="Fullscreen icon rail" /><br />
+      <sub>3 · Fullscreen icon rail</sub>
+    </td>
+  </tr>
+</table>
 
-<p align="center">
-  <img src="docs/media/windows-region-picker.jpg" width="249" alt="Pen region picker" />
-  <img src="docs/media/windows-pen-region.jpg" width="249" alt="Pen region outline" />
-  <img src="docs/media/windows-advanced-pen.jpg" width="119" alt="Advanced S Pen settings" />
-</p>
+#### S Pen region — draw only where you want
+
+On Windows, drag a capture-style region, see the outline while Drawing, and map the pen to a monitor.
+
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <img src="docs/media/windows-region-picker.jpg" width="240" alt="Pen region picker" /><br />
+      <sub>1 · Drag a region</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/media/windows-pen-region.jpg" width="240" alt="Pen region outline" /><br />
+      <sub>2 · Outline while Drawing</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="docs/media/windows-advanced-pen.jpg" width="110" alt="Advanced S Pen settings" /><br />
+      <sub>3 · Map to a monitor</sub>
+    </td>
+  </tr>
+</table>
 
 </details>
 
-
----
 
 ## Features
 
