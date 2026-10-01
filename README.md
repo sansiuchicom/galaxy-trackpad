@@ -12,14 +12,27 @@ Use an idle Galaxy Tab (or similar Android tablet) as a Windows trackpad — and
 
 ## Demo
 
-_Demo GIF or short video coming soon._
+Tablet on the left-hand shots, Windows on the right — same pad over **USB or Bluetooth**.
 
-<!-- After adding a file under docs/media/, replace the line above, for example:
+### Tablet
 
-![Galaxy Trackpad demo](docs/media/demo.gif)
+| Preview | What it shows |
+|---------|----------------|
+| ![Choose USB or Bluetooth](docs/media/tablet-transport.jpg) | Pick **USB** or **Bluetooth** at launch |
+| ![Bluetooth PC picker](docs/media/tablet-bluetooth-pick.jpg) | Bluetooth: choose this PC |
+| ![Connected pad](docs/media/tablet-connected.jpg) | Pad + Everyday / Drawing profiles |
+| ![Keypad overlay](docs/media/tablet-keypad.jpg) | Pop-up **Keypad** (symbols + Win-style numpad) |
+| ![Fullscreen chrome](docs/media/tablet-fullscreen.jpg) | Fullscreen icon rail + connection status |
 
-See docs/media/README.md for naming suggestions.
--->
+### Windows
+
+| Preview | What it shows |
+|---------|----------------|
+| ![Windows app](docs/media/windows-app.jpg) | Engine, sensitivities, S Pen profiles |
+| ![Pen region picker](docs/media/windows-region-picker.jpg) | Drawing: drag a pen region on the monitor |
+| ![Pen region outline](docs/media/windows-pen-region.jpg) | Thin outline while Drawing is active |
+| ![Advanced S Pen](docs/media/windows-advanced-pen.jpg) | Advanced: monitor map, stretch / preserve aspect |
+
 
 ---
 
