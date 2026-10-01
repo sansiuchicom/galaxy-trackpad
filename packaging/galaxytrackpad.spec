@@ -28,6 +28,8 @@ hiddenimports = [
     "windows.core.pen_mapping",
     "windows.core.displays",
     "windows.core.sensitivity",
+    "windows.core.keyboard",
+    "windows.dpi",
     "windows.transport",
     "windows.transport.adb",
     "windows.transport.http",
@@ -47,11 +49,14 @@ hiddenimports = [
     "windows.transport.pacing",
     "windows.settings",
     "windows.settings.store",
+    "windows.settings.pad_aspect",
     "windows.ui",
     "windows.ui.main_window",
     "windows.ui.advanced_dialog",
     "windows.ui.monitor_picker",
     "windows.ui.widgets",
+    "windows.ui.region_picker",
+    "windows.ui.region_outline",
 ]
 
 for pkg in ("PySide6", "shiboken6", "websockets"):

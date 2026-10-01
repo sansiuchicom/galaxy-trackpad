@@ -22,7 +22,7 @@ Occasional digits and a few marks without leaving the pad. Not a full keyboard.
 ## Layout (locked)
 
 One screen, **4 + 4 columns × 5 rows**, same key cell size both sides.  
-Panel centered on the **viewport** (`position: fixed`) so menu open vs fullscreen stay in roughly the same place on the tablet. Overlay background transparent; only keys have light fill.
+Panel centered in the **pad/content column** (`position: fixed; left: var(--menu-w)`): with the side menu open that is the menu-mode middle; in fullscreen `--menu-w` is 0 so it centers on the full screen. Overlay background transparent; only keys have light fill.
 
 ```text
    symbols 4×5              Win-style numpad 4×5
@@ -133,7 +133,7 @@ Manual (after engine start + CONNECTED):
 
 1. One screen, 4+4 × 5; same key size  
 2. `,` on left only  
-3. Panel centered on **viewport** (same place with/without menu); translucent keys  
+3. Panel centered on **`#stage`** (menu-mode pad middle / fullscreen full); translucent keys  
 4. Win numpad geometry; no NumLock key — digits via main-row VKs  
 5. Left: non-Shift marks only (+ `,`)  
 6. Circled digits deferred to page 2  
