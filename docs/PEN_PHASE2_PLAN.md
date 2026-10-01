@@ -26,20 +26,26 @@ Win+Shift+S / screen capture. After that, **full pad ↔ that rectangle**
 
 ## 2. UX sketch
 
-**Windows app**
+**Start (Windows app only in v1)**
 
-1. Button: **Select pen region** (main window and/or Advanced, Drawing-focused).  
-2. Optional: dim/hide Galaxy Trackpad window briefly.  
-3. Full-screen (or monitor-sized) overlay: crosshair, drag rectangle, **Enter/click** confirm, **Esc** cancel.  
-4. While picking: ignore tablet pen input (or overlay topmost so ink doesn’t land in the wrong app).  
-5. After confirm: toast / status “Pen region set”, engine reloads mapping.  
-6. **Clear pen region** restores display-wide mapping.
+1. Button: **Select pen region** (main window; tray duplicate optional).  
+2. **Clear pen region** next to it.  
+3. Picker: dim the **chosen monitor**, drag a rectangle (capture-style), release = confirm, **Esc** = cancel.  
+4. While picking: ignore tablet pen input; optionally hide/minimize the main window.  
+5. Selecting a region switches active profile to **Drawing** and persists the region.
+
+**After the region is set — what you see on the PC**
+
+- Always show a **thin outline** of the active pen region on that monitor (semi-transparent border, not a heavy dim overlay).  
+  Purpose: know where the pad maps without covering the signature UI.  
+- Outside the box stays normal (no permanent dark veil).  
+- Optional later: checkbox “Show region outline” to hide the line; **v1 default = on**.  
+- Status text in the app: e.g. `Drawing · region` vs `Drawing · full display`.
 
 **Tablet**
 
-- No drag UI in v1 (PC picks the region; tablet just writes).  
-- S Pen Area frame: when region is active, show **full pad** (stretch target is the region).  
-- Optional later: small label “Region” vs “Display”.
+- Full-pad S Pen Area (stretch onto the region).  
+- No region picker on the tablet in v1.
 
 ---
 
@@ -87,12 +93,13 @@ Suggested order: **2a → 2b → 2c → 2d**. Discuss overlay details before 2b 
 
 ---
 
-## 5. Open decisions (answer before coding 2b)
+## 5. Locked decisions
 
-1. **Region only in Drawing**, or also Everyday? → Recommend **Drawing only**.  
-2. **Persist across restarts?** → Recommend **yes** (in settings JSON).  
-3. Overlay covers **one monitor** vs all virtual desktop? → Recommend **chosen monitor only**.  
-4. After set region, force profile to Drawing? → Recommend **yes** if user started picker from a global button.
+1. **Region only in Drawing** (picker forces Drawing).  
+2. **Persist** region in settings across restarts.  
+3. Overlay / outline on the **chosen monitor only**.  
+4. After set: **thin semi-transparent border always visible** on that region (v1); not a full-screen dim.  
+5. **Clear** removes region + outline → display-level Drawing/Everyday again.
 
 ---
 
@@ -107,7 +114,7 @@ Suggested order: **2a → 2b → 2c → 2d**. Discuss overlay details before 2b 
 
 ## 7. Success criteria
 
-- Drag a box over a PDF signature field → pad corners map to that box corners.  
-- Clear → Drawing/Everyday display mapping restored.  
+- Drag a box → pad corners map to that box; **thin outline** stays on screen.  
+- Clear → outline gone; display mapping restored.  
 - DPI 125% primary still correct (phase 1 awareness stays on).  
 - Cancel / Esc leaves previous mapping unchanged.
