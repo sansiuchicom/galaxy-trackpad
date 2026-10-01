@@ -13,9 +13,9 @@ Real-use priority (signatures first):
 
 | # | Item | Why this order |
 |---|------|----------------|
-| **1** | **Pen mapping bug** (full monitor ↔ full pad) | Blocking signatures / drawing today. Smallest surface: `pen_mapping.py` + profile defaults + verify Everyday vs Drawing. |
-| **2** | **S Pen drawing mode** (drag a PC region) | Needs correct mapping math from (1). Bigger UI (region picker on Windows). |
-| **3** | **Pop-up keypad + custom symbols** | Orthogonal to pen; large tablet UI + Unicode inject. Do after pen is usable for daily signatures. |
+| **1** | **Pen mapping — display level** (Everyday full screen + Drawing aspect band) | See **[PEN_PHASE1_PLAN.md](PEN_PHASE1_PLAN.md)** (cause → fix). No drag-region yet. |
+| **2** | **S Pen capture-style region** (drag a rectangle when you want) | Only after (1) feels right on a whole display. |
+| **3** | **Pop-up keypad + custom symbols** | Orthogonal to pen; after pen is usable for daily signatures. |
 
 Do **not** start (2) or (3) until (1) feels right in real signature apps.
 
@@ -23,25 +23,17 @@ Do **not** start (2) or (3) until (1) feels right in real signature apps.
 
 ## Open
 
-### bug — Pen only covers the left part of the monitor
+### bug / investigate — Pen mapping feel (display level)
 
-**Reported:** 2026-10-01 (real use after v0.10.0)
+**Reported:** 2026-10-01 · **Plan:** [PEN_PHASE1_PLAN.md](PEN_PHASE1_PLAN.md)
 
-On the current Everyday / Drawing setup, S Pen input feels mapped to only a **left strip** of the Windows display instead of the **whole monitor ↔ whole pad**.
+**Agreed target:**
 
-**Desired:** Full selected monitor (or full chosen area at 100%) maps edge-to-edge onto the pad surface — left/right/top/bottom of the pad = left/right/top/bottom of that region.
+- **Everyday:** full pad → **whole** chosen display (`stretch`).
+- **Drawing:** aspect-matched **pad band** → **whole** chosen display (`preserve`).
+- Drag-to-select region: **later** (item below).
 
-**Likely related code (for whoever picks this up later):**
-
-- `windows/core/pen.py` — `active_rect()` / mapping
-- Pen profiles in settings: `mapping` (`stretch` vs `preserve_aspect_ratio`), `area_size`
-- Pad UI “S Pen Area” frame driven by server `active_rect` (`touchpad_v04.html`)
-
-**Notes for investigation (not started):**
-
-- Confirm which profile was active (Everyday = stretch, Drawing = preserve aspect by default).
-- Confirm monitor selection and `area_size` in Advanced.
-- Aspect-ratio “letterboxing” can look like unused bands; a **left-only** active region is a stronger signal of wrong rect math or wrong monitor bounds.
+**Leading cause hypothesis:** Drawing uses fixed `tablet_aspect` (full Tab 1.6) while UV is relative to the `#pad` div (menu / fullscreen change the real aspect). Defaults already match the agreed modes; UX + pad-aspect wiring are the main fix path. Live corner test still required for Everyday.
 
 ---
 
@@ -77,24 +69,14 @@ Pad stays the main surface. A **small menu / button** opens a panel (pop-in), no
 
 ---
 
-### idea — S Pen “drawing mode”: drag a PC region, use pad as LCD tablet
+### idea — S Pen region: drag like screen capture (phase 2)
 
-**Reported:** 2026-10-01
+**Reported:** 2026-10-01 · **Blocked on:** phase 1 display mapping ([PEN_PHASE1_PLAN.md](PEN_PHASE1_PLAN.md))
 
-Workflow:
+When you want (not instead of display-level defaults): drag a rectangle on the PC
+(like Win capture) and map the **full pad** onto that rectangle only — mini LCD tablet.
 
-1. Enter a drawing / tablet mode on the tablet (or Windows).
-2. **Drag a rectangle** on the Windows desktop (or on a preview) to choose the target region.
-3. That rectangle becomes the **S Pen absolute mapping** area.
-4. The tablet then acts like a **small LCD tablet** for that region (absolute pen), not relative trackpad.
-
-Related to the full-screen mapping bug above, but this feature is about **user-chosen arbitrary regions**, not only “whole monitor”.
-
-**Open design questions (later):**
-
-- Who draws the selection overlay — Windows app, or tablet remote UI?
-- Persist last region per profile?
-- How this interacts with Everyday / Drawing profiles and Bluetooth latency.
+Not “pick a display subdivision in Advanced” as the main story — on-demand capture-style selection.
 
 ---
 
