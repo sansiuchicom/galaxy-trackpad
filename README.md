@@ -160,6 +160,7 @@ Manual checklist: [tests/REGRESSION.md](tests/REGRESSION.md).
 | Longer soak / polish | In progress |
 | **1.0.0** | After real-world soak |
 
+Ideas and issues from daily use (not scheduled): **[docs/BACKLOG.md](docs/BACKLOG.md)**.  
 Lab tools used while building Bluetooth: [bluetooth_lab/README.md](bluetooth_lab/README.md). Older prototypes: `archive/`.
 
 ---
