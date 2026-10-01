@@ -13,27 +13,30 @@ Real-use priority (signatures first):
 
 | # | Item | Why this order |
 |---|------|----------------|
-| **1** | **Pen mapping — display level** (Everyday full screen + Drawing aspect band) | See **[PEN_PHASE1_PLAN.md](PEN_PHASE1_PLAN.md)** (cause → fix). No drag-region yet. |
-| **2** | **S Pen capture-style region** (drag a rectangle when you want) | Only after (1) feels right on a whole display. |
-| **3** | **Pop-up keypad + custom symbols** | Orthogonal to pen; after pen is usable for daily signatures. |
-
-Do **not** start (2) or (3) until (1) feels right in real signature apps.
+| **1a** | ~~Pen DPI / whole-display Everyday~~ | **Done** (`8074402`, verified) |
+| **1b** | Drawing pad-aspect (letterbox matches real `#pad`) | Phase 1 remainder — [PEN_PHASE1_PLAN.md](PEN_PHASE1_PLAN.md) C2 |
+| **2** | **S Pen capture-style region** (drag when you want) | After (1b); bigger UX |
+| **3** | **Pop-up keypad + custom symbols** | After pen is comfortable for signatures |
 
 ---
 
 ## Open
 
-### bug / investigate — Pen mapping feel (display level)
+### investigate — Drawing pad-aspect vs fixed tablet_aspect
 
-**Reported:** 2026-10-01 · **Plan:** [PEN_PHASE1_PLAN.md](PEN_PHASE1_PLAN.md)
+**Plan:** [PEN_PHASE1_PLAN.md](PEN_PHASE1_PLAN.md) C2  
 
-**Agreed target:**
+Drawing letterbox still uses `tablet_aspect` 1.6 (full Tab) while UV is the `#pad` box
+(menu / fullscreen change the real aspect). Everyday whole-display stretch is OK after DPI fix.
 
-- **Everyday:** full pad → **whole** chosen display (`stretch`).
-- **Drawing:** aspect-matched **pad band** → **whole** chosen display (`preserve`).
-- Drag-to-select region: **later** (item below).
+---
 
-**Leading cause hypothesis:** Drawing uses fixed `tablet_aspect` (full Tab 1.6) while UV is relative to the `#pad` div (menu / fullscreen change the real aspect). Defaults already match the agreed modes; UX + pad-aspect wiring are the main fix path. Live corner test still required for Everyday.
+### idea — S Pen region: drag like screen capture (phase 2)
+
+**Reported:** 2026-10-01 · **Blocked on:** phase 1b  
+
+When you want: drag a rectangle on the PC (like Win capture) and map the **full pad**
+onto that rectangle — mini LCD tablet. Harder; discuss before coding.
 
 ---
 
@@ -41,48 +44,15 @@ Do **not** start (2) or (3) until (1) feels right in real signature apps.
 
 **Reported:** 2026-10-01 (extended same day)
 
-Pad stays the main surface. A **small menu / button** opens a panel (pop-in), not a permanent second layout unless the user wants that.
+Pad stays the main surface. A **small menu / button** opens a panel (pop-in).
 
-**Panel contents (tabs or pages — TBD):**
-
-1. **Number pad** — digits and usual numpad keys → Windows key events.
-2. **Custom symbol palette** — user-configured **emoji / emoticons / special characters** (not only 0–9). Examples people already bookmark elsewhere:
-   - Circled / enclosed numbers and letters (`①②③…`, similar sets)
-   - Common marks, arrows, shapes, check marks
-   - Coding / “code” style emoji and symbols  
-   Inspiration (reference only, not to copy wholesale):  
-   [특수문자·이모티콘 정리](https://sharedfolder.tistory.com/35),  
-   [Code emojis](https://emojidb.org/code-emojis)
-
-**Behavior sketch:**
-
-- Toggle: hide trackpad / hide keypad panel independently if useful; default = trackpad always, keypad on demand (“뿅”).
-- Tapping a glyph **types/pastes that character into the focused Windows app** (Unicode via keyboard/IME injection or clipboard paste — choose when implementing).
-- User can **edit the palette** (add/remove/reorder favorites); persist on Windows settings (same place as other prefs).
-- Ship a small **starter set** (digits + a few circled numbers / checks); full lists stay optional imports.
-
-**Open design questions (later):**
-
-- Inject as Unicode text vs clipboard paste (app compatibility).
-- How big the starter set is; whether “import from file” is needed.
-- Same panel over Bluetooth (bandwidth irrelevant for rare key taps).
-
----
-
-### idea — S Pen region: drag like screen capture (phase 2)
-
-**Reported:** 2026-10-01 · **Blocked on:** phase 1 display mapping ([PEN_PHASE1_PLAN.md](PEN_PHASE1_PLAN.md))
-
-When you want (not instead of display-level defaults): drag a rectangle on the PC
-(like Win capture) and map the **full pad** onto that rectangle only — mini LCD tablet.
-
-Not “pick a display subdivision in Advanced” as the main story — on-demand capture-style selection.
+1. **Number pad** → Windows key events  
+2. **Custom symbol palette** — user favorites (emoji / special chars)  
+   Refs: [특수문자 정리](https://sharedfolder.tistory.com/35), [Code emojis](https://emojidb.org/code-emojis)
 
 ---
 
 ## Parking lot
-
-_(Shorter notes; promote to Open when they grow clear enough.)_
 
 _(empty)_
 
@@ -90,6 +60,7 @@ _(empty)_
 
 ## Done
 
-_(Move items here with a short “fixed in …” note when closed.)_
+### done — Pen only reached ~80% of the screen (DPI)
 
-_(empty)_
+**Fixed:** `8074402` — per-monitor DPI awareness so bounds match injection pixels.  
+**Verified:** 2026-10-01 Everyday corner test OK after restart.

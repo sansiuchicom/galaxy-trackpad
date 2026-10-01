@@ -174,7 +174,7 @@ class PenBridge:
             elif not self._repro_miss_logged:
                 self._repro_miss_logged = True
                 active = self.map_config.active_rect()
-                info(
+                debug(
                     "Pen miss uv=({:.3f},{:.3f}) mode={} active=({:.2f},{:.2f})-({:.2f},{:.2f})".format(
                         u,
                         v,
@@ -192,7 +192,7 @@ class PenBridge:
         if not self.pressed:
             active = self.map_config.active_rect()
             mon = self.map_config.monitor
-            info(
+            debug(
                 "Pen down uv=({:.3f},{:.3f}) -> ({},{}) mode={} "
                 "active=({:.2f},{:.2f})-({:.2f},{:.2f}) monitor=({},{} {}x{})".format(
                     u,
