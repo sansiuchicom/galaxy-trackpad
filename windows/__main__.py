@@ -5,6 +5,11 @@ import sys
 
 
 def main() -> None:
+    # Before monitors / Qt / pen injection — see windows.dpi.
+    from windows.dpi import enable_dpi_awareness
+
+    enable_dpi_awareness()
+
     if "--engine" in sys.argv:
         from windows.engine import engine_main
         engine_main()

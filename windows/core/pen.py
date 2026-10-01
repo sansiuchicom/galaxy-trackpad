@@ -86,6 +86,7 @@ class PenBridge:
         self.ticks = 1
         self.last_clock = time.monotonic()
         self._pending_config: dict[str, Any] | None = None
+        self._repro_miss_logged = False
         self.map_config = build_pen_map_from_settings()
         _active_pen = self
         active = self.map_config.active_rect()
@@ -155,6 +156,7 @@ class PenBridge:
     def update(self, pens):
         if not pens:
             self.release()
+            self._repro_miss_logged = False
             return
 
         contact = pens[0]
@@ -169,9 +171,45 @@ class PenBridge:
             # Outside active area: end stroke cleanly; do not jump-map.
             if self.pressed:
                 self.release()
+            elif not self._repro_miss_logged:
+                self._repro_miss_logged = True
+                active = self.map_config.active_rect()
+                info(
+                    "Pen miss uv=({:.3f},{:.3f}) mode={} active=({:.2f},{:.2f})-({:.2f},{:.2f})".format(
+                        u,
+                        v,
+                        self.map_config.mapping,
+                        active.left,
+                        active.top,
+                        active.right,
+                        active.bottom,
+                    )
+                )
             return
 
         x, y = mapped
+        self._repro_miss_logged = False
+        if not self.pressed:
+            active = self.map_config.active_rect()
+            mon = self.map_config.monitor
+            info(
+                "Pen down uv=({:.3f},{:.3f}) -> ({},{}) mode={} "
+                "active=({:.2f},{:.2f})-({:.2f},{:.2f}) monitor=({},{} {}x{})".format(
+                    u,
+                    v,
+                    x,
+                    y,
+                    self.map_config.mapping,
+                    active.left,
+                    active.top,
+                    active.right,
+                    active.bottom,
+                    mon.left,
+                    mon.top,
+                    mon.width,
+                    mon.height,
+                )
+            )
         self._send(contact, PEN_MOVE if self.pressed else PEN_DOWN, x, y)
         self.pressed = True
         self.last_contact = {**contact, "_pixel": (x, y)}

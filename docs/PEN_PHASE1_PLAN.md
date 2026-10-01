@@ -47,6 +47,16 @@ Second display on this PC: `960×640` at odd virtual coords — under preserve t
 
 ## 3. Causes (ranked)
 
+### C0 — DPI virtualization (**confirmed by Step 0 logs, 2026-10-01**)
+
+Engine / Python were **DPI-unaware**. On this PC the primary is **3840×2160 @ 125%**,
+but unaware code saw **3072×1728**. Pen injection used the lie-sized bounds, so the
+cursor only reached ~80% of the physical screen from the top-left — matches
+“right/bottom stop short (~5/6)”.
+
+**Fix:** `windows/dpi.py` + call at process start (`__main__` / `engine_main`) →
+Per-Monitor DPI awareness V2 so `list_monitors` and pen use physical pixels.
+
 ### C1 — Product vs expectation (partly resolved in discussion)
 
 Earlier “map the whole pad to the whole screen” sounded like **stretch**.  

@@ -27,6 +27,10 @@ from windows.transport.websocket import run_input_server
 
 
 def engine_main() -> None:
+    from windows.dpi import enable_dpi_awareness
+
+    # Engine is often started as its own process (--engine); do not rely on GUI.
+    enable_dpi_awareness()
     try:
         reload_settings()
         for port in (HTTP_PORT, WS_PORT, CONTROL_PORT):
