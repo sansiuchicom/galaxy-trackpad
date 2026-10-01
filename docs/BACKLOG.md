@@ -7,6 +7,20 @@ Status key: `idea` · `bug` · `investigate` · `wontfix` · `done`
 
 ---
 
+## Suggested build order
+
+Real-use priority (signatures first):
+
+| # | Item | Why this order |
+|---|------|----------------|
+| **1** | **Pen mapping bug** (full monitor ↔ full pad) | Blocking signatures / drawing today. Smallest surface: `pen_mapping.py` + profile defaults + verify Everyday vs Drawing. |
+| **2** | **S Pen drawing mode** (drag a PC region) | Needs correct mapping math from (1). Bigger UI (region picker on Windows). |
+| **3** | **Pop-up keypad + custom symbols** | Orthogonal to pen; large tablet UI + Unicode inject. Do after pen is usable for daily signatures. |
+
+Do **not** start (2) or (3) until (1) feels right in real signature apps.
+
+---
+
 ## Open
 
 ### bug — Pen only covers the left part of the monitor
