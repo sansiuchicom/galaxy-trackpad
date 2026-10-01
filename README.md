@@ -26,7 +26,8 @@ See docs/media/README.md for naming suggestions.
 ## Features
 
 - **Native Windows Precision Touchpad** — 1–5 fingers; tap, scroll, pinch; system 3- and 4-finger gestures
-- **S Pen → Windows pen** — pressure and tilt when the tablet supports it; Everyday / Drawing profiles
+- **S Pen → Windows pen** — pressure and tilt when the tablet supports it; Everyday / Drawing profiles; optional capture-style region
+- **Pop-up keypad** — translucent symbols + Windows-style numpad on the pad (USB and Bluetooth); see [docs/KEYPAD_PLAN.md](docs/KEYPAD_PLAN.md)
 - **USB or Bluetooth** — choose on the tablet at launch (one transport per session)
 - **No browser UI** — tablet app + Windows app; no typing `http://127.0.0.1…`
 - **Windows tray app** — auto engine start, USB reverse ports, Bluetooth advertising while running, optional start with Windows
@@ -104,6 +105,7 @@ Honest limits:
 | Cursor / scroll sensitivity | Windows app |
 | Everyday / Drawing pen profile | Windows or Android (saved on Windows) |
 | Monitor / pen area / mapping | Windows **Advanced** |
+| Pop-up keypad (digits + symbols) | Tablet **Keypad** button — [docs/KEYPAD_PLAN.md](docs/KEYPAD_PLAN.md) |
 | Start with Windows, auto-start engine | Windows app |
 | Fullscreen pad UI | Android app |
 
@@ -143,10 +145,10 @@ More: [packaging/README.md](packaging/README.md), [android/README.md](android/RE
 ### Tests
 
 ```powershell
-python -m unittest tests.test_pen_mapping -v
+python -m unittest tests.test_pen_mapping tests.test_keyboard -v
 ```
 
-Manual checklist: [tests/REGRESSION.md](tests/REGRESSION.md).
+Manual checklist: [tests/REGRESSION.md](tests/REGRESSION.md). Keypad design/protocol: [docs/KEYPAD_PLAN.md](docs/KEYPAD_PLAN.md).
 
 ---
 
@@ -157,6 +159,7 @@ Manual checklist: [tests/REGRESSION.md](tests/REGRESSION.md).
 | Windows engine + Android WebView | Done |
 | Packaged Windows exe + signed APK | Done (`v0.9.1`+) |
 | Bluetooth RFCOMM transport | Done (`v0.10.0`) |
+| Pop-up keypad (symbols + numpad) | Done in tree — [docs/KEYPAD_PLAN.md](docs/KEYPAD_PLAN.md); device smoke / next release TBD |
 | Longer soak / polish | In progress |
 | **1.0.0** | After real-world soak |
 

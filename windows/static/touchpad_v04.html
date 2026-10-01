@@ -255,6 +255,100 @@ html, body {
     margin-top: 8px;
     width: 100%;
 }
+
+/* ----- Keypad overlay (transparent; keys only slightly filled) ----- */
+/* fixed → same physical center with or without the side menu / fullscreen */
+#keypadOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 15;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    touch-action: manipulation;
+    pointer-events: auto;
+}
+
+#keypadOverlay.open { display: flex; }
+
+#keypadPanel {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: clamp(14px, 2.4vw, 32px);
+    /* Sized for Galaxy Tab landscape — per-user scale UI later (BACKLOG) */
+    width: min(96vw, 980px);
+    max-height: min(92vh, 720px);
+    padding: clamp(12px, 1.8vw, 22px);
+    pointer-events: auto;
+}
+
+#keypadClose {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    z-index: 2;
+    width: 44px;
+    height: 44px;
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 10px;
+    background: rgba(18, 22, 29, 0.55);
+    color: #e8edf5;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.keypad-grid {
+    --key: clamp(56px, 12.5vmin, 92px);
+    --gap: clamp(8px, 1.4vmin, 14px);
+    display: grid;
+    grid-template-columns: repeat(4, var(--key));
+    grid-template-rows: repeat(5, var(--key));
+    gap: var(--gap);
+    flex: 0 0 auto;
+}
+
+.keypad-grid button {
+    margin: 0;
+    padding: 0;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 12px;
+    background: rgba(22, 28, 38, 0.42);
+    color: #f2f5fa;
+    font-size: clamp(18px, 4vmin, 28px);
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+
+.keypad-grid button:active {
+    background: rgba(61, 139, 253, 0.45);
+    border-color: rgba(61, 139, 253, 0.7);
+}
+
+.keypad-grid .span-col2 { grid-column: span 2; }
+.keypad-grid .span-row2 { grid-row: span 2; }
+
+#fsKeypad {
+    pointer-events: auto;
+    touch-action: manipulation;
+    border: 1px solid #2a3340;
+    background: rgba(18, 22, 29, 0.9);
+    color: #e8edf5;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 14px;
+    font-weight: 700;
+    min-height: 44px;
+}
 </style>
 </head>
 <body>
@@ -278,6 +372,7 @@ html, body {
 
         <div class="menu-spacer"></div>
 
+        <button type="button" class="menu-btn" id="btnKeypad">Keypad</button>
         <button type="button" class="menu-btn ghost" id="btnSettings">Settings</button>
         <button type="button" class="menu-btn" id="btnFullscreen">Fullscreen</button>
     </aside>
@@ -291,8 +386,17 @@ html, body {
             </div>
         </div>
 
+        <div id="keypadOverlay" aria-hidden="true">
+            <div id="keypadPanel" role="group" aria-label="Keypad">
+                <button type="button" id="keypadClose" aria-label="Close keypad">✕</button>
+                <div class="keypad-grid" id="symbolGrid" aria-label="Symbols"></div>
+                <div class="keypad-grid" id="numpadGrid" aria-label="Numpad"></div>
+            </div>
+        </div>
+
         <div id="fsChrome">
             <div id="fsStatus" class="conn-wait"><span class="dot" aria-hidden="true"></span><span class="fsText">Connect USB</span></div>
+            <button type="button" id="fsKeypad">Keypad</button>
             <button type="button" id="fsBack">Menu</button>
         </div>
     </div>
@@ -425,6 +529,7 @@ function onLinkMessage(msg) {
 function onLinkClosed() {
     connected = false;
     pointers.clear();
+    closeKeypad();
     setConnectionUi("recon", "DISCONNECTED", BT ? "Bluetooth link lost" : "Reconnecting…");
 }
 
@@ -621,6 +726,7 @@ document.getElementById("fsBack").addEventListener("click", (e) => {
 const settingsSheet = document.getElementById("settingsSheet");
 document.getElementById("btnSettings").addEventListener("click", (e) => {
     e.preventDefault();
+    closeKeypad();
     settingsSheet.classList.add("open");
 });
 document.getElementById("settingsClose").addEventListener("click", (e) => {
@@ -630,6 +736,106 @@ document.getElementById("settingsClose").addEventListener("click", (e) => {
 settingsSheet.addEventListener("click", (e) => {
     if (e.target === settingsSheet) settingsSheet.classList.remove("open");
 });
+
+// ----- Keypad (symbols left + Win numpad right) -----
+const SYMBOLS = [
+    ",", "…", "⋮", "·",
+    "✓", "✔", "☐", "☑",
+    "←", "→", "↑", "↓",
+    "⇒", "⇔", "※", "★",
+    "○", "●", "▲", "▼"
+];
+
+const NUMPAD = [
+    { label: "⌫", vk: "backspace" },
+    { label: "/", vk: "divide" },
+    { label: "*", vk: "multiply" },
+    { label: "−", vk: "subtract" },
+    { label: "7", vk: "num7" },
+    { label: "8", vk: "num8" },
+    { label: "9", vk: "num9" },
+    { label: "+", vk: "add", cls: "span-row2" },
+    { label: "4", vk: "num4" },
+    { label: "5", vk: "num5" },
+    { label: "6", vk: "num6" },
+    { label: "1", vk: "num1" },
+    { label: "2", vk: "num2" },
+    { label: "3", vk: "num3" },
+    { label: "↵", vk: "enter", cls: "span-row2" },
+    { label: "0", vk: "num0", cls: "span-col2" },
+    { label: ".", vk: "decimal" }
+];
+
+const keypadOverlay = document.getElementById("keypadOverlay");
+const symbolGrid = document.getElementById("symbolGrid");
+const numpadGrid = document.getElementById("numpadGrid");
+
+function sendKey(payload) {
+    if (!isOpen()) return;
+    sendRaw(Object.assign({ type: "key" }, payload));
+}
+
+function buildKeypad() {
+    if (symbolGrid.childElementCount || numpadGrid.childElementCount) return;
+    SYMBOLS.forEach((ch) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = ch;
+        btn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            sendKey({ text: ch });
+        });
+        symbolGrid.appendChild(btn);
+    });
+    NUMPAD.forEach((item) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = item.label;
+        if (item.cls) btn.className = item.cls;
+        btn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            sendKey({ vk: item.vk });
+        });
+        numpadGrid.appendChild(btn);
+    });
+}
+
+function setKeypadOpen(on) {
+    if (on) releaseAllContacts();
+    keypadOverlay.classList.toggle("open", on);
+    keypadOverlay.setAttribute("aria-hidden", on ? "false" : "true");
+}
+
+function toggleKeypad() {
+    setKeypadOpen(!keypadOverlay.classList.contains("open"));
+}
+
+function closeKeypad() {
+    setKeypadOpen(false);
+}
+
+buildKeypad();
+
+document.getElementById("btnKeypad").addEventListener("click", (e) => {
+    e.preventDefault();
+    toggleKeypad();
+});
+document.getElementById("fsKeypad").addEventListener("click", (e) => {
+    e.preventDefault();
+    toggleKeypad();
+});
+document.getElementById("keypadClose").addEventListener("click", (e) => {
+    e.preventDefault();
+    closeKeypad();
+});
+keypadOverlay.addEventListener("click", (e) => {
+    if (e.target === keypadOverlay) closeKeypad();
+});
+// Keys must not fall through to the pad underneath.
+keypadOverlay.addEventListener("pointerdown", (e) => e.stopPropagation());
+document.getElementById("keypadPanel").addEventListener("pointerdown", (e) => e.stopPropagation());
 
 // Stop menu / chrome pointers from ever entering the pad map.
 function isPadTarget(event) {

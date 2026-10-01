@@ -32,13 +32,15 @@ Galaxy Tab app
     ▼
 Windows engine
   websocket.py (USB) ─┐
-  bluetooth.py (BT) ──┼─ SharedInput (one active transport, contacts released on switch/drop)
+  bluetooth.py (BT) ──┼─ SharedInput (touch/pen) + keyboard.apply_key_packet (`type:"key"`)
                       ▼
-               touchpad + pen injection
+               touchpad + pen + keypad injection
 ```
 
 | Piece | File |
 |-------|------|
+| Pad HTML (USB + BT asset) | `windows/static/touchpad_v04.html` |
+| Keypad inject | `windows/core/keyboard.py` — see [KEYPAD_PLAN.md](KEYPAD_PLAN.md) |
 | RFCOMM service (WinRT, SDP-advertised) | `windows/transport/winrt_rfcomm.py` |
 | BT session: handshake, frames, state/profile | `windows/transport/bluetooth.py` |
 | Jitter buffer for BT input | `windows/transport/pacing.py` |
@@ -60,7 +62,7 @@ Windows engine
 2. `PING` / `PONG <ms>`
 3. `MODE FRAME` / `ACK FRAME`
 4. Then both directions: `uint32 big-endian length` + UTF-8 JSON — the same messages as the USB WebSocket
-   (`contacts` packets, `hello`, `state`, `set_profile`, `ack`).
+   (`contacts` packets, `hello`, `state`, `set_profile`, `ack`, and keypad `type:"key"`).
 
 ---
 

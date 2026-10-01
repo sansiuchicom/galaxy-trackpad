@@ -154,9 +154,10 @@ Order: **2a → 2b → 2c → 2d**. Each slice should leave the repo buildable; 
 ## 6. Out of scope (v1)
 
 - Tablet-side region pick  
-- Keypad / symbols  
 - Multiple presets / snap-to-window  
 - “Hide outline” checkbox (can add later; default stays show)
+
+Keypad / symbols: implemented separately — [KEYPAD_PLAN.md](KEYPAD_PLAN.md).
 
 ---
 
