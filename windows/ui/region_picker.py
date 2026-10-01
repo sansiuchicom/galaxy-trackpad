@@ -33,7 +33,7 @@ def find_qscreen_for_monitor(monitor: MonitorInfo) -> QScreen | None:
     best_d = float("inf")
     for screen in screens:
         geo = screen.geometry()
-        dpr = float(screen.devicePixelRatioF() or 1.0)
+        dpr = float(screen.devicePixelRatio() or 1.0)
         # Prefer treating geometry as DIPs mapped to physical; also try native.
         for sx, sy in (
             ((geo.x() + geo.width() / 2) * dpr, (geo.y() + geo.height() / 2) * dpr),
