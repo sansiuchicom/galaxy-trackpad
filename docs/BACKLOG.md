@@ -20,6 +20,7 @@ Real-use priority (signatures first):
 | **4** | Keypad page(s) | Extra layers (e.g. circled digits) without growing the grid |
 | **5** | Keypad custom symbols | User-editable special-character slots |
 | **6** | Per-gesture sensitivity | Separate 1-finger vs 2+ finger feel |
+| **7** | Touch feedback | Keypad taps / UI actions feel confirmed |
 
 ---
 
@@ -41,6 +42,10 @@ Separate cursor / scroll (or move) sensitivity when one finger is down vs when t
 ### idea — Keypad size slider
 
 User-adjustable keypad scale (persist on Windows). v1 uses a fixed larger size tuned for Tab S7 landscape.
+
+### idea — Touch feedback (keypad / pad actions)
+
+Haptic and/or visual press feedback when tapping keypad keys and other pad UI actions (buttons, toggles), so presses feel confirmed without looking. Prefer short Android vibration / ripple where available; keep optional/quiet.
 
 ---
 
