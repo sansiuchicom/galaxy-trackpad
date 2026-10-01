@@ -6,6 +6,7 @@ import select
 import socket
 import subprocess
 import threading
+import time
 
 from websockets.exceptions import ConnectionClosedError
 
@@ -149,5 +150,60 @@ def assert_port_available(port: int) -> None:
             sock.bind(("127.0.0.1", port))
         except OSError as exc:
             raise RuntimeError(
-                f"Port {port} is already in use. Stop the old server first."
+                f"Port {port} is already in use. Stop the old Galaxy Trackpad "
+                "engine (Quit from the tray, or Task Manager) and try again."
             ) from exc
+
+
+def request_stale_engine_stop(timeout: float = 2.0) -> bool:
+    """Ask a leftover engine on CONTROL_PORT to STOP. Returns True if it accepted."""
+    from windows.paths import CONTROL_PORT
+
+    try:
+        with socket.create_connection(("127.0.0.1", CONTROL_PORT), timeout=0.8) as sock:
+            sock.sendall(b"STOP\n")
+            sock.settimeout(timeout)
+            reply = sock.recv(64)
+            return reply.strip().startswith(b"OK")
+    except OSError:
+        return False
+
+
+def wait_ports_free(ports: tuple[int, ...], timeout: float = 5.0) -> bool:
+    """Poll until all ports can bind, or timeout."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        busy = False
+        for port in ports:
+            try:
+                with socket.socket() as sock:
+                    sock.bind(("127.0.0.1", port))
+            except OSError:
+                busy = True
+                break
+        if not busy:
+            return True
+        time.sleep(0.15)
+    return False
+
+
+def ensure_ports_available(ports: tuple[int, ...]) -> None:
+    """Bind-check ports; if busy, try STOP on a stale engine once then recheck."""
+    try:
+        for port in ports:
+            assert_port_available(port)
+        return
+    except RuntimeError:
+        pass
+
+    info("Ports busy — asking any leftover engine to STOP…")
+    if request_stale_engine_stop():
+        if wait_ports_free(ports):
+            info("Stale engine stopped; ports free")
+            return
+    else:
+        # Control port may be down while HTTP/WS still held briefly.
+        wait_ports_free(ports, timeout=1.5)
+
+    for port in ports:
+        assert_port_available(port)

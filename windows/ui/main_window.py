@@ -202,6 +202,7 @@ class MainWindow(QMainWindow):
         inside.addWidget(name)
         self.status = QLabel()
         self.status.setObjectName("status")
+        self.status.setProperty("tone", "muted")
         self.status.setWordWrap(True)
         inside.addWidget(self.status)
         self.touch_status = QLabel()
@@ -499,7 +500,11 @@ class MainWindow(QMainWindow):
                 color: #aab4c3; font-size: 11px; font-weight: 700;
                 padding-top: 4px; padding-bottom: 2px;
             }
-            QLabel#status { color: #86efac; font-weight: 600; }
+            QLabel#status { font-weight: 600; }
+            QLabel#status[tone="ok"] { color: #86efac; }
+            QLabel#status[tone="error"] { color: #f87171; }
+            QLabel#status[tone="warn"] { color: #fbbf24; }
+            QLabel#status[tone="muted"] { color: #9ca3af; }
             QLabel#value { color: #93c5fd; font-weight: 600; }
             QFrame#card {
                 background: #1f2937; border: 1px solid #374151; border-radius: 11px;
@@ -649,8 +654,12 @@ class MainWindow(QMainWindow):
         self.show_debug_logs = bool(checked)
         self.change_general("debug_log", checked)
 
-    def set_status(self, headline, touch, pen):
+    def set_status(self, headline, touch, pen, *, tone: str = "ok"):
         self.status.setText(headline)
+        self.status.setProperty("tone", tone)
+        style = self.status.style()
+        style.unpolish(self.status)
+        style.polish(self.status)
         self.touch_status.setText("Touchpad     " + touch)
         self.pen_status.setText("S Pen          " + pen)
 
@@ -660,32 +669,42 @@ class MainWindow(QMainWindow):
         tablet = self.tablet_phase
 
         if engine == "stopped":
-            self.set_status("●  Stopped", "Not running", "Not running")
+            self.set_status("●  Stopped", "Not running", "Not running", tone="muted")
         elif engine == "starting":
-            self.set_status("●  Starting…", "Initializing", "Initializing")
+            self.set_status("●  Starting…", "Initializing", "Initializing", tone="warn")
         elif engine == "stopping":
-            self.set_status("●  Stopping…", "Releasing", "Releasing")
+            self.set_status("●  Stopping…", "Releasing", "Releasing", tone="warn")
         elif engine == "error":
-            self.set_status("●  Error", "Stopped", "Stopped")
+            self.set_status("●  Error", "Stopped", "Stopped", tone="error")
         elif tablet == "connected" and self.transport_phase == "bluetooth":
             peer = f" · {self.peer_name}" if self.peer_name else ""
-            self.set_status(f"●  Connected · Bluetooth{peer}", "Active", "Available")
+            self.set_status(
+                f"●  Connected · Bluetooth{peer}", "Active", "Available", tone="ok"
+            )
         elif tablet == "connected":
-            self.set_status("●  Connected · USB", "Active", "Available")
+            self.set_status("●  Connected · USB", "Active", "Available", tone="ok")
         elif usb == "unauthorized":
-            self.set_status("●  Unlock tablet USB debugging", "Ready", "Ready")
+            self.set_status(
+                "●  Unlock tablet USB debugging", "Ready", "Ready", tone="warn"
+            )
         elif usb == "waiting":
-            self.set_status("●  Waiting for device", "Ready", "Ready")
+            self.set_status("●  Waiting for device", "Ready", "Ready", tone="warn")
         elif usb == "connecting":
-            self.set_status("●  Connecting USB…", "Ready", "Ready")
+            self.set_status("●  Connecting USB…", "Ready", "Ready", tone="warn")
         elif usb == "ready":
-            self.set_status("●  USB ready · open tablet page", "Ready", "Ready")
+            self.set_status(
+                "●  USB ready · open tablet page", "Ready", "Ready", tone="ok"
+            )
         elif usb == "multiple":
-            self.set_status("●  Multiple ADB devices", "Ready", "Ready")
+            self.set_status("●  Multiple ADB devices", "Ready", "Ready", tone="warn")
         elif usb == "error":
-            self.set_status("●  USB/ADB issue · retrying", "Ready", "Ready")
+            self.set_status(
+                "●  USB/ADB issue · retrying", "Ready", "Ready", tone="error"
+            )
         else:
-            self.set_status("●  Running · waiting for tablet", "Ready", "Ready")
+            self.set_status(
+                "●  Running · waiting for tablet", "Ready", "Ready", tone="ok"
+            )
 
     # ---------- Engine ----------
     def start_engine(self):
@@ -811,6 +830,9 @@ class MainWindow(QMainWindow):
             return
         self.log(f"STOP socket error: {sock.errorString()}")
         self.stop_pending = False
+        if self.quit_requested:
+            self.force_kill_engine("STOP failed during quit")
+            return
         if self.process.state() != QProcess.ProcessState.NotRunning:
             self.stop_button.setEnabled(self.control_ready)
             self.engine_phase = "running"
@@ -822,12 +844,36 @@ class MainWindow(QMainWindow):
                 and self.stop_pending
                 and not self.stop_acknowledged
                 and self.process.state() != QProcess.ProcessState.NotRunning):
+            if self.quit_requested:
+                self.force_kill_engine("STOP timed out during quit")
+                return
             self.log("STOP timed out; retry STOP. Do not force-close yet.")
             self.stop_pending = False
             self.stop_button.setEnabled(self.control_ready)
             self.engine_phase = "running"
             self.refresh_connection_status()
             self.stop_failed_during_quit()
+
+    def force_kill_engine(self, reason: str) -> None:
+        """Last resort so Quit always frees ports 8765–8767."""
+        if self.process.state() == QProcess.ProcessState.NotRunning:
+            return
+        self.log(f"{reason}; force-killing engine process…")
+        self.stop_pending = False
+        self.stop_acknowledged = True
+        self.process.kill()
+        # If kill still hangs, abandon wait after a beat and quit the GUI.
+        QTimer.singleShot(3000, self._quit_if_still_stuck)
+
+    def _quit_if_still_stuck(self) -> None:
+        if not self.quit_requested:
+            return
+        if self.process.state() != QProcess.ProcessState.NotRunning:
+            self.log("Engine still running after kill; exiting GUI anyway")
+            self.process.kill()
+        if self.tray:
+            self.tray.hide()
+        QApplication.instance().quit()
 
     def on_process_error(self, error):
         self.log(f"Process error: {self.process.errorString()}")
@@ -936,10 +982,15 @@ class MainWindow(QMainWindow):
         self.log("Quit requested. Waiting for safe engine shutdown...")
         if self.control_ready and not self.stop_pending:
             self.stop_engine()
+        elif not self.control_ready:
+            # Engine never answered control — don't leave ports held forever.
+            self.force_kill_engine("Control port never ready during quit")
         else:
             self.log(
                 "Waiting for the engine control port or an existing STOP request..."
             )
+        # Absolute deadline so Quit always ends the app.
+        QTimer.singleShot(6000, self._quit_if_still_stuck)
         self.update_tray()
 
     def stop_failed_during_quit(self):

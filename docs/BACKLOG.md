@@ -16,7 +16,7 @@ Real-use priority (signatures first):
 | **1a** | ~~Pen DPI / whole-display Everyday~~ | **Done** (`8074402`, verified) |
 | **1b** | ~~Drawing pad-aspect~~ | **Done** (`ffee08b`, verified USB) |
 | **2** | ~~S Pen capture-style region~~ | **Done** (verified USB) — [PEN_PHASE2_PLAN.md](PEN_PHASE2_PLAN.md) |
-| **3** | ~~Pop-up keypad + custom symbols~~ | **v1 in tree** — [KEYPAD_PLAN.md](KEYPAD_PLAN.md); smoke on device / release bump next |
+| **3** | ~~Pop-up keypad + custom symbols~~ | **Done in v0.11.0** — [KEYPAD_PLAN.md](KEYPAD_PLAN.md) |
 
 ---
 
@@ -35,10 +35,6 @@ See [KEYPAD_PLAN.md](KEYPAD_PLAN.md) § Future.
 
 Replace the hard-coded left 20 glyphs with a small favorites editor.
 
-### idea — Keypad device smoke + release
-
-Verify USB (and BT after APK rebuild) against [KEYPAD_PLAN.md](KEYPAD_PLAN.md) checklist; ship in next version bump.
-
 ---
 
 ## Parking lot
@@ -51,9 +47,10 @@ _(empty)_
 
 ### done — Pop-up keypad v1 (symbols + Win numpad)
 
-**In tree:** translucent 4+4×5 overlay; menu/fullscreen **Keypad**;  
+**Released:** **v0.11.0** — translucent 4+4×5 overlay; menu/fullscreen chrome;  
 digits via main-row VKs (NumLock-safe); left symbols via Unicode; USB + BT `type:"key"`.  
-**Doc:** [KEYPAD_PLAN.md](KEYPAD_PLAN.md). Device smoke / release tag still open.
+Also: stale-port reclaim on START, safer Quit, status error colors.  
+**Doc:** [KEYPAD_PLAN.md](KEYPAD_PLAN.md).
 
 ### done — S Pen capture-style region (phase 2)
 

@@ -16,7 +16,7 @@ from windows.paths import (
 from windows.settings.store import reload_settings
 from windows.transport.adb import (
     IgnoreExpectedUSBDisconnect,
-    assert_port_available,
+    ensure_ports_available,
     usb_watcher,
 )
 from windows.transport.bluetooth import run_bluetooth_worker
@@ -33,8 +33,7 @@ def engine_main() -> None:
     enable_dpi_awareness()
     try:
         reload_settings()
-        for port in (HTTP_PORT, WS_PORT, CONTROL_PORT):
-            assert_port_available(port)
+        ensure_ports_available((HTTP_PORT, WS_PORT, CONTROL_PORT))
         if not ADB.is_file():
             raise FileNotFoundError(f"ADB not found: {ADB}")
         html = STATIC_DIR / "touchpad_v04.html"

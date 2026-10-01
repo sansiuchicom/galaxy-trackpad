@@ -4,9 +4,9 @@
 
 Use an idle Galaxy Tab (or similar Android tablet) as a Windows trackpad — and optionally as an S Pen tablet — without a custom kernel driver and without the Play Store.
 
-**Latest release: [v0.10.0](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.10.0)** · pre-1.0 daily driver · not on any app store
+**Latest release: [v0.11.0](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.11.0)** · pre-1.0 daily driver · not on any app store
 
-[Download v0.10.0](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.10.0) · [Install guide](docs/INSTALL.md) · [Bluetooth notes](docs/BLUETOOTH.md)
+[Download v0.11.0](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.11.0) · [Install guide](docs/INSTALL.md) · [Bluetooth notes](docs/BLUETOOTH.md)
 
 ---
 
@@ -36,13 +36,13 @@ See docs/media/README.md for naming suggestions.
 
 ## Download
 
-From **[v0.10.0 on GitHub Releases](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.10.0)**:
+From **[v0.11.0 on GitHub Releases](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.11.0)**:
 
 | File | Purpose |
 |------|---------|
-| [**GalaxyTrackpad-windows-v0.10.0.zip**](https://github.com/sansiuchicom/galaxy-trackpad/releases/download/v0.10.0/GalaxyTrackpad-windows-v0.10.0.zip) | Windows app + bundled `platform-tools` (ADB) |
-| [**GalaxyTrackpad-v0.10.0.apk**](https://github.com/sansiuchicom/galaxy-trackpad/releases/download/v0.10.0/GalaxyTrackpad-v0.10.0.apk) | Android app |
-| [GalaxyTrackpad-android-v0.10.0.zip](https://github.com/sansiuchicom/galaxy-trackpad/releases/download/v0.10.0/GalaxyTrackpad-android-v0.10.0.zip) | Same APK, packaged as a zip |
+| [**GalaxyTrackpad-windows-v0.11.0.zip**](https://github.com/sansiuchicom/galaxy-trackpad/releases/download/v0.11.0/GalaxyTrackpad-windows-v0.11.0.zip) | Windows app + bundled `platform-tools` (ADB) |
+| [**GalaxyTrackpad-v0.11.0.apk**](https://github.com/sansiuchicom/galaxy-trackpad/releases/download/v0.11.0/GalaxyTrackpad-v0.11.0.apk) | Android app |
+| [GalaxyTrackpad-android-v0.11.0.zip](https://github.com/sansiuchicom/galaxy-trackpad/releases/download/v0.11.0/GalaxyTrackpad-android-v0.11.0.zip) | Same APK, packaged as a zip |
 
 Keep the Windows folder intact after unzip (`GalaxyTrackpad.exe`, `_internal`, `platform-tools`).
 
@@ -159,7 +159,7 @@ Manual checklist: [tests/REGRESSION.md](tests/REGRESSION.md). Keypad design/prot
 | Windows engine + Android WebView | Done |
 | Packaged Windows exe + signed APK | Done (`v0.9.1`+) |
 | Bluetooth RFCOMM transport | Done (`v0.10.0`) |
-| Pop-up keypad (symbols + numpad) | Done in tree — [docs/KEYPAD_PLAN.md](docs/KEYPAD_PLAN.md); device smoke / next release TBD |
+| Pop-up keypad (symbols + numpad) | Done (`v0.11.0`) — [docs/KEYPAD_PLAN.md](docs/KEYPAD_PLAN.md) |
 | Longer soak / polish | In progress |
 | **1.0.0** | After real-world soak |
 

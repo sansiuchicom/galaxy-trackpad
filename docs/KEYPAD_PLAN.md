@@ -1,6 +1,6 @@
 # Keypad / symbols panel
 
-**Status:** v1 shipped in tree (device smoke still recommended)  
+**Status:** shipped in **v0.11.0**  
 **Page:** `windows/static/touchpad_v04.html` (USB live-serve + Android `assets` via `sourceSets`)  
 **PC inject:** `windows/core/keyboard.py`  
 **Transport:** USB WebSocket + Bluetooth both accept `type: "key"`

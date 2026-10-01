@@ -1,6 +1,7 @@
 # Galaxy Trackpad — Bluetooth
 
-Shipped in **v0.10.0**. USB still works exactly as in v0.9.1.
+Shipped in **v0.10.0**. USB still works exactly as in v0.9.1.  
+Pad UI updates (keypad, chrome) continue in later releases such as **v0.11.0**.
 
 Bluetooth is a **byte pipe for the same pad JSON** as USB — not a Bluetooth HID mouse/touchpad.
 Same pad page, same Windows input engine, same settings and pen profiles.
