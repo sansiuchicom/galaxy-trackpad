@@ -15,7 +15,7 @@ Win+Shift+S / screen capture. After that, **full pad ↔ that rectangle**
 |------|--------|-----|
 | Everyday (no region) | Whole chosen display, `stretch` | Full pad |
 | Drawing (no region) | Whole chosen display, aspect band (`preserve`) | Letterboxed pad |
-| **Region active** (Drawing) | User rectangle on chosen display | **Full pad** `stretch` → that rect |
+| **Region active** (Drawing) | User rectangle on chosen display | **Aspect-matched pad band** → that rect (`preserve`) |
 
 - Start picker from **Windows app** only (v1).  
 - Persist region; Drawing-only; chosen monitor only.  

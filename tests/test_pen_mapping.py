@@ -194,6 +194,26 @@ class RegionMappingTests(unittest.TestCase):
         self.assertEqual(cfg.map_point(0.0, 0.0), (target.left, target.top))
         self.assertEqual(cfg.map_point(1.0, 1.0), (target.right - 1, target.bottom - 1))
 
+    def test_preserve_onto_region_letterboxes_pad(self):
+        """Region aspect ≠ pad aspect → S Pen Area is a band, corners hit region box."""
+        mon = PixelRect(0, 0, 3840, 2160)
+        # Wide short region on a 16:10-ish pad (aspect 1.6).
+        region = parse_norm_region({"left": 0.1, "top": 0.4, "right": 0.9, "bottom": 0.6})
+        target = norm_region_to_pixels(region, mon)
+        pad_aspect = 1.6
+        cfg = PenMapConfig("preserve_aspect_ratio", 1.0, target, pad_aspect)
+        active = cfg.active_rect()
+        self.assertLess(active.height, 1.0 - 1e-6)
+        self.assertAlmostEqual(active.width, 1.0, places=5)
+        self.assertEqual(
+            cfg.map_point(active.left, active.top),
+            (target.left, target.top),
+        )
+        self.assertEqual(
+            cfg.map_point(active.right, active.bottom),
+            (target.right - 1, target.bottom - 1),
+        )
+
     def test_migrate_keeps_valid_drawing_region(self):
         cfg = migrate_config({
             "pen": {

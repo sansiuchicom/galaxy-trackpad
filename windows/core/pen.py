@@ -85,14 +85,15 @@ def build_pen_map_from_settings(pen_block: dict[str, Any] | None = None) -> PenM
     monitor = resolve_monitor(profile["monitor_id"])
     full = PixelRect(monitor.left, monitor.top, monitor.right, monitor.bottom)
 
-    # Drawing + saved capture region → full pad stretch onto that pixel box.
+    # Drawing + capture region → map an aspect-matched pad band onto that box
+    # (S Pen Area follows the dragged region's proportions).
     if profile["name"] == PROFILE_DRAWING and profile.get("region_active"):
         region = parse_norm_region(profile.get("region"))
         if region is not None:
             target = norm_region_to_pixels(region, full)
             if target.width >= 2 and target.height >= 2:
                 return PenMapConfig(
-                    mapping="stretch",
+                    mapping="preserve_aspect_ratio",
                     area_size=1.0,
                     monitor=target,
                     tablet_aspect=profile["tablet_aspect"],
