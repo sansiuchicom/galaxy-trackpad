@@ -16,7 +16,8 @@
             "drawing": {
                 "monitor_id": "primary",
                 "mapping": "preserve_aspect_ratio",
-                "area_size": 1.0
+                "area_size": 1.0,
+                "region": null
             }
         }
     },

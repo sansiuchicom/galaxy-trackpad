@@ -15,7 +15,7 @@ Real-use priority (signatures first):
 |---|------|----------------|
 | **1a** | ~~Pen DPI / whole-display Everyday~~ | **Done** (`8074402`, verified) |
 | **1b** | ~~Drawing pad-aspect~~ | **Done** (`ffee08b`, verified USB) |
-| **2** | **S Pen capture-style region** | [PEN_PHASE2_PLAN.md](PEN_PHASE2_PLAN.md): **2a** mapping → **2b** picker+outline → **2c** buttons → **2d** verify |
+| **2** | **S Pen capture-style region** | **2a done** · next **2b** picker+outline → **2c** → **2d** — [PEN_PHASE2_PLAN.md](PEN_PHASE2_PLAN.md) |
 | **3** | **Pop-up keypad + custom symbols** | After pen is comfortable for signatures |
 
 ---
@@ -28,7 +28,7 @@ Real-use priority (signatures first):
 
 | Slice | One-liner |
 |-------|-----------|
-| **2a** | Settings `region` + pen maps full pad → that box (tests; no UI) |
+| **2a** | ~~Settings `region` + pen maps full pad → that box~~ **done** |
 | **2b** | Drag picker + always-on thin outline on the monitor |
 | **2c** | Select / Clear buttons, status text, save & reload |
 | **2d** | Docs + USB verify |

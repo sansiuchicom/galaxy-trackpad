@@ -15,6 +15,7 @@ DEFAULT_PROFILE = {
     "monitor_id": "primary",
     "mapping": "stretch",
     "area_size": 1.0,
+    "region": None,
 }
 
 DEFAULTS: dict[str, Any] = {
@@ -31,11 +32,13 @@ DEFAULTS: dict[str, Any] = {
                 "monitor_id": "primary",
                 "mapping": "stretch",
                 "area_size": 1.0,
+                "region": None,
             },
             PROFILE_DRAWING: {
                 "monitor_id": "primary",
                 "mapping": "preserve_aspect_ratio",
                 "area_size": 1.0,
+                "region": None,
             },
         },
     },
@@ -84,13 +87,25 @@ def _mapping(value: str | None, default: str = "stretch") -> str:
     return "stretch"
 
 
-def _profile_dict(raw: Any, fallback: dict) -> dict:
+def _normalize_region(raw: Any) -> dict[str, float] | None:
+    from windows.core.pen_mapping import norm_region_to_dict, parse_norm_region
+
+    region = parse_norm_region(raw)
+    return norm_region_to_dict(region) if region is not None else None
+
+
+def _profile_dict(raw: Any, fallback: dict, *, allow_region: bool = False) -> dict:
     src = raw if isinstance(raw, dict) else {}
-    return {
+    out = {
         "monitor_id": str(src.get("monitor_id", fallback["monitor_id"]) or "primary"),
         "mapping": _mapping(src.get("mapping"), fallback["mapping"]),
         "area_size": _area(src.get("area_size", fallback["area_size"])),
+        "region": None,
     }
+    if allow_region:
+        out["region"] = _normalize_region(src.get("region", fallback.get("region")))
+    return out
+
 
 
 def migrate_config(raw: Any) -> dict[str, Any]:
@@ -127,10 +142,10 @@ def migrate_config(raw: Any) -> dict[str, Any]:
         "monitor_id": str(legacy_monitor or "primary"),
     }
     out["pen"]["profiles"][PROFILE_STANDARD] = _profile_dict(
-        profiles_in.get(PROFILE_STANDARD), std_fallback
+        profiles_in.get(PROFILE_STANDARD), std_fallback, allow_region=False
     )
     out["pen"]["profiles"][PROFILE_DRAWING] = _profile_dict(
-        profiles_in.get(PROFILE_DRAWING), draw_fallback
+        profiles_in.get(PROFILE_DRAWING), draw_fallback, allow_region=True
     )
 
     active = pen_in.get("active_profile", PROFILE_STANDARD)
@@ -194,12 +209,17 @@ def active_pen_profile(config: dict[str, Any] | None = None) -> dict[str, Any]:
     from windows.settings.pad_aspect import effective_tablet_aspect
 
     stored = float(pen.get("tablet_aspect", DEFAULTS["pen"]["tablet_aspect"]))
+    region = None
+    if name == PROFILE_DRAWING:
+        region = _normalize_region(profile.get("region"))
     return {
         "name": name,
         "monitor_id": profile.get("monitor_id", "primary"),
         "mapping": _mapping(profile.get("mapping")),
         "area_size": _area(profile.get("area_size", 1.0)),
         "tablet_aspect": effective_tablet_aspect(stored),
+        "region": region,
+        "region_active": region is not None,
     }
 
 
@@ -224,13 +244,20 @@ def reload_settings() -> dict[str, Any]:
     config = load_config()
     apply_runtime_settings(config)
     profile = active_pen_profile()
+    region_note = ""
+    if profile.get("region_active"):
+        r = profile["region"]
+        region_note = " region=({:.0%},{:.0%})-({:.0%},{:.0%})".format(
+            r["left"], r["top"], r["right"], r["bottom"]
+        )
     info(
-        "Settings Cursor={:.2f}x Scroll={:.2f}x PenProfile={} mapping={} area={:.0f}%".format(
+        "Settings Cursor={:.2f}x Scroll={:.2f}x PenProfile={} mapping={} area={:.0f}%{}".format(
             SETTINGS["cursor_sensitivity"],
             SETTINGS["scroll_sensitivity"],
             profile["name"],
             profile["mapping"],
             profile["area_size"] * 100,
+            region_note,
         )
     )
     try:
@@ -264,4 +291,18 @@ def update_active_profile_fields(config: dict[str, Any], **fields) -> dict[str, 
         profile["mapping"] = _mapping(fields["mapping"])
     if "area_size" in fields and fields["area_size"] is not None:
         profile["area_size"] = _area(fields["area_size"])
+    if "region" in fields:
+        if name == PROFILE_DRAWING:
+            profile["region"] = _normalize_region(fields["region"])
+        else:
+            profile["region"] = None
+    return config
+
+
+def set_drawing_region(
+    config: dict[str, Any], region: dict[str, float] | None
+) -> dict[str, Any]:
+    """Set or clear the Drawing profile capture region (monitor-normalized)."""
+    config = migrate_config(config)
+    config["pen"]["profiles"][PROFILE_DRAWING]["region"] = _normalize_region(region)
     return config

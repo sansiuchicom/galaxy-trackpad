@@ -21,6 +21,7 @@ Default tablet aspect is Galaxy Tab S7 landscape CSS (2560/1600).
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 
@@ -129,6 +130,57 @@ def map_uv_to_monitor(
     x = monitor.left + round(local_x * max(monitor.width - 1, 0))
     y = monitor.top + round(local_y * max(monitor.height - 1, 0))
     return x, y
+
+
+def parse_norm_region(raw: object) -> NormRect | None:
+    """Validate a monitor-relative [0,1] region dict; None if missing/invalid."""
+    if raw is None or not isinstance(raw, dict):
+        return None
+    try:
+        left = float(raw["left"])
+        top = float(raw["top"])
+        right = float(raw["right"])
+        bottom = float(raw["bottom"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not all(math.isfinite(x) for x in (left, top, right, bottom)):
+        return None
+    left = clamp(left, 0.0, 1.0)
+    top = clamp(top, 0.0, 1.0)
+    right = clamp(right, 0.0, 1.0)
+    bottom = clamp(bottom, 0.0, 1.0)
+    if right <= left or bottom <= top:
+        return None
+    # Reject tiny boxes (noise / mis-clicks); ~2% of the monitor minimum.
+    if (right - left) < 0.02 or (bottom - top) < 0.02:
+        return None
+    return NormRect(left, top, right, bottom)
+
+
+def norm_region_to_dict(region: NormRect) -> dict[str, float]:
+    return {
+        "left": round(region.left, 6),
+        "top": round(region.top, 6),
+        "right": round(region.right, 6),
+        "bottom": round(region.bottom, 6),
+    }
+
+
+def norm_region_to_pixels(region: NormRect, monitor: PixelRect) -> PixelRect:
+    """Map a normalized region onto monitor pixel bounds (exclusive right/bottom)."""
+    left = monitor.left + int(round(region.left * monitor.width))
+    top = monitor.top + int(round(region.top * monitor.height))
+    right = monitor.left + int(round(region.right * monitor.width))
+    bottom = monitor.top + int(round(region.bottom * monitor.height))
+    if right <= left:
+        right = left + 1
+    if bottom <= top:
+        bottom = top + 1
+    left = max(monitor.left, min(left, monitor.right - 1))
+    top = max(monitor.top, min(top, monitor.bottom - 1))
+    right = max(left + 1, min(right, monitor.right))
+    bottom = max(top + 1, min(bottom, monitor.bottom))
+    return PixelRect(left, top, right, bottom)
 
 
 @dataclass(frozen=True)

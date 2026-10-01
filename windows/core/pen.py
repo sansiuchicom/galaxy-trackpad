@@ -62,12 +62,30 @@ def notify_settings_reloaded() -> None:
 
 
 def build_pen_map_from_settings(pen_block: dict[str, Any] | None = None) -> PenMapConfig:
+    from windows.core.pen_mapping import norm_region_to_pixels, parse_norm_region
+    from windows.settings.store import PROFILE_DRAWING
+
     profile = active_pen_profile(pen_block)
     monitor = resolve_monitor(profile["monitor_id"])
+    full = PixelRect(monitor.left, monitor.top, monitor.right, monitor.bottom)
+
+    # Drawing + saved capture region → full pad stretch onto that pixel box.
+    if profile["name"] == PROFILE_DRAWING and profile.get("region_active"):
+        region = parse_norm_region(profile.get("region"))
+        if region is not None:
+            target = norm_region_to_pixels(region, full)
+            if target.width >= 2 and target.height >= 2:
+                return PenMapConfig(
+                    mapping="stretch",
+                    area_size=1.0,
+                    monitor=target,
+                    tablet_aspect=profile["tablet_aspect"],
+                )
+
     return PenMapConfig(
         mapping=profile["mapping"],
         area_size=profile["area_size"],
-        monitor=PixelRect(monitor.left, monitor.top, monitor.right, monitor.bottom),
+        monitor=full,
         tablet_aspect=profile["tablet_aspect"],
     )
 

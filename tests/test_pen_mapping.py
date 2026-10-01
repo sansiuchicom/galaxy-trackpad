@@ -18,6 +18,8 @@ from windows.core.pen_mapping import (
     active_tablet_rect,
     letterbox_rect,
     map_uv_to_monitor,
+    norm_region_to_pixels,
+    parse_norm_region,
     scale_about_center,
 )
 from windows.settings.store import migrate_config
@@ -168,6 +170,87 @@ class SessionPadAspectTests(unittest.TestCase):
         )
         br = cfg_pad.map_point(cfg_pad.active_rect().right, cfg_pad.active_rect().bottom)
         self.assertEqual(br, (3839, 2159))
+
+
+class RegionMappingTests(unittest.TestCase):
+    def test_parse_rejects_tiny_and_inverted(self):
+        self.assertIsNone(parse_norm_region({"left": 0, "top": 0, "right": 0.01, "bottom": 1}))
+        self.assertIsNone(parse_norm_region({"left": 0.8, "top": 0.1, "right": 0.2, "bottom": 0.9}))
+        self.assertIsNone(parse_norm_region(None))
+
+    def test_norm_region_to_pixels(self):
+        mon = PixelRect(0, 0, 3840, 2160)
+        region = parse_norm_region({"left": 0.25, "top": 0.25, "right": 0.75, "bottom": 0.75})
+        self.assertIsNotNone(region)
+        pix = norm_region_to_pixels(region, mon)
+        self.assertEqual(pix, PixelRect(960, 540, 2880, 1620))
+
+    def test_stretch_onto_region_maps_full_pad(self):
+        mon = PixelRect(0, 0, 3840, 2160)
+        region = parse_norm_region({"left": 0.1, "top": 0.2, "right": 0.5, "bottom": 0.6})
+        target = norm_region_to_pixels(region, mon)
+        cfg = PenMapConfig("stretch", 1.0, target, DEFAULT_TABLET_ASPECT)
+        self.assertEqual(cfg.active_rect(), NormRect(0.0, 0.0, 1.0, 1.0))
+        self.assertEqual(cfg.map_point(0.0, 0.0), (target.left, target.top))
+        self.assertEqual(cfg.map_point(1.0, 1.0), (target.right - 1, target.bottom - 1))
+
+    def test_migrate_keeps_valid_drawing_region(self):
+        cfg = migrate_config({
+            "pen": {
+                "active_profile": "drawing",
+                "profiles": {
+                    "drawing": {
+                        "mapping": "preserve_aspect_ratio",
+                        "region": {"left": 0.1, "top": 0.2, "right": 0.4, "bottom": 0.5},
+                    },
+                    "standard": {
+                        "region": {"left": 0.1, "top": 0.2, "right": 0.4, "bottom": 0.5},
+                    },
+                },
+            }
+        })
+        self.assertEqual(
+            cfg["pen"]["profiles"]["drawing"]["region"],
+            {"left": 0.1, "top": 0.2, "right": 0.4, "bottom": 0.5},
+        )
+        # Everyday never stores a capture region.
+        self.assertIsNone(cfg["pen"]["profiles"]["standard"]["region"])
+
+    def test_migrate_drops_invalid_region(self):
+        cfg = migrate_config({
+            "pen": {
+                "profiles": {
+                    "drawing": {"region": {"left": 0.9, "top": 0.1, "right": 0.2, "bottom": 0.3}},
+                }
+            }
+        })
+        self.assertIsNone(cfg["pen"]["profiles"]["drawing"]["region"])
+
+    def test_active_profile_region_only_for_drawing(self):
+        import copy
+
+        from windows.settings.store import (
+            DEFAULTS,
+            SETTINGS,
+            active_pen_profile,
+            apply_runtime_settings,
+            set_drawing_region,
+        )
+
+        cfg = set_drawing_region(
+            copy.deepcopy(DEFAULTS),
+            {"left": 0.2, "top": 0.2, "right": 0.8, "bottom": 0.8},
+        )
+        cfg["pen"]["active_profile"] = "drawing"
+        apply_runtime_settings(cfg)
+        drawing = active_pen_profile()
+        self.assertTrue(drawing["region_active"])
+        self.assertAlmostEqual(drawing["region"]["left"], 0.2)
+
+        SETTINGS["pen"]["active_profile"] = "standard"
+        everyday = active_pen_profile()
+        self.assertFalse(everyday["region_active"])
+        self.assertIsNone(everyday["region"])
 
 
 if __name__ == "__main__":

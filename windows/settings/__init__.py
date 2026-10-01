@@ -11,6 +11,7 @@ from windows.settings.store import (
     reload_settings,
     save_config,
     set_active_profile,
+    set_drawing_region,
     update_active_profile_fields,
 )
 
@@ -27,5 +28,6 @@ __all__ = [
     "reload_settings",
     "save_config",
     "set_active_profile",
+    "set_drawing_region",
     "update_active_profile_fields",
 ]

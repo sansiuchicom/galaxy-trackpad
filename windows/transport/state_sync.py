@@ -35,5 +35,7 @@ def build_client_state() -> dict[str, Any]:
             "area_size": profile["area_size"],
             "active_rect": active_rect,
             "tablet_aspect": float(profile.get("tablet_aspect", 2560 / 1600)),
+            "region_active": bool(profile.get("region_active")),
+            "region": profile.get("region"),
         },
     }
