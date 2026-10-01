@@ -26,6 +26,22 @@ PEN_UP = 0x00040000
 PEN_MASK = 0x0000000D
 
 _active_pen: "PenBridge | None" = None
+_pen_input_blocked = False
+
+
+def set_pen_input_blocked(blocked: bool) -> None:
+    """GUI region picker asks the engine to ignore tablet pen while open."""
+    global _pen_input_blocked
+    _pen_input_blocked = bool(blocked)
+    if _pen_input_blocked and _active_pen is not None:
+        try:
+            _active_pen.release()
+        except OSError:
+            pass
+
+
+def is_pen_input_blocked() -> bool:
+    return _pen_input_blocked
 
 
 class PEN_INFO(c.Structure):
@@ -172,6 +188,10 @@ class PenBridge:
             raise c.WinError(c.get_last_error())
 
     def update(self, pens):
+        if is_pen_input_blocked():
+            self.release()
+            self._repro_miss_logged = False
+            return
         if not pens:
             self.release()
             self._repro_miss_logged = False

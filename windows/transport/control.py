@@ -17,6 +17,16 @@ async def run_with_control(engine_coro):
             if cmd == b"RELOAD":
                 reload_settings()
                 writer.write(b"OK\n")
+            elif cmd == b"PEN_PAUSE":
+                from windows.core.pen import set_pen_input_blocked
+
+                set_pen_input_blocked(True)
+                writer.write(b"OK\n")
+            elif cmd == b"PEN_RESUME":
+                from windows.core.pen import set_pen_input_blocked
+
+                set_pen_input_blocked(False)
+                writer.write(b"OK\n")
             elif cmd == b"STOP":
                 info("Shutdown requested")
                 state(engine="stopping")

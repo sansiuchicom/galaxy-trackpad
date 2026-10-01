@@ -39,9 +39,12 @@ from windows.settings.store import (
     migrate_config,
     save_config,
     set_active_profile,
+    set_drawing_region,
 )
 from windows.ui.advanced_dialog import AdvancedSettingsDialog
 from windows.ui.icons import app_icon
+from windows.ui.region_outline import hide_region_outline, show_region_outline
+from windows.ui.region_picker import pick_region_on_monitor, pixel_rect_for_region
 from windows.ui.widgets import JumpSlider
 
 
@@ -259,6 +262,21 @@ class MainWindow(QMainWindow):
         self.pen_hint.setObjectName("muted")
         self.pen_hint.setWordWrap(True)
         inside.addWidget(self.pen_hint)
+
+        region_row = QHBoxLayout()
+        region_row.setSpacing(10)
+        self.select_region_button = self.action_button("Select pen region")
+        self.select_region_button.setToolTip(
+            "Drag a box on the Drawing monitor (like screen capture). "
+            "The full pad then maps to that box."
+        )
+        self.select_region_button.clicked.connect(self.select_pen_region)
+        self.clear_region_button = self.action_button("Clear region")
+        self.clear_region_button.setToolTip("Remove the capture region; use the whole display again")
+        self.clear_region_button.clicked.connect(self.clear_pen_region)
+        region_row.addWidget(self.select_region_button)
+        region_row.addWidget(self.clear_region_button)
+        inside.addLayout(region_row)
         layout.addWidget(frame)
 
         layout.addWidget(self.section("GENERAL"))
@@ -303,6 +321,7 @@ class MainWindow(QMainWindow):
         self._pen_ui_ready = False
         self.sync_pen_controls_from_config()
         self._pen_ui_ready = True
+        self.refresh_region_outline()
 
     def sync_pen_controls_from_config(self):
         self.config = migrate_config(self.config)
@@ -316,18 +335,31 @@ class MainWindow(QMainWindow):
         self.radio_everyday.blockSignals(False)
         self.radio_drawing.blockSignals(False)
         self.update_pen_hint()
+        self.refresh_region_outline()
 
     def update_pen_hint(self):
+        drawing = self.config["pen"]["profiles"].get(PROFILE_DRAWING, {})
+        has_region = bool(drawing.get("region"))
         if self.radio_drawing.isChecked():
-            self.pen_hint.setText(
-                "Keeps drawn proportions on the selected monitor — "
-                "better for art and signatures. Change monitor/area in Advanced."
-            )
+            if has_region:
+                r = drawing["region"]
+                self.pen_hint.setText(
+                    "Drawing · region  "
+                    f"({r['left']:.0%}–{r['right']:.0%} × {r['top']:.0%}–{r['bottom']:.0%}). "
+                    "Thin outline marks the box on the PC. Clear region for full display."
+                )
+            else:
+                self.pen_hint.setText(
+                    "Drawing · full display — keeps proportions on the selected monitor. "
+                    "Use Select pen region to map the pad onto a dragged box."
+                )
         else:
             self.pen_hint.setText(
-                "Default: pen follows the tablet like a normal absolute stylus "
-                "on your monitor (stretch). Touchpad fingers stay relative and unchanged."
+                "Everyday · full display (stretch). "
+                "Capture regions apply only in Drawing & Signature."
             )
+        if hasattr(self, "clear_region_button"):
+            self.clear_region_button.setEnabled(has_region)
 
     def on_profile_radio(self, button_id: int, checked: bool):
         if not checked or not getattr(self, "_pen_ui_ready", False):
@@ -335,7 +367,101 @@ class MainWindow(QMainWindow):
         name = PROFILE_DRAWING if button_id == 1 else PROFILE_STANDARD
         self.config = set_active_profile(self.config, name)
         self.update_pen_hint()
+        self.refresh_region_outline()
         self.save_settings()
+
+    def _drawing_monitor(self):
+        from windows.core.displays import resolve_monitor
+
+        profile = self.config["pen"]["profiles"][PROFILE_DRAWING]
+        return resolve_monitor(profile.get("monitor_id", "primary"))
+
+    def refresh_region_outline(self) -> None:
+        """Show thin border only when Drawing is active and a region is saved."""
+        self.config = migrate_config(self.config)
+        drawing = self.config["pen"]["profiles"][PROFILE_DRAWING]
+        region = drawing.get("region")
+        active = self.config["pen"].get("active_profile") == PROFILE_DRAWING
+        if not active or not region:
+            hide_region_outline()
+            return
+        try:
+            mon = self._drawing_monitor()
+            pix = pixel_rect_for_region(mon, region)
+        except OSError:
+            hide_region_outline()
+            return
+        if pix is None:
+            hide_region_outline()
+            return
+        show_region_outline(pix)
+
+    def send_engine_command(self, command: bytes, timeout_ms: int = 1500) -> bool:
+        """Fire-and-forget control line (PEN_PAUSE / PEN_RESUME / …)."""
+        if not self.control_ready:
+            return False
+        if self.process.state() == QProcess.ProcessState.NotRunning:
+            return False
+        sock = QTcpSocket()
+        sock.connectToHost("127.0.0.1", CONTROL_PORT)
+        if not sock.waitForConnected(timeout_ms):
+            sock.deleteLater()
+            return False
+        sock.write(command if command.endswith(b"\n") else command + b"\n")
+        sock.waitForBytesWritten(timeout_ms)
+        sock.waitForReadyRead(timeout_ms)
+        sock.disconnectFromHost()
+        sock.deleteLater()
+        return True
+
+    def select_pen_region(self) -> None:
+        self.config = migrate_config(self.config)
+        self.config = set_active_profile(self.config, PROFILE_DRAWING)
+        self._pen_ui_ready = False
+        self.sync_pen_controls_from_config()
+        self._pen_ui_ready = True
+        self.save_settings()
+
+        try:
+            monitor = self._drawing_monitor()
+        except OSError as exc:
+            QMessageBox.warning(self, "No monitor", str(exc))
+            return
+
+        self.send_engine_command(b"PEN_PAUSE")
+        was_visible = self.isVisible()
+        if was_visible:
+            self.hide()
+        try:
+            region = pick_region_on_monitor(monitor, parent=None)
+        finally:
+            if was_visible:
+                self.show()
+                self.raise_()
+                self.activateWindow()
+            self.send_engine_command(b"PEN_RESUME")
+
+        if region is None:
+            self.log("Pen region selection cancelled")
+            self.refresh_region_outline()
+            return
+
+        self.config = set_drawing_region(self.config, region)
+        self.update_pen_hint()
+        self.save_settings()
+        self.refresh_region_outline()
+        self.log(
+            "Pen region set "
+            f"({region['left']:.0%}–{region['right']:.0%} × "
+            f"{region['top']:.0%}–{region['bottom']:.0%})"
+        )
+
+    def clear_pen_region(self) -> None:
+        self.config = set_drawing_region(self.config, None)
+        self.update_pen_hint()
+        self.save_settings()
+        hide_region_outline()
+        self.log("Pen region cleared")
 
     def on_start_with_windows(self, checked: bool):
         self.change_general("start_with_windows", checked)
@@ -638,6 +764,7 @@ class MainWindow(QMainWindow):
             self.engine_phase = "running"
             self.stop_button.setEnabled(not self.stop_pending)
             self.refresh_connection_status()
+            self.refresh_region_outline()
         elif line.startswith("[ERROR]"):
             if self.engine_phase == "starting":
                 self.engine_phase = "error"

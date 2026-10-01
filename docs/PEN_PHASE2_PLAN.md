@@ -1,6 +1,6 @@
 # Pen phase 2 — capture-style region (plan)
 
-**Status:** **2a done** (mapping + settings); 2b/2c/2d not started  
+**Status:** **2a + 2b done** (mapping + picker + outline + Select/Clear wired); 2d polish optional  
 **Depends on:** phase 1 done (DPI + live `#pad` aspect), verified over USB.
 
 When you want a signature box (or any sub-rectangle), drag on the PC like
