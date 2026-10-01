@@ -14,5 +14,7 @@ Source: cropped / resized from `tmp/` capture dumps (not committed).
 | `windows-pen-region.jpg` | Windows | Active Drawing region outline |
 | `windows-advanced-pen.jpg` | Windows | Advanced → S Pen monitor map |
 
-Keep JPEGs small (about 720px wide, under ~30 KB when possible).  
-README embeds them with HTML `width=` so GitHub shows compact previews.
+README shows **three highlights** (connected pad, keypad, Windows app).  
+The rest sit under a collapsed “More screenshots” section.
+
+Keep JPEGs small (about 720px wide). Embed with HTML `width=` for compact previews.
