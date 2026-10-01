@@ -15,25 +15,12 @@ Real-use priority (signatures first):
 |---|------|----------------|
 | **1a** | ~~Pen DPI / whole-display Everyday~~ | **Done** (`8074402`, verified) |
 | **1b** | ~~Drawing pad-aspect~~ | **Done** (`ffee08b`, verified USB) |
-| **2** | **S Pen capture-style region** | **2a+2b done** · optional **2d** verify — [PEN_PHASE2_PLAN.md](PEN_PHASE2_PLAN.md) |
-| **3** | **Pop-up keypad + custom symbols** | After pen is comfortable for signatures |
+| **2** | ~~S Pen capture-style region~~ | **Done** (verified USB) — [PEN_PHASE2_PLAN.md](PEN_PHASE2_PLAN.md) |
+| **3** | **Pop-up keypad + custom symbols** | Next big feature when you want it |
 
 ---
 
 ## Open
-
-### idea — S Pen region: drag like screen capture (phase 2)
-
-**Plan:** [PEN_PHASE2_PLAN.md](PEN_PHASE2_PLAN.md)
-
-| Slice | One-liner |
-|-------|-----------|
-| **2a** | ~~Settings `region` + pen maps~~ **done** |
-| **2b** | ~~Picker + thin outline + Select/Clear~~ **done** (includes light 2c wiring) |
-| **2c** | Folded into 2b for Select/Clear / status / save |
-| **2d** | USB verify signature-field flow |
-
----
 
 ### idea — Trackpad + pop-up keypad (digits + custom symbols)
 
@@ -54,6 +41,12 @@ _(empty)_
 ---
 
 ## Done
+
+### done — S Pen capture-style region (phase 2)
+
+**Fixed:** `6c316a5`–`48f26c5` — Drawing region in settings, Select/Clear picker,
+thin outline (Qt coords), pen injection (Win32).  
+**Verified:** 2026-10-01 over USB.
 
 ### done — Drawing letterbox uses live #pad aspect
 
