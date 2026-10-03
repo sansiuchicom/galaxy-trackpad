@@ -232,15 +232,6 @@ class MainWindow(QMainWindow):
         inside.addWidget(self.slider("Cursor sensitivity", "cursor_sensitivity"))
         inside.addWidget(self.slider("Scroll sensitivity", "scroll_sensitivity"))
         inside.addWidget(self.slider("Pinch zoom sensitivity", "pinch_sensitivity"))
-        self.touch_feedback = QCheckBox("Touch feedback on tablet (keypad / buttons)")
-        self.touch_feedback.setToolTip(
-            "Short haptic tick when tapping keypad keys and pad UI buttons"
-        )
-        self.touch_feedback.setChecked(
-            bool(self.config["touchpad"].get("touch_feedback", True))
-        )
-        self.touch_feedback.toggled.connect(self.on_touch_feedback)
-        inside.addWidget(self.touch_feedback)
         self.keypad_symbols_button = self.action_button("Edit keypad symbols…")
         self.keypad_symbols_button.setToolTip(
             "Customize the left symbol keys on keypad pages 1 and 2"
@@ -515,12 +506,6 @@ class MainWindow(QMainWindow):
         self.save_settings()
         self.flush_engine_reload()
         self.log("Keypad symbols saved — tablet updates on next state push")
-
-    def on_touch_feedback(self, checked: bool) -> None:
-        self.config = migrate_config(self.config)
-        self.config["touchpad"]["touch_feedback"] = bool(checked)
-        self.save_settings()
-        self.flush_engine_reload()
 
     def apply_style(self):
         self.setStyleSheet("""

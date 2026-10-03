@@ -714,21 +714,6 @@ function applyKeypadFromState(msg) {
     }
 }
 
-let hapticEnabled = true;
-
-function tickHaptic() {
-    if (!hapticEnabled) return;
-    try {
-        if (window.GalaxyPad && typeof GalaxyPad.haptic === "function") {
-            GalaxyPad.haptic();
-            return;
-        }
-    } catch (e) { /* bridge threw */ }
-    try {
-        if (navigator.vibrate) navigator.vibrate(18);
-    } catch (e2) { /* no vibrator API */ }
-}
-
 function applyServerState(msg) {
     const pen = msg.pen || {};
     const name = pen.active_profile === "drawing" ? "drawing" : "standard";
@@ -747,7 +732,6 @@ function applyServerState(msg) {
     }
     updatePenOverlay();
     applyKeypadFromState(msg);
-    if (typeof msg.haptic === "boolean") hapticEnabled = msg.haptic;
 }
 
 function paintProfileButtons(name) {
@@ -848,34 +832,28 @@ function setFullscreen(on) {
 
 btnEveryday.addEventListener("click", (e) => {
     e.preventDefault();
-    tickHaptic();
     requestProfile("standard");
 });
 btnDrawing.addEventListener("click", (e) => {
     e.preventDefault();
-    tickHaptic();
     requestProfile("drawing");
 });
 
 document.getElementById("fsEveryday").addEventListener("click", (e) => {
     e.preventDefault();
-    tickHaptic();
     requestProfile("standard");
 });
 document.getElementById("fsDrawing").addEventListener("click", (e) => {
     e.preventDefault();
-    tickHaptic();
     requestProfile("drawing");
 });
 
 document.getElementById("btnFullscreen").addEventListener("click", (e) => {
     e.preventDefault();
-    tickHaptic();
     setFullscreen(true);
 });
 document.getElementById("fsBack").addEventListener("click", (e) => {
     e.preventDefault();
-    tickHaptic();
     setFullscreen(false);
 });
 
@@ -886,17 +864,14 @@ function openSettings() {
 }
 document.getElementById("btnSettings").addEventListener("click", (e) => {
     e.preventDefault();
-    tickHaptic();
     openSettings();
 });
 document.getElementById("fsSettings").addEventListener("click", (e) => {
     e.preventDefault();
-    tickHaptic();
     openSettings();
 });
 document.getElementById("settingsClose").addEventListener("click", (e) => {
     e.preventDefault();
-    tickHaptic();
     settingsSheet.classList.remove("open");
 });
 settingsSheet.addEventListener("click", (e) => {
@@ -986,7 +961,6 @@ function renderKeypadPage() {
         btn.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
-            tickHaptic();
             sendKey({ text: ch });
         });
         symbolGrid.appendChild(btn);
@@ -999,7 +973,6 @@ function renderKeypadPage() {
         btn.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
-            tickHaptic();
             if (item.vk) sendKey({ vk: item.vk });
             else if (item.text) sendKey({ text: item.text });
         });
@@ -1038,26 +1011,25 @@ function closeKeypad() {
 
 renderKeypadPage();
 
-function withHaptic(fn) {
-    return (e) => {
-        e.preventDefault();
-        tickHaptic();
-        fn(e);
-    };
-}
-
-document.getElementById("btnKeypad").addEventListener("click", withHaptic(() => toggleKeypad()));
-document.getElementById("fsKeypad").addEventListener("click", withHaptic(() => toggleKeypad()));
-document.getElementById("keypadClose").addEventListener("click", withHaptic(() => closeKeypad()));
+document.getElementById("btnKeypad").addEventListener("click", (e) => {
+    e.preventDefault();
+    toggleKeypad();
+});
+document.getElementById("fsKeypad").addEventListener("click", (e) => {
+    e.preventDefault();
+    toggleKeypad();
+});
+document.getElementById("keypadClose").addEventListener("click", (e) => {
+    e.preventDefault();
+    closeKeypad();
+});
 keypadPageBtn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    tickHaptic();
     setKeypadPage(keypadPage + 1);
 });
 keypadOverlay.addEventListener("click", (e) => {
     if (e.target === keypadOverlay) {
-        tickHaptic();
         closeKeypad();
     }
 });

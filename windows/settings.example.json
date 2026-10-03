@@ -3,7 +3,6 @@
         "cursor_sensitivity": 1.0,
         "scroll_sensitivity": 1.0,
         "pinch_sensitivity": 1.0,
-        "touch_feedback": true,
         "input_area": "fullscreen",
         "keypad": {
             "pages": [

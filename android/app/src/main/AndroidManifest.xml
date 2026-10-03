@@ -3,8 +3,6 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- Short keypad / UI ticks via GalaxyPad.haptic() (WebView bridge). -->
-    <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- BT-1 lab (Classic RFCOMM). maxSdk for legacy names on older OS. -->
     <uses-permission

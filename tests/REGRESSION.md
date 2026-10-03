@@ -130,9 +130,3 @@ Requires **Windows engine restart** (state protocol + last-client-wins WS).
 - [ ] Tablet keypad left key shows the new glyph (USB; BT after APK if needed)
 - [ ] Reset this page restores defaults
 - [ ] Right numpad unchanged
-
-## Touch feedback
-
-- [ ] Keypad key tap buzzes briefly on tablet
-- [ ] Pad finger move does **not** buzz continuously
-- [ ] Windows checkbox off → no buzz; on → buzz returns after reconnect/state

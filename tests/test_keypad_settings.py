@@ -53,14 +53,5 @@ class KeypadSettingsTests(unittest.TestCase):
         self.assertEqual(state["keypad"]["pages"][0]["symbols"][0], "X")
         self.assertEqual(state["keypad"]["pages"][1]["symbols"][0], "Y")
 
-    def test_haptic_flag_in_state(self):
-        cfg = migrate_config({"touchpad": {"touch_feedback": False}})
-        store.apply_runtime_settings(cfg)
-        self.assertFalse(build_client_state()["haptic"])
-        cfg = migrate_config({"touchpad": {"touch_feedback": True}})
-        store.apply_runtime_settings(cfg)
-        self.assertTrue(build_client_state()["haptic"])
-
-
 if __name__ == "__main__":
     unittest.main()

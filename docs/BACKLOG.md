@@ -22,8 +22,6 @@ Real-use priority (signatures first):
 | **3d** | ~~Pinch zoom sensitivity~~ | **Done** (verified) — Cursor / Scroll / Pinch sliders |
 | **4** | ~~Keypad pages (2)~~ | **Done** (verified) — full panel 1/2 flip |
 | **5** | ~~Keypad custom symbols~~ | **Done** (verified) — Windows edit UI → state |
-| **6** | ~~Touch feedback~~ | **Done** (needs verify) — GalaxyPad.haptic + Windows toggle |
-
 ---
 
 ## Open
@@ -37,15 +35,13 @@ User-adjustable keypad scale (persist on Windows). v1 uses a fixed larger size t
 
 ## Parking lot
 
-_(empty)_
+### parking — Touch feedback (tablet haptic)
+
+Tried WebView `GalaxyPad.haptic` + `navigator.vibrate` + Windows toggle; no reliable feel on device. Dropped — not worth more time.
 
 ---
 
 ## Done
-
-### done — Touch feedback (keypad / UI)
-
-**Fixed:** Android `GalaxyPad.haptic()` + HTML ticks on keypad/UI taps (not pad moves); Windows **Touch feedback** checkbox → `state.haptic`. **Needs verify** on device.
 
 ### done — Keypad custom left symbols
 
