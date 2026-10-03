@@ -125,7 +125,7 @@ Manual (after engine start + CONNECTED):
 | Page | Left (4×5) | Right |
 |------|------------|--------|
 | **1** | `, … ⋮ ·` / checks / arrows / marks / shapes | Win numpad (`/` `*` `−` `+` `.` digits) |
-| **2** | `₩€$¥` / fractions·π / `©®™§` / `•†‡¶` / `℃µΩ∞` | Circled digits + `÷×±` / `≠≈` / `°` (⌫ ↵ kept) |
+| **2** | `₩€$¥` / fractions·π / `©®™§` / `•†‡°` / `℃µΩ∞` | Circled digits + `÷×±`; tall `≠` (like +); bottom `≈` (⌫ ↵ kept) |
 
 Toggle control: `#keypadPageBtn` on the panel. Both grids rebuild via `renderKeypadPage()`.
 
