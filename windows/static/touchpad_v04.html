@@ -344,30 +344,39 @@ html, body {
     /* Sized for Galaxy Tab landscape — per-user scale UI later (BACKLOG) */
     width: min(92%, 900px);
     max-height: min(88%, 680px);
-    padding: clamp(12px, 1.8vw, 22px);
+    /* Extra top pad so 1/2 + close sit above the grids, not on keys */
+    padding: clamp(36px, 5vmin, 52px) clamp(12px, 1.8vw, 22px) clamp(12px, 1.8vw, 22px);
     pointer-events: auto;
 }
 
 #keypadClose,
 #keypadPageBtn {
     position: absolute;
-    top: -8px;
+    top: 4px;
     z-index: 2;
-    width: 44px;
-    height: 44px;
+    height: 52px;
     border: 1px solid rgba(255,255,255,0.18);
-    border-radius: 10px;
+    border-radius: 12px;
     background: rgba(18, 22, 29, 0.55);
     color: #e8edf5;
-    font-size: 16px;
     font-weight: 700;
     line-height: 1;
     cursor: pointer;
     touch-action: manipulation;
 }
 
-#keypadClose { right: -8px; font-size: 18px; }
-#keypadPageBtn { right: 44px; }
+#keypadClose {
+    right: 4px;
+    width: 52px;
+    font-size: 20px;
+}
+
+#keypadPageBtn {
+    right: 64px;
+    min-width: 64px;
+    padding: 0 12px;
+    font-size: 18px;
+}
 
 .keypad-grid {
     --key: clamp(56px, 12.5vmin, 92px);
@@ -389,6 +398,9 @@ html, body {
     font-size: clamp(18px, 4vmin, 28px);
     font-weight: 600;
     line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
@@ -884,9 +896,10 @@ const KEYPAD_PAGES = [
             "₩", "€", "$", "¥",
             "½", "¼", "¾", "π",
             "©", "®", "™", "§",
-            "•", "†", "‡", "¶",
+            "•", "†", "‡", "°",
             "℃", "µ", "Ω", "∞"
         ],
+        // Same geometry as page 1: tall key in the + slot so ①②③ stay on row 4.
         numpad: [
             { label: "⌫", vk: "backspace" },
             { label: "÷", text: "÷" },
@@ -895,7 +908,7 @@ const KEYPAD_PAGES = [
             { label: "⑦", text: "⑦" },
             { label: "⑧", text: "⑧" },
             { label: "⑨", text: "⑨" },
-            { label: "≠", text: "≠" },
+            { label: "≠", text: "≠", cls: "span-row2" },
             { label: "④", text: "④" },
             { label: "⑤", text: "⑤" },
             { label: "⑥", text: "⑥" },
@@ -904,7 +917,7 @@ const KEYPAD_PAGES = [
             { label: "③", text: "③" },
             { label: "↵", vk: "enter", cls: "span-row2" },
             { label: "⓪", text: "⓪", cls: "span-col2" },
-            { label: "°", text: "°" }
+            { label: "≈", text: "≈" }
         ]
     }
 ];
