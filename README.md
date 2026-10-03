@@ -156,7 +156,7 @@ Prefer **USB** when you care about latency (drawing). Use **Bluetooth** when you
 
 | What | Where |
 |------|--------|
-| Cursor / scroll sensitivity | Windows app |
+| Cursor / scroll / pinch zoom sensitivity | Windows app |
 | Everyday / Drawing pen profile | Windows or Android (saved on Windows) |
 | Monitor / pen area / mapping | Windows **Advanced** |
 | Pop-up keypad (digits + symbols) | Tablet **Keypad** button — [docs/KEYPAD_PLAN.md](docs/KEYPAD_PLAN.md) |

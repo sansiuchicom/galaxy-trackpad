@@ -2,6 +2,7 @@
     "touchpad": {
         "cursor_sensitivity": 1.0,
         "scroll_sensitivity": 1.0,
+        "pinch_sensitivity": 1.0,
         "input_area": "fullscreen"
     },
     "pen": {

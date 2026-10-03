@@ -22,6 +22,7 @@ DEFAULTS: dict[str, Any] = {
     "touchpad": {
         "cursor_sensitivity": 1.0,
         "scroll_sensitivity": 1.0,
+        "pinch_sensitivity": 1.0,
         "input_area": "fullscreen",  # Phase 3: fullscreen | show_menu
     },
     "pen": {
@@ -53,6 +54,7 @@ DEFAULTS: dict[str, Any] = {
 SETTINGS: dict[str, Any] = {
     "cursor_sensitivity": 1.0,
     "scroll_sensitivity": 1.0,
+    "pinch_sensitivity": 1.0,
     "pen": copy.deepcopy(DEFAULTS["pen"]),
 }
 
@@ -120,6 +122,9 @@ def migrate_config(raw: Any) -> dict[str, Any]:
     )
     out["touchpad"]["scroll_sensitivity"] = _gain(
         touch, "scroll_sensitivity", default=_gain(data, "scroll_sensitivity")
+    )
+    out["touchpad"]["pinch_sensitivity"] = _gain(
+        touch, "pinch_sensitivity", default=_gain(data, "pinch_sensitivity")
     )
     area = touch.get("input_area", data.get("input_area", "fullscreen"))
     out["touchpad"]["input_area"] = (
@@ -230,6 +235,7 @@ def apply_runtime_settings(config: dict[str, Any]) -> dict[str, Any]:
     normalized = migrate_config(config)
     SETTINGS["cursor_sensitivity"] = normalized["touchpad"]["cursor_sensitivity"]
     SETTINGS["scroll_sensitivity"] = normalized["touchpad"]["scroll_sensitivity"]
+    SETTINGS["pinch_sensitivity"] = normalized["touchpad"]["pinch_sensitivity"]
     SETTINGS["pen"] = copy.deepcopy(normalized["pen"])
     SETTINGS["debug_log"] = bool(normalized["general"].get("debug_log", False))
     # Deprecated key kept True for any leftover checks.
@@ -251,9 +257,10 @@ def reload_settings() -> dict[str, Any]:
             r["left"], r["top"], r["right"], r["bottom"]
         )
     info(
-        "Settings Cursor={:.2f}x Scroll={:.2f}x PenProfile={} mapping={} area={:.0f}%{}".format(
+        "Settings Cursor={:.2f}x Scroll={:.2f}x Pinch={:.2f}x PenProfile={} mapping={} area={:.0f}%{}".format(
             SETTINGS["cursor_sensitivity"],
             SETTINGS["scroll_sensitivity"],
+            SETTINGS["pinch_sensitivity"],
             profile["name"],
             profile["mapping"],
             profile["area_size"] * 100,

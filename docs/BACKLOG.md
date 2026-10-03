@@ -18,7 +18,8 @@ Real-use priority (signatures first):
 | **2** | ~~S Pen capture-style region~~ | **Done** (verified USB) — [PEN_PHASE2_PLAN.md](PEN_PHASE2_PLAN.md) |
 | **3** | ~~Pop-up keypad v1~~ | **Done in v0.11.0** — [KEYPAD_PLAN.md](KEYPAD_PLAN.md) |
 | **3b** | ~~Pen region Esc cancel~~ | **Done** (verified) — keyboard grab / Window focus |
-| **3c** | Tablet Drawing sync after region pick | PC→tablet state push (USB + BT) |
+| **3c** | ~~Tablet Drawing sync after region pick~~ | **Done** (verified) — USB + BT state push |
+| **3d** | Pinch zoom sensitivity slider | Amplify 2-finger separation; default 1.0 |
 | **4** | Keypad page(s) | Extra layers (e.g. circled digits) without growing the grid |
 | **5** | Keypad custom symbols | User-editable special-character slots |
 | **6** | Per-gesture sensitivity | Separate 1-finger vs 2+ finger feel |
@@ -28,11 +29,9 @@ Real-use priority (signatures first):
 
 ## Open
 
-### bug — Pen region select does not refresh tablet Drawing / region UI
+### idea — Pinch zoom sensitivity (in progress)
 
-Starting region select forces Drawing on Windows and saves, but the tablet often stays on the old profile / overlay until the user taps **Drawing & Signature** again. Re-picking a region can also feel like it does not take until a manual profile tap. Likely PC→tablet state push gap (RELOAD broadcast is WebSocket-oriented; Bluetooth may not get a fresh `state`), plus possible stale `profilePending` / deferred pen-map apply.
-
-**Fix in progress / needs verify:** `request_client_state_broadcast` pushes USB + BT; region pick flushes RELOAD; HTML always paints server profile. Check USB and Bluetooth: Select region → tablet shows Drawing without a second tap; re-pick updates S Pen Area.
+Windows slider `pinch_sensitivity` (0.5–2.0x). Scales 2-finger distance from centroid; scroll/cursor unchanged. Default 1.0 = previous behavior. Needs real-use verify on Tab.
 
 ### idea — Keypad page(s)
 
@@ -45,7 +44,7 @@ Let the user set the left special-character slots (replace the hard-coded 20 gly
 
 ### idea — 1-finger vs 2+ finger sensitivity
 
-Separate cursor / scroll (or move) sensitivity when one finger is down vs when two or more fingers are active — so pointing and multi-touch gestures can feel different. Windows app settings; persist.
+Mostly covered by separate Cursor / Scroll / **Pinch** sliders. Revisit only if 2-finger pan still needs a feel distinct from pinch after pinch shipping.
 
 ### idea — Keypad size slider
 
@@ -64,6 +63,11 @@ _(empty)_
 ---
 
 ## Done
+
+### done — Tablet Drawing sync after region pick
+
+**Fixed:** shared `request_client_state_broadcast` (USB + BT); flush RELOAD after region pick; HTML always paints server profile.
+**Verified:** 2026-10-03.
 
 ### done — Pen region picker Esc cancel
 

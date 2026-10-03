@@ -230,6 +230,7 @@ class MainWindow(QMainWindow):
         frame, inside = self.card()
         inside.addWidget(self.slider("Cursor sensitivity", "cursor_sensitivity"))
         inside.addWidget(self.slider("Scroll sensitivity", "scroll_sensitivity"))
+        inside.addWidget(self.slider("Pinch zoom sensitivity", "pinch_sensitivity"))
         layout.addWidget(frame)
 
         layout.addWidget(self.section("S PEN"))
