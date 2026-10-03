@@ -63,6 +63,7 @@ class RegionPickerOverlay(QDialog):
         self._origin: QPoint | None = None
         self._current: QPoint | None = None
         self._norm: NormRect | None = None
+        self._keyboard_grabbed = False
 
         # Window (not Tool): Tool overlays often never get keyboard focus on Windows,
         # so Esc never reaches keyPressEvent while the main app window is hidden.
@@ -140,14 +141,22 @@ class RegionPickerOverlay(QDialog):
             painter.drawRect(rubber.adjusted(0, 0, -1, -1))
 
     def _claim_keyboard(self) -> None:
+        # PySide6 has no QGuiApplication.keyboardGrabber(); track grab ourselves.
         self.raise_()
         self.activateWindow()
         self.setFocus(Qt.FocusReason.ActiveWindowFocusReason)
-        self.grabKeyboard()
+        if not self._keyboard_grabbed:
+            self.grabKeyboard()
+            self._keyboard_grabbed = True
 
     def _release_keyboard(self) -> None:
-        if QGuiApplication.keyboardGrabber() is self:
+        if not self._keyboard_grabbed:
+            return
+        self._keyboard_grabbed = False
+        try:
             self.releaseKeyboard()
+        except Exception:
+            pass
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
@@ -166,8 +175,12 @@ class RegionPickerOverlay(QDialog):
         super().done(result)
 
     def mousePressEvent(self, event) -> None:
-        # Re-claim focus if another window stole it while we were idle.
-        self._claim_keyboard()
+        # Keep Esc working if focus was stolen, but do not re-activate every click
+        # (that was interrupting the rubber-band drag / accept path).
+        if not self._keyboard_grabbed:
+            self._claim_keyboard()
+        else:
+            self.setFocus(Qt.FocusReason.MouseFocusReason)
         if event.button() == Qt.MouseButton.LeftButton:
             self._origin = event.position().toPoint()
             self._current = self._origin
