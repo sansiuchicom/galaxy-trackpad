@@ -214,6 +214,7 @@ Manual checklist: [tests/REGRESSION.md](tests/REGRESSION.md). Keypad design/prot
 | Packaged Windows exe + signed APK | Done (`v0.9.1`+) |
 | Bluetooth RFCOMM transport | Done (`v0.10.0`) |
 | Pop-up keypad (symbols + numpad) | Done (`v0.11.0`) — [docs/KEYPAD_PLAN.md](docs/KEYPAD_PLAN.md) |
+| Pinch zoom sensitivity slider | Done — Cursor / Scroll / Pinch in Windows app |
 | Longer soak / polish | In progress |
 | **1.0.0** | After real-world soak |
 
