@@ -17,6 +17,7 @@ Real-use priority (signatures first):
 | **1b** | ~~Drawing pad-aspect~~ | **Done** (`ffee08b`, verified USB) |
 | **2** | ~~S Pen capture-style region~~ | **Done** (verified USB) — [PEN_PHASE2_PLAN.md](PEN_PHASE2_PLAN.md) |
 | **3** | ~~Pop-up keypad v1~~ | **Done in v0.11.0** — [KEYPAD_PLAN.md](KEYPAD_PLAN.md) |
+| **3b** | Pen region Esc + tablet Drawing sync | Bugs from real use — fix before more keypad polish |
 | **4** | Keypad page(s) | Extra layers (e.g. circled digits) without growing the grid |
 | **5** | Keypad custom symbols | User-editable special-character slots |
 | **6** | Per-gesture sensitivity | Separate 1-finger vs 2+ finger feel |
@@ -25,6 +26,14 @@ Real-use priority (signatures first):
 ---
 
 ## Open
+
+### bug — Pen region picker: Esc during drag does not cancel
+
+While the capture-style overlay is up (dragging a pen region), **Esc should reject/dismiss** the picker. Tip text promises Esc, and `RegionPickerOverlay.keyPressEvent` calls `reject()`, but Esc often does nothing in practice. Likely focus/activation: frameless `Tool` overlay, `parent=None`, main window hidden, no `grabKeyboard()` / forced focus.
+
+### bug — Pen region select does not refresh tablet Drawing / region UI
+
+Starting region select forces Drawing on Windows and saves, but the tablet often stays on the old profile / overlay until the user taps **Drawing & Signature** again. Re-picking a region can also feel like it does not take until a manual profile tap. Likely PC→tablet state push gap (RELOAD broadcast is WebSocket-oriented; Bluetooth may not get a fresh `state`), plus possible stale `profilePending` / deferred pen-map apply.
 
 ### idea — Keypad page(s)
 
