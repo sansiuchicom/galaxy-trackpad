@@ -344,15 +344,15 @@ html, body {
     /* Sized for Galaxy Tab landscape — per-user scale UI later (BACKLOG) */
     width: min(92%, 900px);
     max-height: min(88%, 680px);
-    /* Extra top pad so 1/2 + close sit above the grids, not on keys */
-    padding: clamp(36px, 5vmin, 52px) clamp(12px, 1.8vw, 22px) clamp(12px, 1.8vw, 22px);
+    /* Extra top pad so 1/2 + close sit clear above the top key row (− etc.) */
+    padding: clamp(56px, 8vmin, 72px) clamp(12px, 1.8vw, 22px) clamp(12px, 1.8vw, 22px);
     pointer-events: auto;
 }
 
 #keypadClose,
 #keypadPageBtn {
     position: absolute;
-    top: 4px;
+    top: 8px;
     z-index: 2;
     height: 52px;
     border: 1px solid rgba(255,255,255,0.18);
