@@ -340,21 +340,23 @@ html, body {
     display: flex;
     flex-direction: row;
     align-items: stretch;
-    gap: clamp(14px, 2.4vw, 32px);
-    /* Sized for Galaxy Tab landscape — per-user scale UI later (BACKLOG) */
-    width: min(92%, 900px);
-    max-height: min(88%, 680px);
-    /* Extra top pad so 1/2 + close sit clear above the top key row (− etc.) */
-    padding: clamp(56px, 8vmin, 72px) clamp(12px, 1.8vw, 22px) clamp(12px, 1.8vw, 22px);
+    gap: clamp(8px, 1.6vw, 32px);
+    /* Fit phone + tablet: never taller than the pad column */
+    width: min(94%, 900px);
+    max-height: calc(100% - 12px);
+    box-sizing: border-box;
+    /* Extra top pad so 1/2 + close sit clear above the top key row */
+    padding: clamp(48px, 7vmin, 72px) clamp(8px, 1.4vw, 22px) clamp(8px, 1.4vw, 22px);
     pointer-events: auto;
+    overflow: hidden;
 }
 
 #keypadClose,
 #keypadPageBtn {
     position: absolute;
-    top: 8px;
+    top: 6px;
     z-index: 2;
-    height: 52px;
+    height: clamp(40px, 6.5vmin, 52px);
     border: 1px solid rgba(255,255,255,0.18);
     border-radius: 12px;
     background: rgba(18, 22, 29, 0.55);
@@ -367,20 +369,28 @@ html, body {
 
 #keypadClose {
     right: 4px;
-    width: 52px;
-    font-size: 20px;
+    width: clamp(40px, 6.5vmin, 52px);
+    font-size: clamp(16px, 2.8vmin, 20px);
 }
 
 #keypadPageBtn {
-    right: 64px;
-    min-width: 64px;
-    padding: 0 12px;
-    font-size: 18px;
+    right: calc(4px + clamp(40px, 6.5vmin, 52px) + 8px);
+    min-width: clamp(52px, 8vmin, 64px);
+    padding: 0 10px;
+    font-size: clamp(14px, 2.6vmin, 18px);
 }
 
 .keypad-grid {
-    --key: clamp(56px, 12.5vmin, 92px);
-    --gap: clamp(8px, 1.4vmin, 14px);
+    /*
+     * 5 rows + 4 gaps must fit in the overlay height (phone landscape is short).
+     * Cap by vmin for tablets; floor so keys stay tappable.
+     */
+    --key: clamp(
+        40px,
+        min(11.5vmin, calc((100dvh - 96px) / 5.9)),
+        92px
+    );
+    --gap: clamp(5px, 1.1vmin, 14px);
     display: grid;
     grid-template-columns: repeat(4, var(--key));
     grid-template-rows: repeat(5, var(--key));

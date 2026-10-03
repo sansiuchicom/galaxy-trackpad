@@ -28,7 +28,7 @@ Real-use priority (signatures first):
 
 ### idea — Keypad size slider
 
-User-adjustable keypad scale (persist on Windows). v1 uses a fixed larger size tuned for Tab S7 landscape.
+User-adjustable keypad scale (persist on Windows). **v0.12.1** auto-fits to viewport height (verified Tab S7 + Galaxy S24); slider only if someone wants larger/smaller than auto.
 
 
 ---
@@ -42,6 +42,10 @@ Tried WebView `GalaxyPad.haptic` + `navigator.vibrate` + Windows toggle; no reli
 ---
 
 ## Done
+
+### done — Phone keypad fit + S24 verify (v0.12.1)
+
+**Fixed:** keypad key size uses `100dvh` so 5 rows fit on short phone landscape; docs list Android phones/tablets (**Tab S7** + **Galaxy S24** verified).
 
 ### done — Keypad custom left symbols
 
