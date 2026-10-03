@@ -17,7 +17,8 @@ Real-use priority (signatures first):
 | **1b** | ~~Drawing pad-aspect~~ | **Done** (`ffee08b`, verified USB) |
 | **2** | ~~S Pen capture-style region~~ | **Done** (verified USB) — [PEN_PHASE2_PLAN.md](PEN_PHASE2_PLAN.md) |
 | **3** | ~~Pop-up keypad v1~~ | **Done in v0.11.0** — [KEYPAD_PLAN.md](KEYPAD_PLAN.md) |
-| **3b** | Pen region Esc + tablet Drawing sync | Bugs from real use — fix before more keypad polish |
+| **3b** | ~~Pen region Esc cancel~~ | **Done** (verified) — keyboard grab / Window focus |
+| **3c** | Tablet Drawing sync after region pick | PC→tablet state push (USB + BT) |
 | **4** | Keypad page(s) | Extra layers (e.g. circled digits) without growing the grid |
 | **5** | Keypad custom symbols | User-editable special-character slots |
 | **6** | Per-gesture sensitivity | Separate 1-finger vs 2+ finger feel |
@@ -26,12 +27,6 @@ Real-use priority (signatures first):
 ---
 
 ## Open
-
-### bug — Pen region picker: Esc during drag does not cancel
-
-While the capture-style overlay is up (dragging a pen region), **Esc should reject/dismiss** the picker. Tip text promises Esc, and `RegionPickerOverlay.keyPressEvent` calls `reject()`, but Esc often does nothing in practice. Likely focus/activation: frameless `Tool` overlay, `parent=None`, main window hidden, no `grabKeyboard()` / forced focus.
-
-**Fix in progress / needs verify:** overlay is now `Window` (not `Tool`), ApplicationModal, `grabKeyboard` + activate/focus on show and mouse press, Esc `QShortcut`. Manual check: Select region → drag → Esc should cancel without committing.
 
 ### bug — Pen region select does not refresh tablet Drawing / region UI
 
@@ -68,7 +63,13 @@ _(empty)_
 
 ## Done
 
+### done — Pen region picker Esc cancel
+
+**Fixed:** overlay `Window` + ApplicationModal; `grabKeyboard` with local flag (no `keyboardGrabber`); Esc shortcut.  
+**Verified:** 2026-10-03 — drag + Esc cancels; drag + release still commits.
+
 ### done — Pop-up keypad v1 (symbols + Win numpad)
+
 
 **Released:** **v0.11.0** — translucent 4+4×5 overlay; menu/fullscreen chrome;  
 digits via main-row VKs (NumLock-safe); left symbols via Unicode; USB + BT `type:"key"`.  
