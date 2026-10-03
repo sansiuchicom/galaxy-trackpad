@@ -3,7 +3,7 @@
 For people who just want to use Galaxy Trackpad.  
 Developers who build from source: see the root [README](../README.md#build-from-source-developers), [packaging/README.md](../packaging/README.md), and [android/README.md](../android/README.md).
 
-**Current release:** [v0.11.0](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.11.0)
+**Current release:** [v0.12.0](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.12.0)
 
 ---
 
@@ -22,18 +22,18 @@ The app is **not** on the Play Store or Microsoft Store. You install the APK you
 
 ## 1. Download
 
-Open the [**v0.11.0 release**](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.11.0) page and download:
+Open the [**v0.12.0 release**](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.12.0) page and download:
 
 | File | What it is |
 |------|------------|
-| [`GalaxyTrackpad-windows-v0.11.0.zip`](https://github.com/sansiuchicom/galaxy-trackpad/releases/download/v0.11.0/GalaxyTrackpad-windows-v0.11.0.zip) | Windows app + bundled ADB (`platform-tools`) |
-| [`GalaxyTrackpad-v0.11.0.apk`](https://github.com/sansiuchicom/galaxy-trackpad/releases/download/v0.11.0/GalaxyTrackpad-v0.11.0.apk) | Android app (or use the android zip, which contains the same APK) |
+| [`GalaxyTrackpad-windows-v0.12.0.zip`](https://github.com/sansiuchicom/galaxy-trackpad/releases/download/v0.12.0/GalaxyTrackpad-windows-v0.12.0.zip) | Windows app + bundled ADB (`platform-tools`) |
+| [`GalaxyTrackpad-v0.12.0.apk`](https://github.com/sansiuchicom/galaxy-trackpad/releases/download/v0.12.0/GalaxyTrackpad-v0.12.0.apk) | Android app (or use the android zip, which contains the same APK) |
 
 ---
 
 ## 2. Install on Windows
 
-1. Unzip `GalaxyTrackpad-windows-v0.11.0.zip` anywhere you like.
+1. Unzip `GalaxyTrackpad-windows-v0.12.0.zip` anywhere you like.
 2. Keep the folder together. Do **not** delete `_internal` or `platform-tools`.
 3. Run **`GalaxyTrackpad.exe`**.
 4. If Windows Firewall asks, allow it (the app uses localhost ports only).
@@ -50,7 +50,7 @@ To exit completely: **QUIT** in the window, or tray → **Quit**. Closing the wi
 
 ### Option A — copy the APK and open it
 
-1. Copy `GalaxyTrackpad-v0.11.0.apk` to the tablet (USB file transfer, cloud drive, etc.).
+1. Copy `GalaxyTrackpad-v0.12.0.apk` to the tablet (USB file transfer, cloud drive, etc.).
 2. On the tablet, open the file.
 3. Allow **Install unknown apps** for that file manager / browser if Android asks.
 4. Finish the install.
@@ -63,7 +63,7 @@ To exit completely: **QUIT** in the window, or tray → **Quit**. Closing the wi
 4. From a PowerShell window in the unzipped Windows folder (or any folder that has `adb`):
 
 ```powershell
-.\platform-tools\adb.exe install -r path\to\GalaxyTrackpad-v0.11.0.apk
+.\platform-tools\adb.exe install -r path\to\GalaxyTrackpad-v0.12.0.apk
 ```
 
 If you previously installed a **debug** build from Android Studio, uninstall that app first — the release APK is signed differently and will not update over it.

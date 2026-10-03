@@ -4,9 +4,9 @@
 
 Use an idle Galaxy Tab (or similar Android tablet) as a Windows trackpad — and optionally as an S Pen tablet — without a custom kernel driver and without the Play Store.
 
-**Latest release: [v0.11.0](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.11.0)** · pre-1.0 daily driver · not on any app store
+**Latest release: [v0.12.0](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.12.0)** · pre-1.0 daily driver · not on any app store
 
-[Download v0.11.0](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.11.0) · [Install guide](docs/INSTALL.md) · [Bluetooth notes](docs/BLUETOOTH.md)
+[Download v0.12.0](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.12.0) · [Install guide](docs/INSTALL.md) · [Bluetooth notes](docs/BLUETOOTH.md)
 
 ---
 
@@ -68,7 +68,7 @@ On Windows, drag a capture-style region, see the outline while Drawing, and map 
 
 - **Native Windows Precision Touchpad** — 1–5 fingers; tap, scroll, pinch; system 3- and 4-finger gestures; separate **cursor / scroll / pinch zoom** sensitivity in the Windows app
 - **S Pen → Windows pen** — pressure and tilt when the tablet supports it; Everyday / Drawing profiles; optional capture-style region
-- **Pop-up keypad** — translucent symbols + Windows-style numpad on the pad (USB and Bluetooth); see [docs/KEYPAD_PLAN.md](docs/KEYPAD_PLAN.md)
+- **Pop-up keypad** — 2 pages (symbols + Win-style numpad), editable left symbols from Windows; see [docs/KEYPAD_PLAN.md](docs/KEYPAD_PLAN.md)
 - **USB or Bluetooth** — choose on the tablet at launch (one transport per session)
 - **No browser UI** — tablet app + Windows app; no typing `http://127.0.0.1…`
 - **Windows tray app** — auto engine start, USB reverse ports, Bluetooth advertising while running, optional start with Windows
@@ -77,13 +77,13 @@ On Windows, drag a capture-style region, see the outline while Drawing, and map 
 
 ## Download
 
-From **[v0.11.0 on GitHub Releases](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.11.0)**:
+From **[v0.12.0 on GitHub Releases](https://github.com/sansiuchicom/galaxy-trackpad/releases/tag/v0.12.0)**:
 
 | File | Purpose |
 |------|---------|
-| [**GalaxyTrackpad-windows-v0.11.0.zip**](https://github.com/sansiuchicom/galaxy-trackpad/releases/download/v0.11.0/GalaxyTrackpad-windows-v0.11.0.zip) | Windows app + bundled `platform-tools` (ADB) |
-| [**GalaxyTrackpad-v0.11.0.apk**](https://github.com/sansiuchicom/galaxy-trackpad/releases/download/v0.11.0/GalaxyTrackpad-v0.11.0.apk) | Android app |
-| [GalaxyTrackpad-android-v0.11.0.zip](https://github.com/sansiuchicom/galaxy-trackpad/releases/download/v0.11.0/GalaxyTrackpad-android-v0.11.0.zip) | Same APK, packaged as a zip |
+| [**GalaxyTrackpad-windows-v0.12.0.zip**](https://github.com/sansiuchicom/galaxy-trackpad/releases/download/v0.12.0/GalaxyTrackpad-windows-v0.12.0.zip) | Windows app + bundled `platform-tools` (ADB) |
+| [**GalaxyTrackpad-v0.12.0.apk**](https://github.com/sansiuchicom/galaxy-trackpad/releases/download/v0.12.0/GalaxyTrackpad-v0.12.0.apk) | Android app |
+| [GalaxyTrackpad-android-v0.12.0.zip](https://github.com/sansiuchicom/galaxy-trackpad/releases/download/v0.12.0/GalaxyTrackpad-android-v0.12.0.zip) | Same APK, packaged as a zip |
 
 Keep the Windows folder intact after unzip (`GalaxyTrackpad.exe`, `_internal`, `platform-tools`).
 
@@ -214,8 +214,8 @@ Manual checklist: [tests/REGRESSION.md](tests/REGRESSION.md). Keypad design/prot
 | Windows engine + Android WebView | Done |
 | Packaged Windows exe + signed APK | Done (`v0.9.1`+) |
 | Bluetooth RFCOMM transport | Done (`v0.10.0`) |
-| Pop-up keypad (symbols + numpad) | Done (`v0.11.0`) — [docs/KEYPAD_PLAN.md](docs/KEYPAD_PLAN.md) |
-| Pinch zoom sensitivity slider | Done — Cursor / Scroll / Pinch in Windows app |
+| Pop-up keypad (pages + custom symbols) | Done (`v0.12.0`) — [docs/KEYPAD_PLAN.md](docs/KEYPAD_PLAN.md) |
+| Pinch zoom sensitivity slider | Done (`v0.12.0`) — Cursor / Scroll / Pinch in Windows app |
 | Longer soak / polish | In progress |
 | **1.0.0** | After real-world soak |
 

@@ -1,6 +1,6 @@
 # Keypad / symbols panel
 
-**Status:** shipped in **v0.11.0**; **2-page flip** on tablet (HTML)  
+**Status:** shipped in **v0.11.0**; pages + custom symbols in **v0.12.0**  
 **Page:** `windows/static/touchpad_v04.html` (USB live-serve + Android `assets` via `sourceSets`)  
 **PC inject:** `windows/core/keyboard.py`  
 **Transport:** USB WebSocket + Bluetooth both accept `type: "key"`
