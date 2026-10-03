@@ -7,10 +7,15 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.util.Log
 import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.WindowManager
@@ -237,16 +242,31 @@ class MainActivity : AppCompatActivity() {
     inner class HapticBridge {
         @JavascriptInterface
         fun haptic() {
+            // Must bounce to UI thread; also prefer Vibrator — Samsung often
+            // no-ops performHapticFeedback when system "Touch feedback" is off.
             mainHandler.post {
                 if (destroyed) return@post
-                val view = binding.webView
-                val ok = view.performHapticFeedback(
-                    HapticFeedbackConstants.KEYBOARD_TAP,
-                    HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING,
-                )
-                if (!ok) {
-                    @Suppress("DEPRECATION")
-                    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                try {
+                    val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        val mgr = getSystemService(VibratorManager::class.java)
+                        mgr?.defaultVibrator
+                    } else {
+                        @Suppress("DEPRECATION")
+                        getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                    }
+                    if (vibrator != null && vibrator.hasVibrator()) {
+                        vibrator.vibrate(
+                            VibrationEffect.createOneShot(18, VibrationEffect.DEFAULT_AMPLITUDE),
+                        )
+                        return@post
+                    }
+                    binding.webView.performHapticFeedback(
+                        HapticFeedbackConstants.KEYBOARD_TAP,
+                        HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING or
+                            HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING,
+                    )
+                } catch (e: Exception) {
+                    Log.w(TAG, "haptic failed: ${e.message}")
                 }
             }
         }
@@ -361,10 +381,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
+        private const val TAG = "GalaxyTrackpad"
         private const val MODE_USB = "usb"
         private const val MODE_BT = "bluetooth"
         private const val TRACKPAD_ORIGIN = "http://127.0.0.1:8765"
-        const val TRACKPAD_URL = "http://127.0.0.1:8765/touchpad_v04.html?v=0114"
+        const val TRACKPAD_URL = "http://127.0.0.1:8765/touchpad_v04.html?v=0115"
         private const val WAITING_URL = "file:///android_asset/waiting.html"
         private const val BT_PAD_URL = "file:///android_asset/touchpad_v04.html"
         private const val RELOAD_DELAY_MS = 2000L

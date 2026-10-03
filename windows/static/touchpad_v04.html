@@ -721,8 +721,12 @@ function tickHaptic() {
     try {
         if (window.GalaxyPad && typeof GalaxyPad.haptic === "function") {
             GalaxyPad.haptic();
+            return;
         }
-    } catch (e) { /* desktop browser / no bridge */ }
+    } catch (e) { /* bridge threw */ }
+    try {
+        if (navigator.vibrate) navigator.vibrate(18);
+    } catch (e2) { /* no vibrator API */ }
 }
 
 function applyServerState(msg) {
