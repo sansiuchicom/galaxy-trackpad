@@ -20,7 +20,7 @@ Real-use priority (signatures first):
 | **3b** | ~~Pen region Esc cancel~~ | **Done** (verified) — keyboard grab / Window focus |
 | **3c** | ~~Tablet Drawing sync after region pick~~ | **Done** (verified) — USB + BT state push |
 | **3d** | ~~Pinch zoom sensitivity~~ | **Done** (verified) — Cursor / Scroll / Pinch sliders |
-| **4** | ~~Keypad pages (2)~~ | **Done** (needs verify) — full panel 1/2 flip |
+| **4** | ~~Keypad pages (2)~~ | **Done** (verified) — full panel 1/2 flip |
 | **5** | Keypad custom symbols | User-editable special-character slots |
 | **6** | Touch feedback | Keypad taps / UI actions feel confirmed |
 
@@ -53,7 +53,7 @@ _(empty)_
 ### done — Keypad pages (full panel 1/2)
 
 **Fixed:** `1/2` toggle flips left symbols + right pad together. Page 2 = currency/misc + circled digits / math ops. Reopen → page 1.  
-**Doc:** [KEYPAD_PLAN.md](KEYPAD_PLAN.md). **Needs verify** on device.
+**Doc:** [KEYPAD_PLAN.md](KEYPAD_PLAN.md). **Verified:** 2026-10-03.
 
 ### done — Pinch zoom sensitivity
 
