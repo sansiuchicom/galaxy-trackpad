@@ -2,7 +2,15 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QPoint, QRect, Qt
-from PySide6.QtGui import QColor, QGuiApplication, QPainter, QPen, QScreen
+from PySide6.QtGui import (
+    QColor,
+    QGuiApplication,
+    QKeySequence,
+    QPainter,
+    QPen,
+    QScreen,
+    QShortcut,
+)
 from PySide6.QtWidgets import QDialog, QLabel, QVBoxLayout
 
 from windows.core.displays import MonitorInfo
@@ -56,13 +64,16 @@ class RegionPickerOverlay(QDialog):
         self._current: QPoint | None = None
         self._norm: NormRect | None = None
 
+        # Window (not Tool): Tool overlays often never get keyboard focus on Windows,
+        # so Esc never reaches keyPressEvent while the main app window is hidden.
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.Tool
+            | Qt.WindowType.Window
             | Qt.WindowType.WindowStaysOnTopHint
         )
         self.setWindowTitle("Select pen region")
         self.setModal(True)
+        self.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.setCursor(Qt.CursorShape.CrossCursor)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         # Use Qt's screen geometry so the overlay matches what the user sees.
@@ -83,6 +94,9 @@ class RegionPickerOverlay(QDialog):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.addWidget(tip, 0, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
         layout.addStretch(1)
+
+        # Belt-and-suspenders: Esc via shortcut + keyPressEvent + keyboard grab.
+        QShortcut(QKeySequence(Qt.Key.Key_Escape), self, activated=self.reject)
 
     def norm_region(self) -> NormRect | None:
         return self._norm
@@ -125,7 +139,35 @@ class RegionPickerOverlay(QDialog):
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawRect(rubber.adjusted(0, 0, -1, -1))
 
+    def _claim_keyboard(self) -> None:
+        self.raise_()
+        self.activateWindow()
+        self.setFocus(Qt.FocusReason.ActiveWindowFocusReason)
+        self.grabKeyboard()
+
+    def _release_keyboard(self) -> None:
+        if QGuiApplication.keyboardGrabber() is self:
+            self.releaseKeyboard()
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self._claim_keyboard()
+
+    def hideEvent(self, event) -> None:
+        self._release_keyboard()
+        super().hideEvent(event)
+
+    def closeEvent(self, event) -> None:
+        self._release_keyboard()
+        super().closeEvent(event)
+
+    def done(self, result: int) -> None:
+        self._release_keyboard()
+        super().done(result)
+
     def mousePressEvent(self, event) -> None:
+        # Re-claim focus if another window stole it while we were idle.
+        self._claim_keyboard()
         if event.button() == Qt.MouseButton.LeftButton:
             self._origin = event.position().toPoint()
             self._current = self._origin

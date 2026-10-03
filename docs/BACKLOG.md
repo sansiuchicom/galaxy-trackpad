@@ -31,6 +31,8 @@ Real-use priority (signatures first):
 
 While the capture-style overlay is up (dragging a pen region), **Esc should reject/dismiss** the picker. Tip text promises Esc, and `RegionPickerOverlay.keyPressEvent` calls `reject()`, but Esc often does nothing in practice. Likely focus/activation: frameless `Tool` overlay, `parent=None`, main window hidden, no `grabKeyboard()` / forced focus.
 
+**Fix in progress / needs verify:** overlay is now `Window` (not `Tool`), ApplicationModal, `grabKeyboard` + activate/focus on show and mouse press, Esc `QShortcut`. Manual check: Select region → drag → Esc should cancel without committing.
+
 ### bug — Pen region select does not refresh tablet Drawing / region UI
 
 Starting region select forces Drawing on Windows and saves, but the tablet often stays on the old profile / overlay until the user taps **Drawing & Signature** again. Re-picking a region can also feel like it does not take until a manual profile tap. Likely PC→tablet state push gap (RELOAD broadcast is WebSocket-oriented; Bluetooth may not get a fresh `state`), plus possible stale `profilePending` / deferred pen-map apply.
