@@ -25,6 +25,10 @@ def build_client_state() -> dict[str, Any]:
     except Exception:
         pass
 
+    from windows.settings.store import DEFAULTS, SETTINGS
+
+    keypad = SETTINGS.get("keypad") or DEFAULTS["touchpad"]["keypad"]
+
     return {
         "type": "state",
         "protocol": PROTOCOL_VERSION,
@@ -37,6 +41,12 @@ def build_client_state() -> dict[str, Any]:
             "tablet_aspect": float(profile.get("tablet_aspect", 2560 / 1600)),
             "region_active": bool(profile.get("region_active")),
             "region": profile.get("region"),
+        },
+        "keypad": {
+            "pages": [
+                {"symbols": list(page.get("symbols") or [])}
+                for page in (keypad.get("pages") or [])
+            ]
         },
     }
 

@@ -42,6 +42,7 @@ from windows.settings.store import (
     set_drawing_region,
 )
 from windows.ui.advanced_dialog import AdvancedSettingsDialog
+from windows.ui.keypad_dialog import KeypadSymbolsDialog
 from windows.ui.icons import app_icon
 from windows.ui.region_outline import hide_region_outline, show_region_outline
 from windows.ui.region_picker import pick_region_on_monitor, qt_rect_for_region
@@ -231,6 +232,12 @@ class MainWindow(QMainWindow):
         inside.addWidget(self.slider("Cursor sensitivity", "cursor_sensitivity"))
         inside.addWidget(self.slider("Scroll sensitivity", "scroll_sensitivity"))
         inside.addWidget(self.slider("Pinch zoom sensitivity", "pinch_sensitivity"))
+        self.keypad_symbols_button = self.action_button("Edit keypad symbols…")
+        self.keypad_symbols_button.setToolTip(
+            "Customize the left symbol keys on keypad pages 1 and 2"
+        )
+        self.keypad_symbols_button.clicked.connect(self.open_keypad_symbols)
+        inside.addWidget(self.keypad_symbols_button)
         layout.addWidget(frame)
 
         layout.addWidget(self.section("S PEN"))
@@ -490,6 +497,15 @@ class MainWindow(QMainWindow):
         self.sync_pen_controls_from_config()
         self.save_settings()
         self.log("Advanced settings saved")
+
+    def open_keypad_symbols(self):
+        dialog = KeypadSymbolsDialog(self.config, self)
+        if dialog.exec() != dialog.DialogCode.Accepted:
+            return
+        self.config = dialog.result_config()
+        self.save_settings()
+        self.flush_engine_reload()
+        self.log("Keypad symbols saved — tablet updates on next state push")
 
     def apply_style(self):
         self.setStyleSheet("""

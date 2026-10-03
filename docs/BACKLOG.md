@@ -21,16 +21,12 @@ Real-use priority (signatures first):
 | **3c** | ~~Tablet Drawing sync after region pick~~ | **Done** (verified) — USB + BT state push |
 | **3d** | ~~Pinch zoom sensitivity~~ | **Done** (verified) — Cursor / Scroll / Pinch sliders |
 | **4** | ~~Keypad pages (2)~~ | **Done** (verified) — full panel 1/2 flip |
-| **5** | Keypad custom symbols | User-editable special-character slots |
+| **5** | ~~Keypad custom symbols~~ | **Done** (needs verify) — Windows edit UI → state |
 | **6** | Touch feedback | Keypad taps / UI actions feel confirmed |
 
 ---
 
 ## Open
-
-### idea — Keypad custom symbols
-
-Let the user set the left special-character slots (replace the hard-coded 20 glyphs) via a small favorites / edit UI. Persist with settings.
 
 ### idea — Keypad size slider
 
@@ -50,7 +46,13 @@ _(empty)_
 
 ## Done
 
+### done — Keypad custom left symbols
+
+**Fixed:** Windows **Edit keypad symbols…** edits left 20 keys per page; saved in settings; pushed in `state.keypad`. Right numpad fixed. Reset-to-defaults per page.  
+**Needs verify** on device.
+
 ### done — Keypad pages (full panel 1/2)
+
 
 **Fixed:** `1/2` toggle flips left symbols + right pad together. Page 2 = currency/misc + circled digits / math ops. Reopen → page 1.  
 **Doc:** [KEYPAD_PLAN.md](KEYPAD_PLAN.md). **Verified:** 2026-10-03.

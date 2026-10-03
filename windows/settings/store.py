@@ -18,12 +18,39 @@ DEFAULT_PROFILE = {
     "region": None,
 }
 
+KEYPAD_SYMBOL_SLOTS = 20
+# Left-side glyphs only (matches touchpad_v04.html KEYPAD_PAGES defaults).
+DEFAULT_KEYPAD_SYMBOL_PAGES: list[list[str]] = [
+    [
+        ",", "…", "⋮", "·",
+        "✓", "✔", "☐", "☑",
+        "←", "→", "↑", "↓",
+        "⇒", "⇔", "※", "★",
+        "○", "●", "▲", "▼",
+    ],
+    [
+        "₩", "€", "$", "¥",
+        "½", "¼", "¾", "π",
+        "©", "®", "™", "§",
+        "•", "†", "‡", "°",
+        "℃", "µ", "Ω", "∞",
+    ],
+]
+
+
+def _default_keypad_block() -> dict[str, Any]:
+    return {
+        "pages": [{"symbols": list(page)} for page in DEFAULT_KEYPAD_SYMBOL_PAGES]
+    }
+
+
 DEFAULTS: dict[str, Any] = {
     "touchpad": {
         "cursor_sensitivity": 1.0,
         "scroll_sensitivity": 1.0,
         "pinch_sensitivity": 1.0,
         "input_area": "fullscreen",  # Phase 3: fullscreen | show_menu
+        "keypad": _default_keypad_block(),
     },
     "pen": {
         "active_profile": PROFILE_STANDARD,
@@ -55,6 +82,7 @@ SETTINGS: dict[str, Any] = {
     "cursor_sensitivity": 1.0,
     "scroll_sensitivity": 1.0,
     "pinch_sensitivity": 1.0,
+    "keypad": copy.deepcopy(DEFAULTS["touchpad"]["keypad"]),
     "pen": copy.deepcopy(DEFAULTS["pen"]),
 }
 
@@ -96,6 +124,31 @@ def _normalize_region(raw: Any) -> dict[str, float] | None:
     return norm_region_to_dict(region) if region is not None else None
 
 
+def _normalize_symbol_glyph(raw: Any, fallback: str) -> str:
+    if raw is None:
+        return fallback
+    text = str(raw).strip()
+    if not text:
+        return fallback
+    # Keypad inject caps length; keep a single short glyph / short sequence.
+    return text[:8]
+
+
+def _normalize_keypad(touch: dict[str, Any]) -> dict[str, Any]:
+    kp_in = touch.get("keypad") if isinstance(touch.get("keypad"), dict) else {}
+    pages_in = kp_in.get("pages") if isinstance(kp_in.get("pages"), list) else []
+    pages_out: list[dict[str, Any]] = []
+    for i, defaults in enumerate(DEFAULT_KEYPAD_SYMBOL_PAGES):
+        src = pages_in[i] if i < len(pages_in) and isinstance(pages_in[i], dict) else {}
+        syms = src.get("symbols") if isinstance(src.get("symbols"), list) else []
+        out_syms = [
+            _normalize_symbol_glyph(syms[j] if j < len(syms) else defaults[j], defaults[j])
+            for j in range(KEYPAD_SYMBOL_SLOTS)
+        ]
+        pages_out.append({"symbols": out_syms})
+    return {"pages": pages_out}
+
+
 def _profile_dict(raw: Any, fallback: dict, *, allow_region: bool = False) -> dict:
     src = raw if isinstance(raw, dict) else {}
     out = {
@@ -130,6 +183,7 @@ def migrate_config(raw: Any) -> dict[str, Any]:
     out["touchpad"]["input_area"] = (
         "show_menu" if area in ("show_menu", "menu") else "fullscreen"
     )
+    out["touchpad"]["keypad"] = _normalize_keypad(touch)
 
     # Nested pen
     pen_in = data.get("pen") if isinstance(data.get("pen"), dict) else {}
@@ -236,6 +290,7 @@ def apply_runtime_settings(config: dict[str, Any]) -> dict[str, Any]:
     SETTINGS["cursor_sensitivity"] = normalized["touchpad"]["cursor_sensitivity"]
     SETTINGS["scroll_sensitivity"] = normalized["touchpad"]["scroll_sensitivity"]
     SETTINGS["pinch_sensitivity"] = normalized["touchpad"]["pinch_sensitivity"]
+    SETTINGS["keypad"] = copy.deepcopy(normalized["touchpad"]["keypad"])
     SETTINGS["pen"] = copy.deepcopy(normalized["pen"])
     SETTINGS["debug_log"] = bool(normalized["general"].get("debug_log", False))
     # Deprecated key kept True for any leftover checks.

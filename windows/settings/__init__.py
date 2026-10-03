@@ -1,5 +1,7 @@
 from windows.settings.store import (
+    DEFAULT_KEYPAD_SYMBOL_PAGES,
     DEFAULTS,
+    KEYPAD_SYMBOL_SLOTS,
     PROFILE_DRAWING,
     PROFILE_STANDARD,
     SETTINGS,
@@ -16,7 +18,9 @@ from windows.settings.store import (
 )
 
 __all__ = [
+    "DEFAULT_KEYPAD_SYMBOL_PAGES",
     "DEFAULTS",
+    "KEYPAD_SYMBOL_SLOTS",
     "PROFILE_DRAWING",
     "PROFILE_STANDARD",
     "SETTINGS",

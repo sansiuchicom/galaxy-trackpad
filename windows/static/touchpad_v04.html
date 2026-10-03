@@ -698,6 +698,21 @@ function connect() {
     };
 }
 
+function applyKeypadFromState(msg) {
+    const kp = msg.keypad;
+    if (!kp || !Array.isArray(kp.pages)) return;
+    let changed = false;
+    kp.pages.forEach((page, i) => {
+        if (i >= KEYPAD_PAGES.length || !page || !Array.isArray(page.symbols)) return;
+        if (page.symbols.length !== 20) return;
+        KEYPAD_PAGES[i].symbols = page.symbols.map((ch) => String(ch));
+        changed = true;
+    });
+    if (changed && keypadOverlay && keypadOverlay.classList.contains("open")) {
+        renderKeypadPage();
+    }
+}
+
 function applyServerState(msg) {
     const pen = msg.pen || {};
     const name = pen.active_profile === "drawing" ? "drawing" : "standard";
@@ -715,6 +730,7 @@ function applyServerState(msg) {
         };
     }
     updatePenOverlay();
+    applyKeypadFromState(msg);
 }
 
 function paintProfileButtons(name) {

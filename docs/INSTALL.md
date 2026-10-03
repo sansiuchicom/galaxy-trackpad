@@ -107,6 +107,7 @@ More detail: [BLUETOOTH.md](BLUETOOTH.md).
 | Everyday / Drawing | Pen mapping profiles (saved on Windows; switch from either app) |
 | Fullscreen | Hides the side menu on the tablet; **Menu** brings it back |
 | Cursor / scroll / pinch sensitivity | Windows app (TOUCHPAD section) |
+| Keypad left symbols | Windows app → Edit keypad symbols… |
 | Monitor / pen area | Windows app → **Advanced** |
 
 When finished on the PC: **QUIT**. The tablet app can stay installed.

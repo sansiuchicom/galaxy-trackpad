@@ -120,6 +120,14 @@ Manual (after engine start + CONNECTED):
 
 ---
 
+## Custom left symbols
+
+Windows app → **Edit keypad symbols…** (TOUCHPAD section).  
+Persists under `touchpad.keypad.pages[].symbols` (20 glyphs × 2 pages).  
+Engine includes them in `state.keypad`; tablet HTML replaces left grids. Right numpad is not editable.
+
+---
+
 ## Pages (current)
 
 | Page | Left (4×5) | Right |

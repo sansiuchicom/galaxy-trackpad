@@ -123,3 +123,10 @@ Requires **Windows engine restart** (state protocol + last-client-wins WS).
 - [ ] `1/2` flips **both** left and right grids
 - [ ] Close + reopen returns to page 1
 - [ ] Page 2 types `₩` `①` `÷` in Notepad
+
+## Keypad custom symbols
+
+- [ ] Windows **Edit keypad symbols…** opens; change a Page 1 cell; OK
+- [ ] Tablet keypad left key shows the new glyph (USB; BT after APK if needed)
+- [ ] Reset this page restores defaults
+- [ ] Right numpad unchanged

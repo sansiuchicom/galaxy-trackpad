@@ -3,7 +3,29 @@
         "cursor_sensitivity": 1.0,
         "scroll_sensitivity": 1.0,
         "pinch_sensitivity": 1.0,
-        "input_area": "fullscreen"
+        "input_area": "fullscreen",
+        "keypad": {
+            "pages": [
+                {
+                    "symbols": [
+                        ",", "…", "⋮", "·",
+                        "✓", "✔", "☐", "☑",
+                        "←", "→", "↑", "↓",
+                        "⇒", "⇔", "※", "★",
+                        "○", "●", "▲", "▼"
+                    ]
+                },
+                {
+                    "symbols": [
+                        "₩", "€", "$", "¥",
+                        "½", "¼", "¾", "π",
+                        "©", "®", "™", "§",
+                        "•", "†", "‡", "°",
+                        "℃", "µ", "Ω", "∞"
+                    ]
+                }
+            ]
+        }
     },
     "pen": {
         "active_profile": "standard",
