@@ -446,12 +446,15 @@ class MainWindow(QMainWindow):
         if region is None:
             self.log("Pen region selection cancelled")
             self.refresh_region_outline()
+            # Drawing was forced at start — flush so tablet UI catches up (USB + BT).
+            self.flush_engine_reload()
             return
 
         self.config = set_drawing_region(self.config, region)
         self.update_pen_hint()
         self.save_settings()
         self.refresh_region_outline()
+        self.flush_engine_reload()
         self.log(
             "Pen region set "
             f"({region['left']:.0%}–{region['right']:.0%} × "
@@ -592,6 +595,12 @@ class MainWindow(QMainWindow):
         if (self._reload_timer is not None and self.control_ready
                 and self.process.state() != QProcess.ProcessState.NotRunning):
             self._reload_timer.start(250)
+
+    def flush_engine_reload(self) -> None:
+        """Send RELOAD now (skip debounce) so tablet state push is not delayed."""
+        if self._reload_timer is not None:
+            self._reload_timer.stop()
+        self.apply_changes()
 
     def poll_settings_file(self):
         """Sync Windows radios when Android (or another writer) updates the JSON."""

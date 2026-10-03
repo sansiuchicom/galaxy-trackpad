@@ -685,13 +685,11 @@ function connect() {
 function applyServerState(msg) {
     const pen = msg.pen || {};
     const name = pen.active_profile === "drawing" ? "drawing" : "standard";
+    // Windows is source of truth (region pick forces Drawing). Always paint
+    // server profile — stale profilePending must not block PC→tablet sync.
     activeProfile = name;
-    if (profilePending && profilePending !== name) {
-        // Still waiting for our request to land; keep pending highlight lightly.
-    } else {
-        profilePending = null;
-        paintProfileButtons(name);
-    }
+    profilePending = null;
+    paintProfileButtons(name);
     if (pen.active_rect) {
         activeRect = {
             left: Number(pen.active_rect.left) || 0,

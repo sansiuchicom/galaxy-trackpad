@@ -39,3 +39,19 @@ def build_client_state() -> dict[str, Any]:
             "region": profile.get("region"),
         },
     }
+
+
+def request_client_state_broadcast() -> None:
+    """Push latest state to any connected tablet (USB WebSocket and/or Bluetooth)."""
+    try:
+        from windows.transport.websocket import request_state_broadcast
+
+        request_state_broadcast()
+    except Exception:
+        pass
+    try:
+        from windows.transport.bluetooth import request_bluetooth_state_broadcast
+
+        request_bluetooth_state_broadcast()
+    except Exception:
+        pass

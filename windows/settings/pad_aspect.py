@@ -61,9 +61,9 @@ def apply_pad_aspect_from_message(packet: dict[str, Any]) -> bool:
     except Exception:
         pass
     try:
-        from windows.transport.websocket import request_state_broadcast
+        from windows.transport.state_sync import request_client_state_broadcast
 
-        request_state_broadcast()
+        request_client_state_broadcast()
     except Exception:
         pass
     from windows.applog import info

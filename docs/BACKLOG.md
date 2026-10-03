@@ -32,6 +32,8 @@ Real-use priority (signatures first):
 
 Starting region select forces Drawing on Windows and saves, but the tablet often stays on the old profile / overlay until the user taps **Drawing & Signature** again. Re-picking a region can also feel like it does not take until a manual profile tap. Likely PC→tablet state push gap (RELOAD broadcast is WebSocket-oriented; Bluetooth may not get a fresh `state`), plus possible stale `profilePending` / deferred pen-map apply.
 
+**Fix in progress / needs verify:** `request_client_state_broadcast` pushes USB + BT; region pick flushes RELOAD; HTML always paints server profile. Check USB and Bluetooth: Select region → tablet shows Drawing without a second tap; re-pick updates S Pen Area.
+
 ### idea — Keypad page(s)
 
 Extra keypad page(s) beyond v1’s single layer — e.g. page-2 circled digits `⓪①…⑨` on the numpad faces (ops row unchanged).  

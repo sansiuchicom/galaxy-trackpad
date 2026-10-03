@@ -26,6 +26,28 @@ from windows.transport.state_sync import build_client_state
 _HANDSHAKE_TIMEOUT_S = 5.0
 _ADVERTISE_RETRY_S = 15.0
 
+# Active RFCOMM session — GUI/engine RELOAD can push state without a tablet request.
+_bt_write_lock = threading.Lock()
+_bt_active: dict[str, Any] = {"sock": None}
+
+
+def request_bluetooth_state_broadcast() -> None:
+    """Send current state on the live Bluetooth link (safe from other threads)."""
+    sock = _bt_active.get("sock")
+    if sock is None:
+        return
+    try:
+        with _bt_write_lock:
+            if _bt_active.get("sock") is sock:
+                write_frame(sock, build_client_state())
+    except (OSError, ValueError, ConnectionError) as exc:
+        debug(f"Bluetooth state push failed: {exc}")
+
+
+def _bt_write(sock, packet: dict[str, Any]) -> None:
+    with _bt_write_lock:
+        write_frame(sock, packet)
+
 
 class _Lines:
     def __init__(self, sock) -> None:
@@ -73,7 +95,7 @@ def _handle_control(sock, packet: dict[str, Any]) -> bool:
         from windows.settings.pad_aspect import apply_pad_aspect_from_message
 
         apply_pad_aspect_from_message(packet)
-        write_frame(sock, build_client_state())
+        _bt_write(sock, build_client_state())
         return True
     if msg_type == "set_profile":
         try:
@@ -86,10 +108,10 @@ def _handle_control(sock, packet: dict[str, Any]) -> bool:
             config = set_active_profile(load_config(), wanted)
             save_config(config)
             reload_settings()
-            write_frame(sock, {"type": "ack", "action": "set_profile", "profile": wanted, "ok": True})
-            write_frame(sock, build_client_state())
+            _bt_write(sock, {"type": "ack", "action": "set_profile", "profile": wanted, "ok": True})
+            _bt_write(sock, build_client_state())
         except OSError as exc:
-            write_frame(sock, {"type": "ack", "action": "set_profile", "ok": False, "error": str(exc)})
+            _bt_write(sock, {"type": "ack", "action": "set_profile", "ok": False, "error": str(exc)})
         return True
     if msg_type == "key":
         try:
@@ -115,10 +137,11 @@ def _run_session(shared: SharedInput, sock, stop: threading.Event) -> None:
     threading.Thread(target=close_on_stop, name="bt-stop", daemon=True).start()
     pacer = PacedInput(sink=lambda packet: shared.apply(SharedInput.BT, packet))
     shared.claim(SharedInput.BT)
+    _bt_active["sock"] = sock
     info(f"Bluetooth: {name} connected")
     state(tablet="connected", transport="bluetooth", peer=name)
     try:
-        write_frame(sock, build_client_state())
+        _bt_write(sock, build_client_state())
         while not stop.is_set():
             packet = read_frame(sock)
             if isinstance(packet, dict) and not _handle_control(sock, packet):
@@ -127,6 +150,8 @@ def _run_session(shared: SharedInput, sock, stop: threading.Event) -> None:
         if not stop.is_set():
             info(f"Bluetooth: {name} disconnected ({exc})")
     finally:
+        if _bt_active.get("sock") is sock:
+            _bt_active["sock"] = None
         done.set()
         pacer.close()
         shared.release_owner(SharedInput.BT)
