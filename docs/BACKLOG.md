@@ -22,7 +22,7 @@ Real-use priority (signatures first):
 | **3d** | ~~Pinch zoom sensitivity~~ | **Done** (verified) — Cursor / Scroll / Pinch sliders |
 | **4** | ~~Keypad pages (2)~~ | **Done** (verified) — full panel 1/2 flip |
 | **5** | ~~Keypad custom symbols~~ | **Done** (verified) — Windows edit UI → state |
-| **6** | Touch feedback | Keypad taps / UI actions feel confirmed |
+| **6** | ~~Touch feedback~~ | **Done** (needs verify) — GalaxyPad.haptic + Windows toggle |
 
 ---
 
@@ -32,9 +32,6 @@ Real-use priority (signatures first):
 
 User-adjustable keypad scale (persist on Windows). v1 uses a fixed larger size tuned for Tab S7 landscape.
 
-### idea — Touch feedback (keypad / pad actions)
-
-Haptic and/or visual press feedback when tapping keypad keys and other pad UI actions (buttons, toggles), so presses feel confirmed without looking. Prefer short Android vibration / ripple where available; keep optional/quiet.
 
 ---
 
@@ -45,6 +42,10 @@ _(empty)_
 ---
 
 ## Done
+
+### done — Touch feedback (keypad / UI)
+
+**Fixed:** Android `GalaxyPad.haptic()` + HTML ticks on keypad/UI taps (not pad moves); Windows **Touch feedback** checkbox → `state.haptic`. **Needs verify** on device.
 
 ### done — Keypad custom left symbols
 

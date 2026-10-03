@@ -120,6 +120,12 @@ Manual (after engine start + CONNECTED):
 
 ---
 
+## Touch feedback
+
+Discrete taps (keys / chrome) call `GalaxyPad.haptic()` in the Android WebView. Windows **Touch feedback** toggle sets `state.haptic`. Pad moves do not vibrate.
+
+---
+
 ## Custom left symbols
 
 Windows app → **Edit keypad symbols…** (TOUCHPAD section).  

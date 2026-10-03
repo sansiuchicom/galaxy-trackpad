@@ -158,6 +158,7 @@ Prefer **USB** when you care about latency (drawing). Use **Bluetooth** when you
 |------|--------|
 | Cursor / scroll / pinch zoom sensitivity | Windows app |
 | Keypad left symbols (per page) | Windows app → **Edit keypad symbols…** |
+| Touch feedback (tablet haptic) | Windows app checkbox → tablet |
 | Everyday / Drawing pen profile | Windows or Android (saved on Windows) |
 | Monitor / pen area / mapping | Windows **Advanced** |
 | Pop-up keypad (digits + symbols) | Tablet **Keypad** button — [docs/KEYPAD_PLAN.md](docs/KEYPAD_PLAN.md) |

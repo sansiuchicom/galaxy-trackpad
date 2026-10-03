@@ -28,11 +28,13 @@ def build_client_state() -> dict[str, Any]:
     from windows.settings.store import DEFAULTS, SETTINGS
 
     keypad = SETTINGS.get("keypad") or DEFAULTS["touchpad"]["keypad"]
+    haptic = bool(SETTINGS.get("touch_feedback", True))
 
     return {
         "type": "state",
         "protocol": PROTOCOL_VERSION,
         "connection": "ready",
+        "haptic": haptic,
         "pen": {
             "active_profile": profile["name"],
             "mapping": profile["mapping"],

@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
@@ -164,6 +165,9 @@ class MainActivity : AppCompatActivity() {
         webView.isHorizontalScrollBarEnabled = false
         webView.overScrollMode = View.OVER_SCROLL_NEVER
         webView.addJavascriptInterface(PadBridge(), "GalaxyBT")
+        webView.addJavascriptInterface(HapticBridge(), "GalaxyPad")
+        // Allow performHapticFeedback from the WebView host.
+        webView.isHapticFeedbackEnabled = true
 
         webView.settings.apply {
             javaScriptEnabled = true
@@ -226,6 +230,25 @@ class MainActivity : AppCompatActivity() {
         fun sendPacket(json: String) {
             if (mode != MODE_BT) return
             btClient?.sendPacketJson(json)
+        }
+    }
+
+    /** Called from pad HTML on discrete UI taps (keypad / buttons), not finger moves. */
+    inner class HapticBridge {
+        @JavascriptInterface
+        fun haptic() {
+            mainHandler.post {
+                if (destroyed) return@post
+                val view = binding.webView
+                val ok = view.performHapticFeedback(
+                    HapticFeedbackConstants.KEYBOARD_TAP,
+                    HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING,
+                )
+                if (!ok) {
+                    @Suppress("DEPRECATION")
+                    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                }
+            }
         }
     }
 
@@ -341,7 +364,7 @@ class MainActivity : AppCompatActivity() {
         private const val MODE_USB = "usb"
         private const val MODE_BT = "bluetooth"
         private const val TRACKPAD_ORIGIN = "http://127.0.0.1:8765"
-        const val TRACKPAD_URL = "http://127.0.0.1:8765/touchpad_v04.html?v=0113"
+        const val TRACKPAD_URL = "http://127.0.0.1:8765/touchpad_v04.html?v=0114"
         private const val WAITING_URL = "file:///android_asset/waiting.html"
         private const val BT_PAD_URL = "file:///android_asset/touchpad_v04.html"
         private const val RELOAD_DELAY_MS = 2000L
