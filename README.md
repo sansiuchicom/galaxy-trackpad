@@ -66,7 +66,7 @@ On Windows, drag a capture-style region, see the outline while Drawing, and map 
 
 ## Features
 
-- **Native Windows Precision Touchpad** — 1–5 fingers; tap, scroll, pinch; system 3- and 4-finger gestures
+- **Native Windows Precision Touchpad** — 1–5 fingers; tap, scroll, pinch; system 3- and 4-finger gestures; separate **cursor / scroll / pinch zoom** sensitivity in the Windows app
 - **S Pen → Windows pen** — pressure and tilt when the tablet supports it; Everyday / Drawing profiles; optional capture-style region
 - **Pop-up keypad** — translucent symbols + Windows-style numpad on the pad (USB and Bluetooth); see [docs/KEYPAD_PLAN.md](docs/KEYPAD_PLAN.md)
 - **USB or Bluetooth** — choose on the tablet at launch (one transport per session)

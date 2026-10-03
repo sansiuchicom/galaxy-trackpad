@@ -19,19 +19,14 @@ Real-use priority (signatures first):
 | **3** | ~~Pop-up keypad v1~~ | **Done in v0.11.0** — [KEYPAD_PLAN.md](KEYPAD_PLAN.md) |
 | **3b** | ~~Pen region Esc cancel~~ | **Done** (verified) — keyboard grab / Window focus |
 | **3c** | ~~Tablet Drawing sync after region pick~~ | **Done** (verified) — USB + BT state push |
-| **3d** | Pinch zoom sensitivity slider | Amplify 2-finger separation; default 1.0 |
+| **3d** | ~~Pinch zoom sensitivity~~ | **Done** (verified) — Cursor / Scroll / Pinch sliders |
 | **4** | Keypad page(s) | Extra layers (e.g. circled digits) without growing the grid |
 | **5** | Keypad custom symbols | User-editable special-character slots |
-| **6** | Per-gesture sensitivity | Separate 1-finger vs 2+ finger feel |
-| **7** | Touch feedback | Keypad taps / UI actions feel confirmed |
+| **6** | Touch feedback | Keypad taps / UI actions feel confirmed |
 
 ---
 
 ## Open
-
-### idea — Pinch zoom sensitivity (in progress)
-
-Windows slider `pinch_sensitivity` (0.5–2.0x). Scales 2-finger distance from centroid; scroll/cursor unchanged. Default 1.0 = previous behavior. Needs real-use verify on Tab.
 
 ### idea — Keypad page(s)
 
@@ -41,10 +36,6 @@ See [KEYPAD_PLAN.md](KEYPAD_PLAN.md) § Future.
 ### idea — Keypad custom symbols
 
 Let the user set the left special-character slots (replace the hard-coded 20 glyphs) via a small favorites / edit UI. Persist with settings.
-
-### idea — 1-finger vs 2+ finger sensitivity
-
-Mostly covered by separate Cursor / Scroll / **Pinch** sliders. Revisit only if 2-finger pan still needs a feel distinct from pinch after pinch shipping.
 
 ### idea — Keypad size slider
 
@@ -64,7 +55,14 @@ _(empty)_
 
 ## Done
 
+### done — Pinch zoom sensitivity
+
+**Fixed:** `pinch_sensitivity` in settings + Windows **Pinch zoom sensitivity** slider (0.5–2.0x).  
+`GestureScaler` amplifies 2-finger distance from centroid; cursor/scroll gains unchanged; default `1.0` = prior feel.  
+**Verified:** 2026-10-03.
+
 ### done — Tablet Drawing sync after region pick
+
 
 **Fixed:** shared `request_client_state_broadcast` (USB + BT); flush RELOAD after region pick; HTML always paints server profile.
 **Verified:** 2026-10-03.

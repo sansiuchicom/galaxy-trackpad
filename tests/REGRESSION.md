@@ -27,7 +27,9 @@ Tablet: open `http://127.0.0.1:8765/touchpad_v04.html` after USB reverse is read
 ## Sensitivity
 
 - [ ] Cursor slider changes move speed live (no Windows mouse settings change)
-- [ ] Scroll slider changes two-finger scroll live; pinch scale stays normal
+- [ ] Scroll slider changes two-finger pan/scroll live
+- [ ] Pinch zoom slider changes pinch in/out scale; at **1.0x** matches previous (unscaled) pinch
+- [ ] Raising pinch does **not** make one-finger cursor jumpier; raising cursor does **not** change pinch
 - [ ] Values stay within ~0.5x–2.0x
 
 ## S Pen

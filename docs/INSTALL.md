@@ -106,7 +106,8 @@ More detail: [BLUETOOTH.md](BLUETOOTH.md).
 | S Pen tip | Windows pen (pressure / tilt), if your tablet has a supported pen |
 | Everyday / Drawing | Pen mapping profiles (saved on Windows; switch from either app) |
 | Fullscreen | Hides the side menu on the tablet; **Menu** brings it back |
-| Sensitivity / monitor | Windows app → **Advanced** |
+| Cursor / scroll / pinch sensitivity | Windows app (TOUCHPAD section) |
+| Monitor / pen area | Windows app → **Advanced** |
 
 When finished on the PC: **QUIT**. The tablet app can stay installed.
 
