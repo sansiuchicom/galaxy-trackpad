@@ -348,10 +348,10 @@ html, body {
     pointer-events: auto;
 }
 
-#keypadClose {
+#keypadClose,
+#keypadPageBtn {
     position: absolute;
     top: -8px;
-    right: -8px;
     z-index: 2;
     width: 44px;
     height: 44px;
@@ -359,12 +359,15 @@ html, body {
     border-radius: 10px;
     background: rgba(18, 22, 29, 0.55);
     color: #e8edf5;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
     line-height: 1;
     cursor: pointer;
     touch-action: manipulation;
 }
+
+#keypadClose { right: -8px; font-size: 18px; }
+#keypadPageBtn { right: 44px; }
 
 .keypad-grid {
     --key: clamp(56px, 12.5vmin, 92px);
@@ -437,6 +440,7 @@ html, body {
 
         <div id="keypadOverlay" aria-hidden="true">
             <div id="keypadPanel" role="group" aria-label="Keypad">
+                <button type="button" id="keypadPageBtn" aria-label="Keypad page">1/2</button>
                 <button type="button" id="keypadClose" aria-label="Close keypad">✕</button>
                 <div class="keypad-grid" id="symbolGrid" aria-label="Symbols"></div>
                 <div class="keypad-grid" id="numpadGrid" aria-label="Numpad"></div>
@@ -845,47 +849,82 @@ settingsSheet.addEventListener("click", (e) => {
     if (e.target === settingsSheet) settingsSheet.classList.remove("open");
 });
 
-// ----- Keypad (symbols left + Win numpad right) -----
-const SYMBOLS = [
-    ",", "…", "⋮", "·",
-    "✓", "✔", "☐", "☑",
-    "←", "→", "↑", "↓",
-    "⇒", "⇔", "※", "★",
-    "○", "●", "▲", "▼"
-];
-
-const NUMPAD = [
-    { label: "⌫", vk: "backspace" },
-    { label: "/", vk: "divide" },
-    { label: "*", vk: "multiply" },
-    { label: "−", vk: "subtract" },
-    { label: "7", vk: "num7" },
-    { label: "8", vk: "num8" },
-    { label: "9", vk: "num9" },
-    { label: "+", vk: "add", cls: "span-row2" },
-    { label: "4", vk: "num4" },
-    { label: "5", vk: "num5" },
-    { label: "6", vk: "num6" },
-    { label: "1", vk: "num1" },
-    { label: "2", vk: "num2" },
-    { label: "3", vk: "num3" },
-    { label: "↵", vk: "enter", cls: "span-row2" },
-    { label: "0", vk: "num0", cls: "span-col2" },
-    { label: ".", vk: "decimal" }
+// ----- Keypad: 2 pages, left+right flip together -----
+const KEYPAD_PAGES = [
+    {
+        symbols: [
+            ",", "…", "⋮", "·",
+            "✓", "✔", "☐", "☑",
+            "←", "→", "↑", "↓",
+            "⇒", "⇔", "※", "★",
+            "○", "●", "▲", "▼"
+        ],
+        numpad: [
+            { label: "⌫", vk: "backspace" },
+            { label: "/", vk: "divide" },
+            { label: "*", vk: "multiply" },
+            { label: "−", vk: "subtract" },
+            { label: "7", vk: "num7" },
+            { label: "8", vk: "num8" },
+            { label: "9", vk: "num9" },
+            { label: "+", vk: "add", cls: "span-row2" },
+            { label: "4", vk: "num4" },
+            { label: "5", vk: "num5" },
+            { label: "6", vk: "num6" },
+            { label: "1", vk: "num1" },
+            { label: "2", vk: "num2" },
+            { label: "3", vk: "num3" },
+            { label: "↵", vk: "enter", cls: "span-row2" },
+            { label: "0", vk: "num0", cls: "span-col2" },
+            { label: ".", vk: "decimal" }
+        ]
+    },
+    {
+        symbols: [
+            "₩", "€", "$", "¥",
+            "½", "¼", "¾", "π",
+            "©", "®", "™", "§",
+            "•", "†", "‡", "¶",
+            "℃", "µ", "Ω", "∞"
+        ],
+        numpad: [
+            { label: "⌫", vk: "backspace" },
+            { label: "÷", text: "÷" },
+            { label: "×", text: "×" },
+            { label: "±", text: "±" },
+            { label: "⑦", text: "⑦" },
+            { label: "⑧", text: "⑧" },
+            { label: "⑨", text: "⑨" },
+            { label: "≠", text: "≠" },
+            { label: "④", text: "④" },
+            { label: "⑤", text: "⑤" },
+            { label: "⑥", text: "⑥" },
+            { label: "①", text: "①" },
+            { label: "②", text: "②" },
+            { label: "③", text: "③" },
+            { label: "↵", vk: "enter", cls: "span-row2" },
+            { label: "⓪", text: "⓪", cls: "span-col2" },
+            { label: "°", text: "°" }
+        ]
+    }
 ];
 
 const keypadOverlay = document.getElementById("keypadOverlay");
 const symbolGrid = document.getElementById("symbolGrid");
 const numpadGrid = document.getElementById("numpadGrid");
+const keypadPageBtn = document.getElementById("keypadPageBtn");
+let keypadPage = 0;
 
 function sendKey(payload) {
     if (!isOpen()) return;
     sendRaw(Object.assign({ type: "key" }, payload));
 }
 
-function buildKeypad() {
-    if (symbolGrid.childElementCount || numpadGrid.childElementCount) return;
-    SYMBOLS.forEach((ch) => {
+function renderKeypadPage() {
+    const page = KEYPAD_PAGES[keypadPage] || KEYPAD_PAGES[0];
+    symbolGrid.innerHTML = "";
+    numpadGrid.innerHTML = "";
+    page.symbols.forEach((ch) => {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.textContent = ch;
@@ -896,7 +935,7 @@ function buildKeypad() {
         });
         symbolGrid.appendChild(btn);
     });
-    NUMPAD.forEach((item) => {
+    page.numpad.forEach((item) => {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.textContent = item.label;
@@ -904,14 +943,30 @@ function buildKeypad() {
         btn.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
-            sendKey({ vk: item.vk });
+            if (item.vk) sendKey({ vk: item.vk });
+            else if (item.text) sendKey({ text: item.text });
         });
         numpadGrid.appendChild(btn);
     });
+    const n = KEYPAD_PAGES.length;
+    keypadPageBtn.textContent = (keypadPage + 1) + "/" + n;
+    keypadPageBtn.setAttribute(
+        "aria-label",
+        "Keypad page " + (keypadPage + 1) + " of " + n
+    );
+}
+
+function setKeypadPage(index) {
+    const n = KEYPAD_PAGES.length;
+    keypadPage = ((index % n) + n) % n;
+    renderKeypadPage();
 }
 
 function setKeypadOpen(on) {
-    if (on) releaseAllContacts();
+    if (on) {
+        releaseAllContacts();
+        setKeypadPage(0);
+    }
     keypadOverlay.classList.toggle("open", on);
     keypadOverlay.setAttribute("aria-hidden", on ? "false" : "true");
 }
@@ -924,7 +979,7 @@ function closeKeypad() {
     setKeypadOpen(false);
 }
 
-buildKeypad();
+renderKeypadPage();
 
 document.getElementById("btnKeypad").addEventListener("click", (e) => {
     e.preventDefault();
@@ -937,6 +992,11 @@ document.getElementById("fsKeypad").addEventListener("click", (e) => {
 document.getElementById("keypadClose").addEventListener("click", (e) => {
     e.preventDefault();
     closeKeypad();
+});
+keypadPageBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setKeypadPage(keypadPage + 1);
 });
 keypadOverlay.addEventListener("click", (e) => {
     if (e.target === keypadOverlay) closeKeypad();

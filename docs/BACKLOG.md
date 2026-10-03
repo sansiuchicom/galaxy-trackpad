@@ -20,18 +20,13 @@ Real-use priority (signatures first):
 | **3b** | ~~Pen region Esc cancel~~ | **Done** (verified) — keyboard grab / Window focus |
 | **3c** | ~~Tablet Drawing sync after region pick~~ | **Done** (verified) — USB + BT state push |
 | **3d** | ~~Pinch zoom sensitivity~~ | **Done** (verified) — Cursor / Scroll / Pinch sliders |
-| **4** | Keypad page(s) | Extra layers (e.g. circled digits) without growing the grid |
+| **4** | ~~Keypad pages (2)~~ | **Done** (needs verify) — full panel 1/2 flip |
 | **5** | Keypad custom symbols | User-editable special-character slots |
 | **6** | Touch feedback | Keypad taps / UI actions feel confirmed |
 
 ---
 
 ## Open
-
-### idea — Keypad page(s)
-
-Extra keypad page(s) beyond v1’s single layer — e.g. page-2 circled digits `⓪①…⑨` on the numpad faces (ops row unchanged).  
-See [KEYPAD_PLAN.md](KEYPAD_PLAN.md) § Future.
 
 ### idea — Keypad custom symbols
 
@@ -55,7 +50,13 @@ _(empty)_
 
 ## Done
 
+### done — Keypad pages (full panel 1/2)
+
+**Fixed:** `1/2` toggle flips left symbols + right pad together. Page 2 = currency/misc + circled digits / math ops. Reopen → page 1.  
+**Doc:** [KEYPAD_PLAN.md](KEYPAD_PLAN.md). **Needs verify** on device.
+
 ### done — Pinch zoom sensitivity
+
 
 **Fixed:** `pinch_sensitivity` in settings + Windows **Pinch zoom sensitivity** slider (0.5–2.0x).  
 `GestureScaler` amplifies 2-finger distance from centroid; cursor/scroll gains unchanged; default `1.0` = prior feel.  

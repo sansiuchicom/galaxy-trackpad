@@ -117,3 +117,9 @@ Requires **Windows engine restart** (state protocol + last-client-wins WS).
 - [ ] Pause/resume clears contacts; no stuck inputs
 - [ ] Screen stays on in foreground
 - [ ] Debug APK builds from Android Studio (`app/build/outputs/apk/debug/`)
+
+## Keypad pages
+
+- [ ] `1/2` flips **both** left and right grids
+- [ ] Close + reopen returns to page 1
+- [ ] Page 2 types `₩` `①` `÷` in Notepad

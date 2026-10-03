@@ -1,6 +1,6 @@
 # Keypad / symbols panel
 
-**Status:** shipped in **v0.11.0**  
+**Status:** shipped in **v0.11.0**; **2-page flip** on tablet (HTML)  
 **Page:** `windows/static/touchpad_v04.html` (USB live-serve + Android `assets` via `sourceSets`)  
 **PC inject:** `windows/core/keyboard.py`  
 **Transport:** USB WebSocket + Bluetooth both accept `type: "key"`
@@ -39,7 +39,7 @@ Panel centered in the **pad/content column** (`position: fixed; left: var(--menu
 | **Right** | Windows numpad geometry: wide `0`, tall `+` / `Enter`; `⌫` instead of NumLock |
 
 **Not on left:** `@ # $ %` and other Shift-easy ASCII — use a real keyboard.  
-**Not in v1:** circled digits / page-2 layer — see § Future.
+**Pages:** two full-panel pages (left + right flip together). Toggle `1/2` next to ✕; reopen resets to page 1.
 
 ---
 
@@ -115,6 +115,19 @@ Manual (after engine start + CONNECTED):
 - [ ] NumLock **off** on PC — digits still type digits
 - [ ] ✕ / backdrop / Settings / disconnect close overlay
 - [ ] USB path; rebuild APK and spot-check Bluetooth if needed
+- [ ] `1/2` toggles **both** sides; reopen starts on page 1
+- [ ] Page 2: `₩` `①` `÷` `≠` type in Notepad
+
+---
+
+## Pages (current)
+
+| Page | Left (4×5) | Right |
+|------|------------|--------|
+| **1** | `, … ⋮ ·` / checks / arrows / marks / shapes | Win numpad (`/` `*` `−` `+` `.` digits) |
+| **2** | `₩€$¥` / fractions·π / `©®™§` / `•†‡¶` / `℃µΩ∞` | Circled digits + `÷×±` / `≠≈` / `°` (⌫ ↵ kept) |
+
+Toggle control: `#keypadPageBtn` on the panel. Both grids rebuild via `renderKeypadPage()`.
 
 ---
 
@@ -122,8 +135,7 @@ Manual (after engine start + CONNECTED):
 
 | Item | Intent |
 |------|--------|
-| **Page 2 — circled digits** | Layer button flips right `0–9` faces to `⓪①…⑨` (ops row unchanged) |
-| Symbol edit UI | Replace hard-coded left 20 |
+| Symbol edit UI | Replace hard-coded left (and maybe page-2) glyphs |
 | **Keypad size slider** | Persist scale; v1 is fixed larger for Tab S7 |
 | Optional real-numpad mode | Only if an app truly needs `VK_NUMPAD*` |
 
@@ -138,3 +150,4 @@ Manual (after engine start + CONNECTED):
 5. Left: non-Shift marks only (+ `,`)  
 6. Circled digits deferred to page 2  
 7. Key size: fixed large for Tab S7; user scale control later (BACKLOG)
+8. Two pages; left+right flip together; page 2 = misc + circled/math ops
